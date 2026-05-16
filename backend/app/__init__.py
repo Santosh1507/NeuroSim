@@ -40,8 +40,12 @@ def create_app(config_class=Config):
         logger.info("=" * 50)
 
     # Enable CORS — restrict to frontend origin if configured
-    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-    CORS(app, resources={r"/api/*": {"origins": frontend_url}})
+    frontend_origins = [
+        origin.strip()
+        for origin in Config.FRONTEND_URL.split(',')
+        if origin.strip()
+    ]
+    CORS(app, resources={r"/api/*": {"origins": frontend_origins}})
 
     # --- Initialize Neo4jStorage singleton (DI via app.extensions) ---
     from .storage import Neo4jStorage
@@ -76,11 +80,14 @@ def create_app(config_class=Config):
         return response
 
     # Register blueprints
-    from .api import graph_bp, simulation_bp, report_bp, tribev2_bp
+    from .api import graph_bp, simulation_bp, report_bp, tribev2_bp, neurosim_bp
+    from .api.pr_crisis import pr_crisis_bp
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
     app.register_blueprint(report_bp, url_prefix='/api/report')
     app.register_blueprint(tribev2_bp, url_prefix='/api/tribev2')
+    app.register_blueprint(neurosim_bp, url_prefix='/api/neurosim')
+    app.register_blueprint(pr_crisis_bp, url_prefix='/api/simulations')
 
     # Preload TribeV2 model in background if configured
     if os.environ.get('TRIBE_PRELOAD', '').lower() in ('true', '1', 'yes'):
@@ -96,8 +103,8 @@ def create_app(config_class=Config):
         return {'status': 'ok', 'service': 'MiroFish-Offline Backend'}
 
     # Initialize Supabase (lazy — only configured if env vars are set)
-    supabase_url = os.environ.get('SUPABASE_URL')
-    supabase_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+    supabase_url = Config.SUPABASE_URL
+    supabase_key = Config.SUPABASE_SERVICE_ROLE_KEY
     if supabase_url and supabase_key:
         if should_log_startup:
             logger.info("Supabase auth: configured")

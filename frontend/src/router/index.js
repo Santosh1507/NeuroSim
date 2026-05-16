@@ -6,6 +6,11 @@ import SimulationView from '../views/SimulationView.vue'
 import SimulationRunView from '../views/SimulationRunView.vue'
 import ReportView from '../views/ReportView.vue'
 import InteractionView from '../views/InteractionView.vue'
+import NeuroSimUpload from '../views/NeuroSimUpload.vue'
+import NeuroSimDashboard from '../views/NeuroSimDashboard.vue'
+import CrisisUpload from '../views/CrisisUpload.vue'
+import CrisisProgress from '../views/CrisisProgress.vue'
+import CrisisReport from '../views/CrisisReport.vue'
 
 const routes = [
   {
@@ -53,6 +58,39 @@ const routes = [
     component: InteractionView,
     props: true,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/neurosim',
+    name: 'NeuroSimUpload',
+    component: NeuroSimUpload,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/neurosim/results/:experimentId',
+    name: 'NeuroSimDashboard',
+    component: NeuroSimDashboard,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/crisis/upload',
+    name: 'CrisisUpload',
+    component: CrisisUpload,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/crisis/progress/:simulationId',
+    name: 'CrisisProgress',
+    component: CrisisProgress,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/crisis/report/:simulationId',
+    name: 'CrisisReport',
+    component: CrisisReport,
+    props: true,
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -64,7 +102,6 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const auth = window.__AUTH__
   if (!auth || auth.loading) {
-    // auth not initialized yet — App.vue handles this after init
     next()
     return
   }
