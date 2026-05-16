@@ -1,10 +1,44 @@
 <template>
-  <router-view />
+  <div v-if="initDone">
+    <router-view />
+  </div>
+  <div v-else class="loading-screen">
+    <span>Loading...</span>
+  </div>
 </template>
 
 <script setup>
-// Use Vue Router to manage pages
+import { ref, onMounted, watch } from 'vue'
+import { provideAuth } from './lib/auth'
+import router from './router'
+
+const { init, isSignedIn, loading } = provideAuth()
+const initDone = ref(false)
+
+onMounted(async () => {
+  await init()
+  window.__AUTH__ = {
+    get isSignedIn() { return isSignedIn.value },
+    get loading() { return loading.value }
+  }
+  initDone.value = true
+  if (!isSignedIn.value && router.currentRoute.value.meta?.requiresAuth) {
+    router.replace({ name: 'Login' })
+  }
+})
 </script>
+
+<style>
+.loading-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+}
+</style>
 
 <style>
 /* Global style reset */

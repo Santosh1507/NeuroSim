@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { getAccessToken } from '../lib/auth'
+import { supabase } from '../lib/supabase'
 
 // Create axios instance
 const service = axios.create({
@@ -9,9 +11,27 @@ const service = axios.create({
   }
 })
 
-// Request interceptor
+let isRefreshing = false
+let failedQueue = []
+
+const processQueue = (error, token = null) => {
+  for (const promise of failedQueue) {
+    if (error) {
+      promise.reject(error)
+    } else {
+      promise.resolve(token)
+    }
+  }
+  failedQueue = []
+}
+
+// Request interceptor - attach JWT token
 service.interceptors.request.use(
   config => {
+    const token = getAccessToken()
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
     return config
   },
   error => {
@@ -20,12 +40,11 @@ service.interceptors.request.use(
   }
 )
 
-// Response interceptor (fault-tolerant retry mechanism)
+// Response interceptor - handle 401 with token refresh
 service.interceptors.response.use(
   response => {
     const res = response.data
 
-    // If the returned status code is not success, throw error
     if (!res.success && res.success !== undefined) {
       console.error('API Error:', res.error || res.message || 'Unknown error')
       return Promise.reject(new Error(res.error || res.message || 'Error'))
@@ -33,15 +52,48 @@ service.interceptors.response.use(
 
     return res
   },
-  error => {
+  async error => {
     console.error('Response error:', error)
 
-    // Handle timeout
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        }).then(token => {
+          originalRequest.headers['Authorization'] = `Bearer ${token}`
+          return service(originalRequest)
+        }).catch(err => Promise.reject(err))
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        const { data, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError) throw refreshError
+
+        const newToken = data.session?.access_token
+        if (!newToken) throw new Error('No access token after refresh')
+
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`
+        processQueue(null, newToken)
+        return service(originalRequest)
+      } catch (refreshErr) {
+        processQueue(refreshErr, null)
+        // Redirect to login if refresh fails
+        window.location.href = '/login'
+        return Promise.reject(refreshErr)
+      } finally {
+        isRefreshing = false
+      }
+    }
+
     if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
       console.error('Request timeout')
     }
 
-    // Handle network error
     if (error.message === 'Network Error') {
       console.error('Network error - please check your connection')
     }

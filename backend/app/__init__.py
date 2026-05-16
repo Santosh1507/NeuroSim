@@ -39,8 +39,9 @@ def create_app(config_class=Config):
         logger.info("MiroFish-Offline Backend starting...")
         logger.info("=" * 50)
 
-    # Enable CORS
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # Enable CORS — restrict to frontend origin if configured
+    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+    CORS(app, resources={r"/api/*": {"origins": frontend_url}})
 
     # --- Initialize Neo4jStorage singleton (DI via app.extensions) ---
     from .storage import Neo4jStorage
@@ -75,15 +76,34 @@ def create_app(config_class=Config):
         return response
 
     # Register blueprints
-    from .api import graph_bp, simulation_bp, report_bp
+    from .api import graph_bp, simulation_bp, report_bp, tribev2_bp
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
     app.register_blueprint(report_bp, url_prefix='/api/report')
+    app.register_blueprint(tribev2_bp, url_prefix='/api/tribev2')
+
+    # Preload TribeV2 model in background if configured
+    if os.environ.get('TRIBE_PRELOAD', '').lower() in ('true', '1', 'yes'):
+        from .api.tribev2 import load_tribe_model_async
+        import threading
+        threading.Thread(target=load_tribe_model_async, daemon=True).start()
+        if should_log_startup:
+            logger.info("TribeV2 model preload started (background)")
 
     # Health check
     @app.route('/health')
     def health():
         return {'status': 'ok', 'service': 'MiroFish-Offline Backend'}
+
+    # Initialize Supabase (lazy — only configured if env vars are set)
+    supabase_url = os.environ.get('SUPABASE_URL')
+    supabase_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+    if supabase_url and supabase_key:
+        if should_log_startup:
+            logger.info("Supabase auth: configured")
+    else:
+        if should_log_startup:
+            logger.warning("Supabase auth: not configured (set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)")
 
     if should_log_startup:
         logger.info("MiroFish-Offline Backend startup complete")
