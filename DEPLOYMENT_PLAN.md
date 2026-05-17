@@ -6,7 +6,19 @@ Deploy MiroFish-Offline (local-first fork) to cloud infrastructure: Vercel (fron
 ## Current State
 - Frontend Vercel config: `frontend/vercel.json` ✓
 - Backend Render config: `backend/render.yaml` ✓
-- Deployment guide: `CLAUDE.md` ✓
+- Deployment guide: `CLAUDE.md` ✓ (updated: uvicorn start command)
+- Environment templates: `backend/.env.example`, `frontend/.env.example` ✓
+
+## Pre-Deployment Blocker (CRITICAL)
+The existing Render service (`mirofish-backend.onrender.com`) is still connected to the OLD repo and serving Flask code. Before deploying:
+1. Go to https://dashboard.render.com
+2. Find the MiroFish backend service
+3. Settings → "Connect new repository" → select `Santosh1507/MiroFish-Offline`
+4. Root Directory: `backend`
+5. Build command: `pip install -r requirements.txt`
+6. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+7. Re-add all environment variables (see Phase 1)
+8. Trigger manual deploy
 
 ## Problem Statement
 The offline version runs locally with Neo4j + Ollama. The deployment requires cloud alternatives:
@@ -18,24 +30,54 @@ The offline version runs locally with Neo4j + Ollama. The deployment requires cl
 ### Phase 1: Cloud Credentials Setup
 - [ ] Create Neo4j Aura free tier instance
 - [ ] Get OpenAI API key (or Anthropic)
-- [ ] Update CLAUDE.md with real credentials
+- [ ] Copy `backend/.env.example` → `backend/.env` and fill in real values
+- [ ] Copy `frontend/.env.example` → `frontend/.env` and fill in real values
+- [ ] Add env vars to Render dashboard (all from `backend/.env.example`)
+- [ ] Add env vars to Vercel dashboard (all from `frontend/.env.example`)
 
 ### Phase 2: Backend Deployment (Render)
-- [ ] Connect GitHub repo to Render
+- [ ] **Switch Render repo** (see Pre-Deployment Blocker above)
 - [ ] Configure environment variables
 - [ ] Deploy backend service
-- [ ] Verify health endpoint
+- [ ] Verify health endpoint: `curl https://mirofish-backend.onrender.com/health`
+- [ ] Verify protected endpoint returns 401 without token
 
 ### Phase 3: Frontend Deployment (Vercel)
 - [ ] Connect GitHub repo to Vercel
 - [ ] Configure frontend env vars
 - [ ] Deploy frontend
-- [ ] Update VITE_API_BASE_URL
+- [ ] Update `VITE_API_BASE_URL` to actual Render backend URL
 
-### Phase 4: Post-Deploy
-- [ ] Test health endpoint
-- [ ] Verify database connectivity
-- [ ] Run a small simulation test
+### Phase 4: Post-Deploy Verification
+- [ ] Test health endpoint returns `{"status":"ok"}`
+- [ ] Verify database connectivity (run a small simulation)
+- [ ] Test end-to-end flow from Vercel frontend → Render backend
+- [ ] Verify Supabase auth flow (login/signup)
+- [ ] Test CORS: frontend can reach backend without console errors
+
+## Deploy Verification Checklist
+
+Run these commands after both services are deployed:
+
+```bash
+# 1. Health check (should return 200 with {"status":"ok"})
+curl -s -o /dev/null -w "%{http_code}" https://mirofish-backend.onrender.com/health
+
+# 2. Auth check (should return 401 without token)
+curl -s -o /dev/null -w "%{http_code}" https://mirofish-backend.onrender.com/api/protected
+
+# 3. CORS check (open browser console on Vercel URL, no CORS errors)
+#    Navigate to https://your-app.vercel.app and check DevTools Console
+
+# 4. End-to-end test (run a simulation from the frontend)
+#    Open https://your-app.vercel.app → start a simulation → verify results
+
+# 5. Cold start test (first request after inactivity should complete within 60s)
+time curl -s https://mirofish-backend.onrender.com/health
+```
+
+## Cold Start Warning
+Render's free tier spins down after 15 minutes of inactivity. The first request after spin-down takes 30-50 seconds to complete. This is normal behavior, not a bug. Document this for users or consider a keep-alive ping service.
 
 ## Constraints
 - Must use free tier where possible (Neo4j Aura free, Vercel hobby, Render free)
@@ -46,8 +88,8 @@ The offline version runs locally with Neo4j + Ollama. The deployment requires cl
 
 ### Backend (Render)
 - Runtime: Python 3.11
-- Server: gunicorn (not Flask dev server)
-- Start command: `uv run gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT "app:create_app()"`
+- Server: uvicorn (FastAPI)
+- Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 - Environment: Production (not debug)
 
 ### Frontend (Vercel)
@@ -72,51 +114,34 @@ The offline version runs locally with Neo4j + Ollama. The deployment requires cl
 **Frontend:**
 - VITE_SUPABASE_URL
 - VITE_SUPABASE_ANON_KEY
-- VITE_API_BASE_URL
+- VITE_API_BASE_URL (point to Render backend URL)
+
+## Error & Rescue Paths
+
+| Error | Detection | Rescue |
+|---|---|---|
+| Wrong Supabase creds | `/health` returns 500 | Check env vars, redeploy |
+| Neo4j Aura unreachable | DB query timeout | Check network, verify URI format |
+| LLM endpoint down | Simulation returns error | Fallback message, retry logic |
+| Render build fails | Deploy log shows error | Check `requirements.txt`, Python version |
+| Vercel build fails | Build log shows error | Check Node version, Vite config |
+| CORS mismatch | Browser console errors | Update `FRONTEND_URL` in backend |
+| Free tier cold start | First request takes 50s | Normal behavior, document it |
+| Service role key leaked | Security scan | Rotate key immediately in Supabase dashboard |
 
 ## Alternatives Considered
 1. **Keep local only** - Won't work, user wants cloud deployment
 2. **Different cloud providers** - Render/Vercel are the standard for this stack
 3. **Self-hosted alternative** - Fly.io, Railway considered but Render is simpler
 
-## Issues Identified (Auto-Resolved)
-
-### Critical: render.yaml Missing Environment Variables
-The backend requires these env vars for production deployment. Add to render.yaml:
-
-```yaml
-envVars:
-  - key: FLASK_ENV
-    value: production
-  - key: SUPABASE_URL
-    value: https://[project].supabase.co
-  - key: SUPABASE_SERVICE_ROLE_KEY
-    value: [your-key]
-  - key: NEO4J_URI
-    value: neo4j+s://[instance].neo4j.io
-  - key: NEO4J_USER
-    value: neo4j
-  - key: NEO4J_PASSWORD
-    value: [your-password]
-  - key: LLM_API_KEY
-    value: [your-api-key]
-  - key: LLM_BASE_URL
-    value: https://api.openai.com/v1
-  - key: LLM_MODEL_NAME
-    value: gpt-4o-mini
-  - key: FRONTEND_URL
-    value: https://[your-vercel-app].vercel.app
-  - key: GROQ_API_KEY
-    value: [optional-groq-api-key]
-```
-
-### Frontend: vercel.json needs env vars
-Configure these in Vercel dashboard:
-- VITE_SUPABASE_URL
-- VITE_SUPABASE_ANON_KEY
-- VITE_API_BASE_URL (point to Render backend URL)
-
 ## Open Questions
 - Which LLM provider to use? (OpenAI vs Anthropic)
 - What model size? (gpt-4o-mini for cost, or larger for quality)
 - How to handle rate limits during simulation?
+
+## Deferred (TODOS.md candidates)
+- Staging environment setup
+- Load testing before launch
+- Error alerting (Sentry, Discord webhook)
+- Auto-scaling config for Render
+- Rate limiting for backend

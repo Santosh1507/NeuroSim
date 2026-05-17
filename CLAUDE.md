@@ -15,9 +15,9 @@ MiroFish deploys to Vercel for the Vue/Vite frontend and Render for the Flask ba
 ### Backend (Render)
 - Auto-deploys on push to main.
 - Runtime: Python 3.11.
-- Service type: Python, Gunicorn.
-- Build command: `uv sync --frozen`.
-- Start command: `uv run gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT "app:create_app()"`.
+- Service type: Python, Uvicorn.
+- Build command: `pip install -r requirements.txt`.
+- Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`.
 - FFmpeg is required for NeuroSim video processing.
 
 ## Environment Variables
