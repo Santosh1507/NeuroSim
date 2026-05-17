@@ -11,35 +11,56 @@ from dotenv import load_dotenv
 project_root_env = os.path.join(os.path.dirname(__file__), '../../.env')
 
 if os.path.exists(project_root_env):
-    load_dotenv(project_root_env, override=True)
+    load_dotenv(project_root_env, override=False)
 else:
     # If no .env in root, try to load environment variables (for production)
-    load_dotenv(override=True)
+    load_dotenv(override=False)
+
+
+def _env(name: str, default=None, aliases=()):
+    """Read an environment variable with optional backwards-compatible aliases."""
+    for key in (name, *aliases):
+        value = os.environ.get(key)
+        if value not in (None, ''):
+            return value
+    return default
+
+
+def _is_true(value: str) -> bool:
+    return str(value).lower() in ('1', 'true', 'yes', 'on')
 
 
 class Config:
     """Flask configuration class"""
 
     # Flask configuration
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'mirofish-secret-key')
-    DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    SECRET_KEY = _env('SECRET_KEY', 'mirofish-secret-key')
+    FLASK_ENV = _env('FLASK_ENV', _env('APP_ENV', 'development'))
+    IS_PRODUCTION = FLASK_ENV.lower() == 'production' or _is_true(os.environ.get('RENDER', 'false'))
+    DEBUG = _env('FLASK_DEBUG', 'False' if IS_PRODUCTION else 'True').lower() == 'true'
 
     # JSON configuration - disable ASCII escaping to display Chinese directly (not as \uXXXX)
     JSON_AS_ASCII = False
 
     # LLM configuration (unified OpenAI format)
-    LLM_API_KEY = os.environ.get('LLM_API_KEY')
-    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'http://localhost:11434/v1')
-    LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'qwen2.5:32b')
+    LLM_API_KEY = _env('LLM_API_KEY')
+    LLM_BASE_URL = _env('LLM_BASE_URL', 'http://localhost:11434/v1')
+    LLM_MODEL_NAME = _env('LLM_MODEL_NAME', 'qwen2.5:32b', aliases=('LLM_MODEL',))
 
     # Neo4j configuration
-    NEO4J_URI = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
-    NEO4J_USER = os.environ.get('NEO4J_USER', 'neo4j')
-    NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD', 'mirofish')
+    NEO4J_URI = _env('NEO4J_URI', 'bolt://localhost:7687')
+    NEO4J_USER = _env('NEO4J_USER', 'neo4j', aliases=('NEO4J_USERNAME',))
+    NEO4J_PASSWORD = _env('NEO4J_PASSWORD', 'mirofish')
 
     # Embedding configuration
-    EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'nomic-embed-text')
-    EMBEDDING_BASE_URL = os.environ.get('EMBEDDING_BASE_URL', 'http://localhost:11434')
+    EMBEDDING_MODEL = _env('EMBEDDING_MODEL', 'nomic-embed-text')
+    EMBEDDING_BASE_URL = _env('EMBEDDING_BASE_URL', 'http://localhost:11434')
+
+    # Cloud integrations
+    SUPABASE_URL = _env('SUPABASE_URL')
+    SUPABASE_SERVICE_ROLE_KEY = _env('SUPABASE_SERVICE_ROLE_KEY')
+    FRONTEND_URL = _env('FRONTEND_URL', 'http://localhost:5173')
+    GROQ_API_KEY = _env('GROQ_API_KEY')
 
     # File upload configuration
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
@@ -79,4 +100,16 @@ class Config:
             errors.append("NEO4J_URI not configured")
         if not cls.NEO4J_PASSWORD:
             errors.append("NEO4J_PASSWORD not configured")
+        if cls.IS_PRODUCTION:
+            local_markers = ('localhost', '127.0.0.1', '0.0.0.0')
+            if any(marker in (cls.LLM_BASE_URL or '') for marker in local_markers):
+                errors.append("LLM_BASE_URL points to localhost in production; configure a cloud OpenAI-compatible endpoint")
+            if any(marker in (cls.NEO4J_URI or '') for marker in local_markers):
+                errors.append("NEO4J_URI points to localhost in production; configure Neo4j Aura with neo4j+s://...")
+            if any(marker in (cls.FRONTEND_URL or '') for marker in local_markers):
+                errors.append("FRONTEND_URL points to localhost in production; configure the Vercel app origin")
+            if not cls.SUPABASE_URL:
+                errors.append("SUPABASE_URL not configured")
+            if not cls.SUPABASE_SERVICE_ROLE_KEY:
+                errors.append("SUPABASE_SERVICE_ROLE_KEY not configured")
         return errors

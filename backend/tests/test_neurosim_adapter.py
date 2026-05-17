@@ -126,3 +126,42 @@ class TestNeuroSimErrorHandling:
             })
             data = resp.get_json()
             assert data['simulation_rounds'] == 10
+
+
+class TestGeneratePersonas:
+    """Tests for persona generation and seed reproducibility."""
+
+    def test_personas_have_correct_structure(self, app):
+        """Generated personas produce non-empty distribution."""
+        with app.test_client() as client:
+            resp = client.post('/api/simulation', json={
+                'seed_material': 'test', 'num_agents': 10
+            })
+            data = resp.get_json()
+            assert len(data['persona_distribution']) > 0
+
+    def test_seed_produces_reproducible_results(self, app):
+        """Same seed produces identical final_sentiment."""
+        with app.test_client() as client:
+            resp1 = client.post('/api/simulation', json={
+                'seed_material': 'test', 'num_agents': 50,
+                'simulation_rounds': 5, 'seed': 42
+            })
+            resp2 = client.post('/api/simulation', json={
+                'seed_material': 'test', 'num_agents': 50,
+                'simulation_rounds': 5, 'seed': 42
+            })
+            data1 = resp1.get_json()
+            data2 = resp2.get_json()
+            assert data1['final_sentiment'] == data2['final_sentiment']
+            assert data1['seed_used'] == 42
+
+    def test_seed_used_field_present(self, app):
+        """Response includes seed_used field."""
+        with app.test_client() as client:
+            resp = client.post('/api/simulation', json={
+                'seed_material': 'test', 'num_agents': 10
+            })
+            data = resp.get_json()
+            assert 'seed_used' in data
+            assert data['seed_used'] is None

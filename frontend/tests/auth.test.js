@@ -112,4 +112,11 @@ describe('Auth library', () => {
       expect(mockSupabase.auth.signOut).toHaveBeenCalled()
     })
   })
+
+  describe('injectAuth', () => {
+    it('throws when auth not provided', async () => {
+      const { injectAuth } = await import('../src/lib/auth')
+      expect(() => injectAuth()).toThrow('Auth not provided')
+    })
+  })
 })

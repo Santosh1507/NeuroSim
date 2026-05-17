@@ -1,6 +1,7 @@
 """
 Supabase JWT Authentication Decorator
 Verifies Bearer tokens from Supabase Auth on every protected route.
+Dev mode: accepts 'dev-token' for local testing without Supabase.
 """
 
 import os
@@ -13,6 +14,7 @@ _supabase = None
 _supabase_error = None
 _supabase_error_time = 0
 _RETRY_COOLDOWN = 30  # seconds before retrying a failed connection
+DEV_MODE = os.environ.get('FLASK_DEV_AUTH', '').lower() in ('true', '1', 'yes')
 
 
 def _get_supabase_admin():
@@ -44,8 +46,6 @@ def _get_supabase_admin():
 
     try:
         _supabase = create_client(url, key)
-        # Verify the connection works by calling a lightweight method
-        _supabase.auth.get_user(_supabase.auth.session.access_token if hasattr(_supabase.auth, 'session') else 'ping')
         _supabase_error = None
         return _supabase, None
     except Exception as e:
@@ -67,6 +67,12 @@ def require_auth(f):
             return jsonify({'success': False, 'error': 'Missing or invalid Authorization header'}), 401
 
         token = auth_header[7:]
+
+        # Dev mode: accept dev-token without Supabase verification
+        if DEV_MODE and token == 'dev-token':
+            request.user_id = 'dev-user-123'
+            return f(*args, **kwargs)
+
         sb, err = _get_supabase_admin()
         if err is not None:
             return _auth_error_response(*err)
@@ -91,6 +97,12 @@ def verify_auth():
         return jsonify({'success': False, 'error': 'Missing or invalid Authorization header'}), 401
 
     token = auth_header[7:]
+
+    # Dev mode: accept dev-token without Supabase verification
+    if DEV_MODE and token == 'dev-token':
+        request.user_id = 'dev-user-123'
+        return None
+
     sb, err = _get_supabase_admin()
     if err is not None:
         return _auth_error_response(*err)

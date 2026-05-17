@@ -2,6 +2,7 @@ import { ref, computed, provide, inject } from 'vue'
 import { supabase } from './supabase'
 
 const AUTH_KEY = 'auth'
+const DEV_MODE = import.meta.env.VITE_DEV_AUTH === 'true'
 
 const user = ref(null)
 const session = ref(null)
@@ -12,6 +13,15 @@ export function useAuth() {
   const currentUser = computed(() => user.value)
 
   async function init() {
+    if (DEV_MODE) {
+      const devUser = JSON.parse(localStorage.getItem('dev_user') || 'null')
+      if (devUser) {
+        user.value = devUser
+        session.value = { access_token: 'dev-token' }
+      }
+      loading.value = false
+      return
+    }
     if (!supabase) {
       loading.value = false
       return
@@ -28,21 +38,48 @@ export function useAuth() {
   }
 
   async function signIn(email, password) {
+    if (DEV_MODE) {
+      const devUser = { id: 'dev-user-123', email, email_confirmed_at: new Date().toISOString() }
+      user.value = devUser
+      session.value = { access_token: 'dev-token' }
+      localStorage.setItem('dev_user', JSON.stringify(devUser))
+      return
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
   }
 
   async function signUp(email, password) {
+    if (DEV_MODE) {
+      const devUser = { id: 'dev-user-123', email, email_confirmed_at: new Date().toISOString() }
+      user.value = devUser
+      session.value = { access_token: 'dev-token' }
+      localStorage.setItem('dev_user', JSON.stringify(devUser))
+      return
+    }
     const { error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
   }
 
   async function signInWithOAuth(provider = 'google') {
+    if (DEV_MODE) {
+      const devUser = { id: 'dev-user-123', email: `dev@${provider}.com`, email_confirmed_at: new Date().toISOString() }
+      user.value = devUser
+      session.value = { access_token: 'dev-token' }
+      localStorage.setItem('dev_user', JSON.stringify(devUser))
+      return
+    }
     const { error } = await supabase.auth.signInWithOAuth({ provider })
     if (error) throw error
   }
 
   async function signOut() {
+    if (DEV_MODE) {
+      user.value = null
+      session.value = null
+      localStorage.removeItem('dev_user')
+      return
+    }
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }

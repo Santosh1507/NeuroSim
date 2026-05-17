@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Landing from '../views/Landing.vue'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
 import Process from '../views/MainView.vue'
@@ -8,6 +9,7 @@ import ReportView from '../views/ReportView.vue'
 import InteractionView from '../views/InteractionView.vue'
 import NeuroSimUpload from '../views/NeuroSimUpload.vue'
 import NeuroSimDashboard from '../views/NeuroSimDashboard.vue'
+import NeuroSimAnalysis from '../views/NeuroSimAnalysis.vue'
 import CrisisUpload from '../views/CrisisUpload.vue'
 import CrisisProgress from '../views/CrisisProgress.vue'
 import CrisisReport from '../views/CrisisReport.vue'
@@ -15,14 +17,25 @@ import CrisisReport from '../views/CrisisReport.vue'
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: Home,
-    meta: { requiresAuth: true }
+    name: 'Landing',
+    component: Landing
   },
   {
     path: '/login',
     name: 'Login',
     component: Login
+  },
+  {
+    path: '/dashboard',
+    name: 'Home',
+    component: Home,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/analyze',
+    name: 'NeuroSimAnalysis',
+    component: NeuroSimAnalysis,
+    meta: { requiresAuth: true }
   },
   {
     path: '/process/:projectId',

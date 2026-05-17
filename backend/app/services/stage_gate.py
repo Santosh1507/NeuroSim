@@ -11,8 +11,8 @@ from ..utils.logger import get_logger
 
 logger = get_logger('mirofish.stage_gate')
 
-# Default threshold — content below this score is flagged
-DEFAULT_THRESHOLD = 0.45
+# Default threshold — PRD §4.1: W_attn < 0.4 triggers Stage-Gate warning
+DEFAULT_THRESHOLD = 0.4
 
 # Document gate constants
 MIN_DOCUMENT_LENGTH = 100
@@ -60,6 +60,9 @@ class StageGate:
         """
         Evaluate content against the stage-gate threshold.
 
+        PRD §4.1: If W_attn < 0.4, warn user before running expensive simulation.
+        Uses the same formula as bridge: W_attn = (0.7 × LO) + (0.3 × A5).
+
         Args:
             roi_scores: Dict with A5, LO, Area45, TPJ scores (0.0-1.0).
 
@@ -69,31 +72,44 @@ class StageGate:
         a5 = roi_scores.get('A5', 0.5)
         lo = roi_scores.get('LO', 0.5)
 
+        # PRD §3.2: W_attn = (0.7 × LO) + (0.3 × A5)
         gate_score = lo * 0.7 + a5 * 0.3
         passed = gate_score >= self.threshold
 
         if passed:
             if gate_score >= 0.7:
-                recommendation = "Strong content — proceed with full simulation"
+                recommendation = "Strong neural engagement — proceed with full simulation"
                 severity = "pass"
+                message = "Content passed the Stage-Gate with high engagement."
             else:
-                recommendation = "Adequate content — proceed with simulation"
+                recommendation = "Adequate neural engagement — proceed with simulation"
                 severity = "pass_weak"
+                message = "Content passed the Stage-Gate. Moderate engagement detected."
         else:
-            recommendation = f"Content scored {gate_score:.2f} (threshold: {self.threshold:.2f}). Consider revising the hook or visual composition before simulating."
+            # PRD §4.1: Neural Hook Alert message
+            recommendation = (
+                f"Neural Hook Alert: Low biological engagement detected (W_attn={gate_score:.2f}, "
+                f"threshold={self.threshold:.2f}). Consider revising the hook or visual composition."
+            )
             severity = "fail"
+            message = (
+                "Neural Hook Alert: Low biological engagement detected. "
+                "Proceeding to social simulation may yield poor results. Continue?"
+            )
 
         details = {
-            'gate_score': round(gate_score, 3),
+            'gate_score': round(gate_score, 4),
+            'W_attn': round(gate_score, 4),
             'threshold': self.threshold,
-            'LO_contribution': round(lo * 0.7, 3),
-            'A5_contribution': round(a5 * 0.3, 3),
+            'LO_contribution': round(lo * 0.7, 4),
+            'A5_contribution': round(a5 * 0.3, 4),
             'passed': passed,
+            'message': message,
             'recommendation': recommendation,
             'severity': severity,
         }
 
-        logger.info(f"Stage-gate: gate_score={gate_score:.3f}, passed={passed}, severity={severity}")
+        logger.info(f"Stage-gate: W_attn={gate_score:.4f}, passed={passed}, severity={severity}")
         return details
 
 

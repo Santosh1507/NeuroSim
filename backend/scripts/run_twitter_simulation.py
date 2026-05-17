@@ -452,10 +452,18 @@ class TwitterSimulationRunner:
         if llm_base_url:
             os.environ["OPENAI_API_BASE_URL"] = llm_base_url
         
-        print(f"LLM configuration: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
+        # Detect platform type based on base URL
+        if llm_base_url and "groq.com" in llm_base_url:
+            model_platform = ModelPlatformType.GROQ
+            if llm_api_key:
+                os.environ["GROQ_API_KEY"] = llm_api_key
+            print(f"LLM configuration: platform=GROQ, model={llm_model}")
+        else:
+            model_platform = ModelPlatformType.OPENAI
+            print(f"LLM configuration: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
         
         return ModelFactory.create(
-            model_platform=ModelPlatformType.OPENAI,
+            model_platform=model_platform,
             model_type=llm_model,
         )
     

@@ -154,8 +154,7 @@ class TestGetSupabaseAdmin:
         import app.auth as auth_module
 
         mock_client = MagicMock()
-        mock_client.auth.session = MagicMock()
-        mock_client.auth.session.access_token = 'test'
+        mock_client.auth = MagicMock()
 
         with patch.dict(os.environ, {'SUPABASE_URL': 'https://test.supabase.co', 'SUPABASE_SERVICE_ROLE_KEY': 'key'}):
             with patch('app.auth.create_client', return_value=mock_client):
@@ -165,6 +164,7 @@ class TestGetSupabaseAdmin:
                 assert err1 is None
                 assert err2 is None
                 assert client1 is client2  # Same cached instance
+                mock_client.auth.get_user.assert_not_called()
 
     def test_caches_failure_with_cooldown(self):
         """Caches failure and returns it within cooldown period."""

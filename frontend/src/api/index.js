@@ -2,10 +2,12 @@ import axios from 'axios'
 import { getAccessToken } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 
+const DEV_MODE = import.meta.env.VITE_DEV_AUTH === 'true'
+
 // Create axios instance
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001',
-  timeout: 300000, // 5 minute timeout (ontology generation may require longer time)
+  timeout: 300000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -58,6 +60,12 @@ service.interceptors.response.use(
     const originalRequest = error.config
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (DEV_MODE) {
+        // In dev mode, just redirect to login
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -82,7 +90,6 @@ service.interceptors.response.use(
         return service(originalRequest)
       } catch (refreshErr) {
         processQueue(refreshErr, null)
-        // Redirect to login if refresh fails
         window.location.href = '/login'
         return Promise.reject(refreshErr)
       } finally {

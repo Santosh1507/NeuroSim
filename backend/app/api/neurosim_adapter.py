@@ -45,6 +45,11 @@ def neurosim_simulation():
         num_agents = min(num_agents_requested, 200)  # Cap at 200 for CPU performance
         num_rounds = min(data.get('simulation_rounds', 20), 10)  # Cap at 10 rounds
         
+        seed = data.get('seed')
+        if seed is not None:
+            random.seed(seed)
+            logger.info(f"NeuroSim: using seed={seed}")
+        
         if num_agents < num_agents_requested:
             logger.warning(
                 f"NeuroSim: agent count capped from {num_agents_requested} to {num_agents}"
@@ -78,6 +83,8 @@ def neurosim_simulation():
                 'memory': []
             })
         
+        trust_history = []
+        
         for round_num in range(num_rounds):
             sentiment_sum = sum(r['current_sentiment'] for r in reactions)
             avg_sentiment = sentiment_sum / len(reactions)
@@ -88,6 +95,9 @@ def neurosim_simulation():
                 new_sentiment = reaction['current_sentiment'] + influence + random_event
                 reaction['current_sentiment'] = min(1.0, max(0.0, new_sentiment))
                 reaction['trust_level'] = min(1.0, reaction['trust_level'] + (new_sentiment - 0.5) * 0.02)
+            
+            round_avg_trust = round(sum(r['trust_level'] for r in reactions) / len(reactions) * 100, 1)
+            trust_history.append(round_avg_trust)
             
             simulation_history.append({
                 'round': round_num,
@@ -112,10 +122,7 @@ def neurosim_simulation():
         negative_ratio = final_round['negative_count'] / (final_round['positive_count'] + final_round['negative_count'] + 1)
         backlash_prediction = "High risk of backlash" if negative_ratio > 0.4 else "Moderate risk - monitor closely" if negative_ratio > 0.2 else "Low risk - positive reception"
         
-        trust_trajectory = [
-            round(sum(r['trust_level'] for r in reactions) / len(reactions) * 100, 1)
-            for _ in range(len(simulation_history))
-        ]
+        trust_trajectory = trust_history if trust_history else [50.0] * num_rounds
         
         distribution = {}
         for r in reactions:
@@ -147,7 +154,8 @@ def neurosim_simulation():
             "simulation_rounds": num_rounds,
             "num_agents": num_agents,
             "num_agents_requested": num_agents_requested,
-            "max_agents": 200
+            "max_agents": 200,
+            "seed_used": seed,
         }
         
         return jsonify(result)
@@ -173,7 +181,7 @@ def neurosim_simulation():
 
 
 def _generate_personas(seed_material: str, requirements: str, num_agents: int) -> List[Dict[str, Any]]:
-    """Generate agent personas using LLM based on seed material."""
+    """Generate agent personas using template-based randomization."""
     
     persona_types = [
         {"type": "loyal_fan", "weight": 0.15, "sentiment_bias": 0.8, "engagement_style": "supportive"},

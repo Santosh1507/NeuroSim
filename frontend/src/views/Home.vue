@@ -138,6 +138,37 @@
         </div>
       </section>
 
+      <!-- NeuroSim A/B Testing Section -->
+      <section class="neurosim-section" :style="s.neurosimSection">
+        <div class="neurosim-card" :style="s.neurosimCard" @click="router.push('/neurosim')">
+          <div class="neurosim-icon" :style="s.neurosimIcon">🧠</div>
+          <div class="neurosim-content">
+            <h3 :style="s.neurosimContentH3">NeuroSim A/B Testing</h3>
+            <p :style="s.neurosimContentP">Predict which content performs better. Upload two video variants, get neural ROI scores, run swarm simulations, and see side-by-side results.</p>
+            <div class="neurosim-tags" :style="s.neurosimTags">
+              <span class="neuro-tag" :style="s.neuroTag">Video Analysis</span>
+              <span class="neuro-tag" :style="s.neuroTag">Neural Scoring</span>
+              <span class="neuro-tag" :style="s.neuroTag">A/B Comparison</span>
+            </div>
+          </div>
+          <div class="neurosim-arrow" :style="s.neurosimArrow">→</div>
+        </div>
+
+        <div class="neurosim-card" :style="{ ...s.neurosimCard, marginTop: '16px' }" @click="router.push('/analyze')">
+          <div class="neurosim-icon" :style="s.neurosimIcon">🎬</div>
+          <div class="neurosim-content">
+            <h3 :style="s.neurosimContentH3">NeuroSim Video Analysis</h3>
+            <p :style="s.neurosimContentP">Upload a single video for full neural brain response + social swarm simulation. Get hook scores, viral potential, sentiment forecasts, and stage-gate evaluation.</p>
+            <div class="neurosim-tags" :style="s.neurosimTags">
+              <span class="neuro-tag" :style="s.neuroTag">TRIBE v2</span>
+              <span class="neuro-tag" :style="s.neuroTag">MiroFish Swarm</span>
+              <span class="neuro-tag" :style="s.neuroTag">Stage-Gate</span>
+            </div>
+          </div>
+          <div class="neurosim-arrow" :style="s.neurosimArrow">→</div>
+        </div>
+      </section>
+
       <HistoryDatabase />
     </div>
   </div>
@@ -215,6 +246,15 @@ const s = reactive({
   modelBadge: { position: 'absolute', bottom: '10px', right: '15px', fontFamily: mono, fontSize: '0.7rem', color: '#AAA' },
   btnSection: { padding: '0 20px 20px' },
   startEngineBtn: { width: '100%', background: '#000', color: '#fff', border: 'none', padding: '20px', fontFamily: mono, fontWeight: '700', fontSize: '1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', letterSpacing: '1px' },
+  neurosimSection: { marginTop: '60px', borderTop: '1px solid #E5E5E5', paddingTop: '40px' },
+  neurosimCard: { border: '1px solid #E5E5E5', padding: '30px', display: 'flex', alignItems: 'center', gap: '20px', cursor: 'pointer', transition: 'border-color 0.2s, box-shadow 0.2s', borderRadius: '8px' },
+  neurosimIcon: { fontSize: '2.5rem', flexShrink: 0 },
+  neurosimContent: { flex: 1 },
+  neurosimContentH3: { fontSize: '1.2rem', fontWeight: '520', marginBottom: '8px' },
+  neurosimContentP: { color: '#666', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '12px' },
+  neurosimTags: { display: 'flex', gap: '8px' },
+  neuroTag: { background: '#f0f0f0', padding: '4px 10px', borderRadius: '4px', fontSize: '0.8rem', fontFamily: mono, color: '#666' },
+  neurosimArrow: { fontSize: '1.5rem', color: '#FF4500', flexShrink: 0 },
 })
 
 const steps = [

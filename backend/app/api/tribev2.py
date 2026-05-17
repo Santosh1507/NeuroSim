@@ -42,11 +42,6 @@ def _validate_path(path_str: str) -> tuple:
 
     return None, (f'Path not within allowed directories: {path_str}', 403)
 
-_TRIBE_MODEL = None
-_MODEL_LOADING = False
-_MODEL_ERROR = None
-_LOADING_LOCK = threading.Lock()
-
 
 def get_tribe_model():
     """
@@ -204,8 +199,8 @@ def predict():
 
     except Exception as e:
         logger.error(f"TribeV2 prediction failed: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({
             "success": False,
             "error": str(e),
-            "traceback": traceback.format_exc()
         }), 500
