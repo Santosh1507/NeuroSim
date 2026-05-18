@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import aiofiles
@@ -17,6 +18,7 @@ from mirofish_engine import mirofish_engine
 from roi_extractor import roi_extractor
 from bridge_logic import NeuroSocialBridge, ROI
 from database import db
+from pdf_report import generate_pdf_report
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -325,3 +327,22 @@ async def model_status():
 @app.get("/roi/metadata")
 async def roi_metadata():
     return roi_extractor.get_roi_metadata()
+
+@app.get("/reports/{video_id}/pdf")
+async def download_report_pdf(video_id: str):
+    """Download analysis report as PDF."""
+    video = await db.get_video(video_id) or _videos_cache.get(video_id, {})
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        analysis = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+    elif video_id in _analyses_cache:
+        analysis = _analyses_cache[video_id]
+    else:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    pdf_bytes = generate_pdf_report(analysis, video)
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=neurosim_report_{video_id[:8]}.pdf"}
+    )
