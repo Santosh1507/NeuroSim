@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../lib/auth-context'
 import { supabase } from '../../lib/supabase'
-import { Brain, Menu, X, LogOut, BarChart2 } from 'lucide-react'
+import { Brain, Menu, X, LogOut, BarChart2, DollarSign, TrendingUp } from 'lucide-react'
 
 export function Navbar() {
   const { isSignedIn, user, isLoaded } = useAuth()
@@ -43,10 +43,18 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6">
           <a href="/#features" className="text-xs text-text-tertiary hover:text-white transition-colors">Features</a>
           <a href="/#pipeline" className="text-xs text-text-tertiary hover:text-white transition-colors">How it works</a>
+          <a href="/pricing" className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1">
+            <DollarSign className="w-3 h-3" /> Pricing
+          </a>
           {isSignedIn && (
-            <button onClick={() => router.push('/dashboard')} className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
-              <BarChart2 className="w-3.5 h-3.5" /> Dashboard
-            </button>
+            <>
+              <button onClick={() => router.push('/analytics')} className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
+                <TrendingUp className="w-3.5 h-3.5" /> Analytics
+              </button>
+              <button onClick={() => router.push('/dashboard')} className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
+                <BarChart2 className="w-3.5 h-3.5" /> Dashboard
+              </button>
+            </>
           )}
         </div>
 
@@ -87,8 +95,12 @@ export function Navbar() {
           <div className="px-6 py-4 space-y-3">
             <a href="/#features" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">Features</a>
             <a href="/#pipeline" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">How it works</a>
+            <a href="/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">Pricing</a>
             {isSignedIn && (
-              <button onClick={() => { router.push('/dashboard'); setMobileOpen(false) }} className="block text-sm text-text-tertiary hover:text-white cursor-pointer">Dashboard</button>
+              <>
+                <button onClick={() => { router.push('/analytics'); setMobileOpen(false) }} className="block text-sm text-text-tertiary hover:text-white cursor-pointer">Analytics</button>
+                <button onClick={() => { router.push('/dashboard'); setMobileOpen(false) }} className="block text-sm text-text-tertiary hover:text-white cursor-pointer">Dashboard</button>
+              </>
             )}
           </div>
         </div>

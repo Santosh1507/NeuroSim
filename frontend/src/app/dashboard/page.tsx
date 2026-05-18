@@ -8,7 +8,8 @@ import {
   Upload, Play, Brain, Users, Zap, TrendingUp, 
   AlertTriangle, CheckCircle, Sparkles, BarChart2, 
   Activity, Target, Eye, MessageSquare, ChevronRight,
-  Scan, Waves, Network, Cpu, Radio, Shield, Download
+  Scan, Waves, Network, Cpu, Radio, Shield, Download,
+  Share2, Copy, Check, X
 } from 'lucide-react'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
@@ -45,105 +46,91 @@ export default function Dashboard() {
   const [demoMode, setDemoMode] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [modelStatus, setModelStatus] = useState<any>(null)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
+  const [sharing, setSharing] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadStatusMsg, setUploadStatusMsg] = useState('')
+
+  const pollAnalysis = async (videoId: string, file: File) => {
+    const maxAttempts = 60
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const statusRes = await axios.get(`${API_URL}/status/${videoId}`, { timeout: 5000 })
+        const s = statusRes.data
+        setUploadProgress(s.progress || 0)
+        setUploadStatusMsg(s.message || '')
+        if (s.status === 'completed') {
+          const analysisRes = await axios.get(`${API_URL}/analyses/${videoId}`, { timeout: 10000 })
+          setAnalysis({ filename: file.name, ...analysisRes.data })
+          setSelectedVideo(videoId)
+          setVideos(prev => prev.map(v => v.id === videoId ? { ...v, status: 'analyzed' } : v))
+          setUploading(false)
+          return
+        }
+        if (s.status === 'error') {
+          throw new Error(s.message || 'Analysis failed')
+        }
+      } catch (err: any) {
+        if (err.message === 'Analysis failed') throw err
+      }
+      await new Promise(r => setTimeout(r, 1500))
+    }
+    throw new Error('Analysis timed out')
+  }
 
   const handleUpload = async (file: File) => {
     if (!file) return
     setUploading(true)
+    setUploadProgress(0)
+    setUploadStatusMsg('Uploading...')
     setApiError(null)
     
     try {
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('filename', file.name)
       
       const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 15000
+        timeout: 120000
       })
+      const videoId = res.data.video_id
       
       setVideos(prev => [...prev, {
-        id: res.data.video_id,
-        filename: res.data.filename,
+        id: videoId,
+        filename: file.name,
         upload_time: new Date().toISOString(),
-        status: res.data.status
+        status: 'processing'
       }])
+      setSelectedVideo(videoId)
       
-      setSelectedVideo(res.data.video_id)
-      setAnalysis(res.data)
+      setUploadStatusMsg('Starting analysis...')
+      await pollAnalysis(videoId, file)
     } catch (err: any) {
       console.error('Upload failed:', err)
       setDemoMode(true)
       const demoId = `demo_${Date.now()}`
       setVideos(prev => [...prev, {
-        id: demoId,
-        filename: file.name,
-        upload_time: new Date().toISOString(),
-        status: 'analyzed'
+        id: demoId, filename: file.name, upload_time: new Date().toISOString(), status: 'analyzed'
       }])
-      
       setAnalysis({
-        video_id: demoId,
-        hook_score: 78,
+        video_id: demoId, hook_score: 78,
         hook_details: { strength: 'Strong', curiosity_gap_detected: true, question_detected: true },
-        authenticity_score: 72,
-        authenticity_details: { authenticity_level: 'High', brand_intrusion: 'Low' },
-        sentiment_forecast: { 
-          positive_sentiment_pct: 62.5,
-          negative_sentiment_pct: 7.2,
-          neutral_sentiment_pct: 30.3,
-          backlash_risk: 'Low',
-          shareability_index: 78,
-          sellout_probability: 23
-        },
-        cta_analysis: {
-          cta_activation_score: 75,
-          cognitive_load: 'Optimal',
-          timing_recommendation: 'Current placement optimal'
-        },
-        viral_potential: 72,
-        success_probability: 74,
-        risk_score: 16,
-        recommendations: [
-          'Strong hook detected with curiosity gap - good viral potential',
-          'High authenticity score - content feels natural',
-          'CTA at 8s mark should perform well'
-        ],
-        mirofish_simulation: {
-          simulation_id: 'sim_demo_001',
-          final_sentiment: 68.5,
-          viral_prediction: 'High - Positive sentiment spreading',
-          backlash_prediction: 'Low risk - positive reception',
-          share_prediction: 72,
-          persona_distribution: { loyal_fan: 18, trend_seeker: 24, casual_viewer: 26, skeptic: 10, budget_shopper: 16, anti_ad: 6 },
-          comment_samples: [
-            { type: 'positive', persona: 'trend_seeker', comment: 'sharing this! everyone needs to see this', sentiment: 0.82 },
-            { type: 'neutral', persona: 'casual_viewer', comment: 'interesting', sentiment: 0.55 },
-            { type: 'positive', persona: 'loyal_fan', comment: 'omg love this!', sentiment: 0.91 }
-          ],
-          trust_trajectory: [65, 68, 70, 72, 74, 76, 78]
-        },
-        tribev2_brain_response: {
-          cortical_response: { 
-            visual_cortex: 78, auditory_cortex: 72, language_center: 68,
-            amygdala: 65, prefrontal_cortex: 70, reward_center: 82,
-            social_cognition: 62, memory_formation: 68, overall_response_strength: 72
-          },
-          emotional_impact: { primary_emotion: 'excitement', emotional_intensity: 72 },
-          engagement_prediction: { overall_engagement: 78, retention_prediction: 'high' },
-          mode: 'simulated'
-        },
+        authenticity_score: 72, authenticity_details: { authenticity_level: 'High', brand_intrusion: 'Low' },
+        sentiment_forecast: { positive_sentiment_pct: 62.5, negative_sentiment_pct: 7.2, neutral_sentiment_pct: 30.3, backlash_risk: 'Low', shareability_index: 78, sellout_probability: 23 },
+        cta_analysis: { cta_activation_score: 75, cognitive_load: 'Optimal', timing_recommendation: 'Current placement optimal' },
+        viral_potential: 72, success_probability: 74, risk_score: 16,
+        recommendations: ['Strong hook detected with curiosity gap - good viral potential', 'High authenticity score - content feels natural', 'CTA at 8s mark should perform well'],
+        mirofish_simulation: { simulation_id: 'sim_demo_001', final_sentiment: 68.5, viral_prediction: 'High - Positive sentiment spreading', backlash_prediction: 'Low risk - positive reception', share_prediction: 72, persona_distribution: { loyal_fan: 18, trend_seeker: 24, casual_viewer: 26, skeptic: 10, budget_shopper: 16, anti_ad: 6 }, comment_samples: [{ type: 'positive', persona: 'trend_seeker', comment: 'sharing this! everyone needs to see this', sentiment: 0.82 }, { type: 'neutral', persona: 'casual_viewer', comment: 'interesting', sentiment: 0.55 }, { type: 'positive', persona: 'loyal_fan', comment: 'omg love this!', sentiment: 0.91 }], trust_trajectory: [65, 68, 70, 72, 74, 76, 78] },
+        tribev2_brain_response: { cortical_response: { visual_cortex: 78, auditory_cortex: 72, language_center: 68, amygdala: 65, prefrontal_cortex: 70, reward_center: 82, social_cognition: 62, memory_formation: 68, overall_response_strength: 72 }, emotional_impact: { primary_emotion: 'excitement', emotional_intensity: 72 }, engagement_prediction: { overall_engagement: 78, retention_prediction: 'high' }, mode: 'simulated' },
         stage_gate: { passed: true, W_attn: 0.72, threshold: 0.4 }
       })
       setSelectedVideo(demoId)
-      let errorMsg = 'Demo Mode - Backend unavailable'
-      if (err.code === 'ECONNABORTED') {
-        errorMsg = 'Demo Mode - Backend timeout. Ensure NeuroSim is running on localhost:8000'
-      } else if (err.response) {
-        errorMsg = `Demo Mode - Backend error (${err.response.status})`
-      } else if (err.request) {
-        errorMsg = 'Demo Mode - Cannot reach backend. Run NeuroSim on localhost:8000'
-      }
-      setApiError(errorMsg)
-    } finally {
+      const errorMsg = err.code === 'ECONNABORTED' ? 'Backend timeout. Ensure NeuroSim is running on localhost:8000' : err.response ? `Backend error (${err.response.status})` : 'Cannot reach backend. Run NeuroSim on localhost:8000'
+      setApiError(`Demo Mode - ${errorMsg}`)
       setUploading(false)
     }
   }
@@ -256,6 +243,26 @@ export default function Dashboard() {
     setSelectedVideo(demoId)
   }
 
+  const handleShare = async () => {
+    if (!selectedVideo) return
+    setSharing(true)
+    try {
+      const res = await axios.post(`${API_URL}/api/share`, { video_id: selectedVideo })
+      setShareUrl(`${window.location.origin}/r/${res.data.share_id}`)
+      setShowShareModal(true)
+    } catch (err) {
+      console.error('Share failed:', err)
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   const downloadPDF = async () => {
     if (!selectedVideo) return
     try {
@@ -320,12 +327,21 @@ export default function Dashboard() {
               Load Demo
             </button>
             {analysis && (
-              <button 
-                onClick={downloadPDF}
-                className="btn-neural text-xs py-1.5 px-3 flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5" /> PDF
-              </button>
+              <>
+                <button
+                  onClick={handleShare}
+                  disabled={sharing}
+                  className="btn-swarm text-xs py-1.5 px-3 flex items-center gap-1.5"
+                >
+                  <Share2 className="w-3.5 h-3.5" /> {sharing ? '...' : 'Share'}
+                </button>
+                <button 
+                  onClick={downloadPDF}
+                  className="btn-neural text-xs py-1.5 px-3 flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -369,17 +385,23 @@ export default function Dashboard() {
                 whileTap={{ scale: 0.95 }}
               >
                 {uploading ? (
-                  <div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" />
+                  <div className="relative w-14 h-14 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center">
+                    <svg className="w-14 h-14 -rotate-90 absolute" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(77,238,234,0.15)" strokeWidth="2"/>
+                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="#4deeea" strokeWidth="2" strokeDasharray={`${uploadProgress * 0.97} 97`} strokeLinecap="round"/>
+                    </svg>
+                    <span className="text-xs mono text-neural font-bold">{uploadProgress}%</span>
+                  </div>
                 ) : (
                   <Upload className="w-6 h-6 text-neural" />
                 )}
               </motion.div>
               <div className="text-center">
                 <p className="text-white font-medium text-base mb-1">
-                  {uploading ? 'Encoding neural response...' : 'Drop video to analyze'}
+                  {uploading ? (uploadStatusMsg || 'Analyzing...') : 'Drop video to analyze'}
                 </p>
                 <p className="text-text-tertiary text-xs mono">
-                  MP4, MOV, AVI, WebM ΓÇó Up to 2GB
+                  MP4, MOV, AVI, WebM &bull; Up to 2GB
                 </p>
               </div>
             </label>
@@ -395,7 +417,7 @@ export default function Dashboard() {
 
         {/* Stats - inline, minimal */}
         {videos.length > 0 && (
-          <div className="flex items-center gap-6 mb-8 stagger">
+          <div className="flex items-center gap-6 mb-8 stagger flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-white mono">{videos.length}</span>
               <span className="text-xs text-text-tertiary">videos</span>
@@ -419,7 +441,7 @@ export default function Dashboard() {
           <div className="lg:col-span-8 space-y-6">
             
             {/* Tab Bar */}
-            <div className="flex items-center gap-1 p-1 glass-panel w-fit">
+            <div className="flex items-center gap-1 p-1 glass-panel w-fit overflow-x-auto">
               {[
                 { id: 'overview', label: 'Overview', icon: BarChart2 },
                 { id: 'analysis', label: 'Neural Analysis', icon: Brain },
@@ -838,7 +860,7 @@ export default function Dashboard() {
 
             {/* Recent Uploads */}
             {videos.length > 0 && (
-              <div className="glass-panel p-4">
+              <div className="glass-panel p-4 max-h-[300px] overflow-y-auto">
                 <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Recent</h4>
                 <div className="space-y-1.5">
                   {videos.slice(-5).reverse().map(video => (
@@ -868,6 +890,47 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {showShareModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowShareModal(false)} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl p-6"
+          >
+            <button onClick={() => setShowShareModal(false)} className="absolute top-4 right-4 text-text-tertiary hover:text-white cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-swarm/10 border border-swarm/20 flex items-center justify-center">
+                <Share2 className="w-5 h-5 text-swarm" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Share Analysis</h3>
+                <p className="text-sm text-text-tertiary">Anyone with this link can view</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                className="flex-1 bg-transparent text-sm text-white focus:outline-none"
+              />
+              <button
+                onClick={handleCopyLink}
+                className="p-2 rounded-lg bg-neural/10 border border-neural/20 text-neural hover:bg-neural/20 transition-colors cursor-pointer"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+            {copied && (
+              <p className="text-xs text-green-400 mt-2 text-center">Copied to clipboard!</p>
+            )}
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

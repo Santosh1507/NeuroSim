@@ -1,12 +1,15 @@
+import os
 import pytest
 import io
 from fastapi.testclient import TestClient
-from main import app, videos_db, analyses_db
+from main import app, _videos_cache, _analyses_cache
+
+os.environ["NEUROSIM_SYNC_MODE"] = "1"
 
 @pytest.fixture(autouse=True)
 def clean_dbs():
-    videos_db.clear()
-    analyses_db.clear()
+    _videos_cache.clear()
+    _analyses_cache.clear()
     yield
 
 @pytest.fixture
@@ -59,7 +62,7 @@ class TestAPIEndpoints:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "analyzed"
+        assert data["status"] == "processing"
         assert "video_id" in data
     
     def test_upload_unsupported_format(self, client):
@@ -83,6 +86,14 @@ class TestAPIEndpoints:
         data = response.json()
         assert data["videos"] == []
     
+    def _wait_for_analysis(self, client, video_id, max_retries=30):
+        for _ in range(max_retries):
+            resp = client.get(f"/status/{video_id}")
+            if resp.status_code == 200 and resp.json().get("status") == "completed":
+                return True
+            import time; time.sleep(0.5)
+        return False
+
     def test_upload_and_retrieve(self, client):
         file_content = b"fake mp4 content" * 1000
         upload_response = client.post(
@@ -91,6 +102,7 @@ class TestAPIEndpoints:
         )
         assert upload_response.status_code == 200
         video_id = upload_response.json()["video_id"]
+        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
         
         video_response = client.get(f"/videos/{video_id}")
         assert video_response.status_code == 200
@@ -111,6 +123,7 @@ class TestAPIEndpoints:
             files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
+        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
         
         report_response = client.get(f"/reports/{video_id}")
         assert report_response.status_code == 200
@@ -126,6 +139,7 @@ class TestAPIEndpoints:
             files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
+        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
         
         sim_response = client.get(f"/simulation/{video_id}")
         assert sim_response.status_code == 200
@@ -140,6 +154,7 @@ class TestAPIEndpoints:
             files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
+        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
         
         brain_response = client.get(f"/brain-response/{video_id}")
         assert brain_response.status_code == 200
@@ -154,6 +169,7 @@ class TestAPIEndpoints:
             files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
+        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
         
         whatif_response = client.post(
             f"/simulation/what-if/{video_id}",

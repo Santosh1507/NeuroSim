@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     # Stage-Gate
     stage_gate_threshold: float = 0.4
     
+    # Premium GPU Tier
+    premium_enabled: bool = False
+    premium_price_monthly: int = 29
+    premium_price_yearly: int = 290
+    premium_max_analyses_free: int = 10
+    gpu_provider: str = "modal"
+    
     class Config:
         env_file = ".env"
 

@@ -68,13 +68,12 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     # Summary metrics
     story.append(Paragraph('Summary', styles['SectionHeader']))
     
-    summary = analysis.get('summary', {})
     metrics = [
-        ('Hook Score', f"{summary.get('hook_score', 0)}%"),
-        ('Authenticity', f"{summary.get('authenticity_score', 0)}%"),
-        ('Success Probability', f"{summary.get('success_probability', 0)}%"),
-        ('Viral Potential', f"{summary.get('viral_potential', 0)}%"),
-        ('Risk Score', f"{summary.get('risk_score', 0)}%"),
+        ('Hook Score', f"{analysis.get('hook_score', 0)}%"),
+        ('Authenticity', f"{analysis.get('authenticity_score', 0)}%"),
+        ('Success Probability', f"{analysis.get('success_probability', 0)}%"),
+        ('Viral Potential', f"{analysis.get('viral_potential', 0)}%"),
+        ('Risk Score', f"{analysis.get('risk_score', 0)}%"),
     ]
     
     metric_data = []
