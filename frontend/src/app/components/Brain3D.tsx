@@ -92,14 +92,14 @@ function BrainConnections({ regions }: { regions: Array<{ position: [number, num
     opacity: 0.2,
   }), [])
   
-  const points = regions.flatMap((r, i) =>
-    regions.slice(i + 1).map((r2) => {
-      if (r.activation > 0.4 && r2.activation > 0.4) {
-        return [r.position, r2.position]
-      }
-      return null
-    }).filter(Boolean)
-  ).flat()
+  const activeRegions = regions.filter(r => r.activation > 0.4)
+  const points: Array<[number, number, number]> = []
+  for (let i = 0; i < activeRegions.length; i++) {
+    for (let j = i + 1; j < activeRegions.length; j++) {
+      points.push(activeRegions[i].position)
+      points.push(activeRegions[j].position)
+    }
+  }
   
   if (points.length === 0) return null
   
