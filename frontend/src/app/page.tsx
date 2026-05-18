@@ -1,13 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../lib/auth-context'
-import { supabase } from '../lib/supabase'
 import { motion } from 'framer-motion'
 import { 
   Brain, Users, Shield, TrendingUp, Target, BarChart3, 
   ArrowRight, Check, Sparkles, Waves, Radio, Crosshair
 } from 'lucide-react'
+import { AuthModal } from './components/AuthModal'
 
 const features = [
   {
@@ -59,16 +60,14 @@ const plans = [
 export default function LandingPage() {
   const router = useRouter()
   const { isSignedIn } = useAuth()
+  const [authOpen, setAuthOpen] = useState(false)
 
-  const handleAuth = async () => {
-    if (!supabase) {
+  const handleAuth = () => {
+    if (isSignedIn) {
       router.push('/dashboard')
-      return
+    } else {
+      setAuthOpen(true)
     }
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin + '/dashboard' }
-    })
   }
 
   return (
@@ -430,6 +429,8 @@ export default function LandingPage() {
         </footer>
 
       </div>
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   )
 }

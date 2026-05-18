@@ -9,6 +9,9 @@ interface AuthContextType {
   isSignedIn: boolean
   isLoaded: boolean
   isDemoMode: boolean
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string) => Promise<{ error: string | null }>
+  signInAnonymously: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -17,6 +20,9 @@ const AuthContext = createContext<AuthContextType>({
   isSignedIn: false,
   isLoaded: true,
   isDemoMode: false,
+  signIn: async () => ({ error: 'Not available' }),
+  signUp: async () => ({ error: 'Not available' }),
+  signInAnonymously: async () => {},
   signOut: async () => {},
 })
 
@@ -54,9 +60,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  const signIn = async (email: string, password: string) => {
+    if (!supabase) return { error: 'Supabase not configured' }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { error: error.message }
+    setUser(data.user)
+    setIsDemoMode(false)
+    return { error: null }
+  }
+
+  const signUp = async (email: string, password: string) => {
+    if (!supabase) return { error: 'Supabase not configured' }
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) return { error: error.message }
+    if (data.user) {
+      setUser(data.user)
+      setIsDemoMode(false)
+    }
+    return { error: null }
+  }
+
+  const signInAnonymously = async () => {
+    setUser(DEMO_USER)
+    setIsDemoMode(true)
+  }
+
   const signOut = async () => {
     if (isDemoMode) {
-      window.location.href = '/'
+      setUser(null)
+      setIsDemoMode(false)
       return
     }
     if (supabase) await supabase.auth.signOut()
@@ -64,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isSignedIn: !!user, isLoaded, isDemoMode, signOut }}>
+    <AuthContext.Provider value={{ user, isSignedIn: !!user, isLoaded, isDemoMode, signIn, signUp, signInAnonymously, signOut }}>
       {children}
     </AuthContext.Provider>
   )
