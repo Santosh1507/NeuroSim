@@ -1,0 +1,12 @@
+{
+  "experimentalServices": {
+    "Jobsy_CC": {
+      "entrypoint": "Jobsy_CC",
+      "routePrefix": "/_/Jobsy_CC"
+    },
+    "backend": {
+      "entrypoint": "Jobsy_CC/backend",
+      "routePrefix": "/_/backend"
+    }
+  }
+}

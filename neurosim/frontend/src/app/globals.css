@@ -1,0 +1,602 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Neural Instrument Palette */
+  --void: #000000;
+  --depth-1: #030305;
+  --depth-2: #08080d;
+  --depth-3: #0f0f16;
+  --surface: #14141c;
+  --surface-elevated: #1a1a24;
+  
+  /* Neural Cyan - TRIBE v2 */
+  --neural: #4deeea;
+  --neural-dim: rgba(77, 238, 234, 0.15);
+  --neural-glow: rgba(77, 238, 234, 0.08);
+  
+  /* Swarm Purple - MiroFish */
+  --swarm: #a78bfa;
+  --swarm-dim: rgba(167, 139, 250, 0.15);
+  --swarm-glow: rgba(167, 139, 250, 0.08);
+  
+  /* Signal accents */
+  --signal-green: #34d399;
+  --signal-orange: #fb923c;
+  --signal-red: #f87171;
+  
+  /* Glass system */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-border-hover: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.5);
+  
+  /* Text hierarchy */
+  --text-primary: #f0f0f5;
+  --text-secondary: rgba(240, 240, 245, 0.6);
+  --text-tertiary: rgba(240, 240, 245, 0.35);
+  --text-quaternary: rgba(240, 240, 245, 0.2);
+  
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--void);
+  color: var(--text-secondary);
+  font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === NEURAL BACKGROUND === */
+
+.bg-neural {
+  background: 
+    radial-gradient(ellipse 80% 50% at 20% 40%, var(--neural-glow) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 20%, var(--swarm-glow) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 30% at 60% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 50%),
+    linear-gradient(180deg, var(--void) 0%, var(--depth-1) 50%, var(--depth-2) 100%);
+  position: relative;
+}
+
+/* Subtle noise texture overlay */
+.bg-neural::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.02'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* === GLASS SURFACES === */
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Top edge highlight - neural instrument precision */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--glass-highlight) 50%, 
+    transparent 100%
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.glass-panel-elevated {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px var(--glass-shadow);
+}
+
+.glass-panel-elevated::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255,255,255,0.15) 50%, 
+    transparent 100%
+  );
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+/* Neural accent panel */
+.glass-neural {
+  background: linear-gradient(135deg, 
+    rgba(77, 238, 234, 0.06) 0%, 
+    rgba(77, 238, 234, 0.02) 100%
+  );
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(77, 238, 234, 0.12);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-neural::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(77, 238, 234, 0.3) 50%, 
+    transparent 100%
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Swarm accent panel */
+.glass-swarm {
+  background: linear-gradient(135deg, 
+    rgba(167, 139, 250, 0.06) 0%, 
+    rgba(167, 139, 250, 0.02) 100%
+  );
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(167, 139, 250, 0.12);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-swarm::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(167, 139, 250, 0.3) 50%, 
+    transparent 100%
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* === INTERACTIVE STATES === */
+
+.glass-interactive {
+  transition: all 0.3s var(--ease-smooth);
+  cursor: pointer;
+}
+
+.glass-interactive:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+}
+
+.glass-interactive:active {
+  transform: translateY(0) scale(0.995);
+  transition-duration: 0.1s;
+}
+
+/* Drag active state */
+.glass-interactive.drag-active {
+  border-color: var(--neural);
+  background: var(--neural-dim);
+  box-shadow: 0 0 0 1px rgba(77, 238, 234, 0.2), 0 16px 48px rgba(77, 238, 234, 0.08);
+}
+
+/* === BUTTONS === */
+
+.btn-neural {
+  background: var(--neural-dim);
+  border: 1px solid rgba(77, 238, 234, 0.2);
+  border-radius: 10px;
+  padding: 10px 20px;
+  color: var(--neural);
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Instrument Sans', sans-serif;
+  transition: all 0.25s var(--ease-smooth);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.btn-neural:hover {
+  background: rgba(77, 238, 234, 0.2);
+  border-color: rgba(77, 238, 234, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(77, 238, 234, 0.12);
+}
+
+.btn-neural:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-swarm {
+  background: var(--swarm-dim);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 10px;
+  padding: 10px 20px;
+  color: var(--swarm);
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Instrument Sans', sans-serif;
+  transition: all 0.25s var(--ease-smooth);
+  cursor: pointer;
+}
+
+.btn-swarm:hover {
+  background: rgba(167, 139, 250, 0.2);
+  border-color: rgba(167, 139, 250, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(167, 139, 250, 0.12);
+}
+
+.btn-swarm:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 10px 20px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 14px;
+  font-family: 'Instrument Sans', sans-serif;
+  transition: all 0.25s var(--ease-smooth);
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+}
+
+.btn-ghost:active {
+  transform: scale(0.98);
+}
+
+/* === TABS - Segmented Control === */
+
+.tab-segment {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  border-radius: 8px;
+  transition: all 0.25s var(--ease-smooth);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: 'Instrument Sans', sans-serif;
+}
+
+.tab-segment:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-segment.active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* === PROGRESS BARS === */
+
+.progress-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s var(--ease-smooth);
+}
+
+.progress-neural {
+  background: linear-gradient(90deg, var(--neural), rgba(77, 238, 234, 0.6));
+}
+
+.progress-swarm {
+  background: linear-gradient(90deg, var(--swarm), rgba(167, 139, 250, 0.6));
+}
+
+.progress-green {
+  background: linear-gradient(90deg, var(--signal-green), rgba(52, 211, 153, 0.6));
+}
+
+.progress-orange {
+  background: linear-gradient(90deg, var(--signal-orange), rgba(251, 146, 60, 0.6));
+}
+
+.progress-red {
+  background: linear-gradient(90deg, var(--signal-red), rgba(248, 113, 113, 0.6));
+}
+
+/* === TYPOGRAPHY === */
+
+h1, h2, h3, h4 {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', 'Space Mono', monospace;
+}
+
+.text-neural {
+  color: var(--neural);
+}
+
+.text-swarm {
+  color: var(--swarm);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--neural) 0%, var(--swarm) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* === STATUS INDICATORS === */
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+.status-neural {
+  background: var(--neural);
+  box-shadow: 0 0 6px var(--neural);
+}
+
+.status-neural::after {
+  border: 1px solid rgba(77, 238, 234, 0.3);
+}
+
+.status-swarm {
+  background: var(--swarm);
+  box-shadow: 0 0 6px var(--swarm);
+}
+
+.status-swarm::after {
+  border: 1px solid rgba(167, 139, 250, 0.3);
+}
+
+.status-green {
+  background: var(--signal-green);
+  box-shadow: 0 0 6px var(--signal-green);
+}
+
+.status-green::after {
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* === BADGES === */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.02em;
+}
+
+.badge-neural {
+  background: var(--neural-dim);
+  color: var(--neural);
+  border: 1px solid rgba(77, 238, 234, 0.15);
+}
+
+.badge-swarm {
+  background: var(--swarm-dim);
+  color: var(--swarm);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+}
+
+.badge-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-tertiary);
+  border: 1px solid var(--glass-border);
+}
+
+/* === ANIMATIONS === */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes neural-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s var(--ease-out-expo) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s var(--ease-out-expo) forwards;
+}
+
+.animate-neural-pulse {
+  animation: neural-pulse 2s ease-in-out infinite;
+}
+
+/* Stagger children */
+.stagger > * {
+  opacity: 0;
+  animation: fadeIn 0.4s var(--ease-out-expo) forwards;
+}
+
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger > *:nth-child(8) { animation-delay: 0.4s; }
+
+/* === INPUTS === */
+
+.input-neural {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: 'Instrument Sans', sans-serif;
+  transition: all 0.25s var(--ease-smooth);
+  outline: none;
+}
+
+.input-neural::placeholder {
+  color: var(--text-quaternary);
+}
+
+.input-neural:focus {
+  border-color: rgba(77, 238, 234, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 3px rgba(77, 238, 234, 0.06);
+}
+
+/* === SCROLLBAR === */
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* === SELECTION === */
+
+::selection {
+  background: rgba(77, 238, 234, 0.2);
+  color: white;
+}
+
+/* === FOCUS === */
+
+*:focus-visible {
+  outline: 2px solid var(--neural);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* === NEURAL GRID LINES (subtle background pattern) === */
+
+.neural-grid {
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* === CHART TOOLTIPS === */
+
+.chart-tooltip {
+  background: var(--depth-3) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
