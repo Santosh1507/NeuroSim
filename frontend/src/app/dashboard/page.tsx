@@ -164,36 +164,35 @@ export default function Dashboard() {
 
   const runABTest = async () => {
     setAbTestRunning(true)
-    await new Promise(r => setTimeout(r, 2500))
+    setApiError(null)
     
-    const W_attn_a = 0.72 + Math.random() * 0.18
-    const W_attn_b = 0.28 + Math.random() * 0.18
-    
-    setAbResults({
-      version_a: {
-        roi: { A5: 0.82, LO: W_attn_a, Area45: 0.75, TPJ: 0.68 },
-        W_attn: W_attn_a,
-        stage_gate_passed: W_attn_a >= 0.4,
-        social: W_attn_a >= 0.4 ? {
-          viral_coefficient: 2.4 + Math.random() * 0.8,
-          peak_reach: Math.floor(350000 + Math.random() * 150000),
-          seven_day_curve: [8500, 32000, 85000, 165000, 245000, 310000, 380000]
-        } : null
-      },
-      version_b: {
-        roi: { A5: 0.35, LO: W_attn_b, Area45: 0.22, TPJ: 0.38 },
-        W_attn: W_attn_b,
-        stage_gate_passed: W_attn_b >= 0.4,
-        social: W_attn_b >= 0.4 ? {
-          viral_coefficient: 0.8 + Math.random() * 0.4,
-          peak_reach: Math.floor(45000 + Math.random() * 25000),
-          seven_day_curve: [3200, 8500, 15000, 22000, 35000, 48000, 58000]
-        } : null
-      },
-      winner: W_attn_a > W_attn_b ? 'A' : 'B'
-    })
-    
-    setAbTestRunning(false)
+    try {
+      const [resA, resB] = await Promise.all([
+        axios.post(`${API_URL}/simulate/single`, { content_url: 'version_a' }, { timeout: 10000 }),
+        axios.post(`${API_URL}/simulate/single`, { content_url: 'version_b' }, { timeout: 10000 })
+      ])
+      
+      const dataA = resA.data
+      const dataB = resB.data
+      
+      if (dataA.social && dataA.social.seven_day_curve) {
+        dataA.social.seven_day_curve = dataA.social.seven_day_curve.map((v: number, i: number) => ({ day: i+1, value: v }))
+      }
+      if (dataB.social && dataB.social.seven_day_curve) {
+        dataB.social.seven_day_curve = dataB.social.seven_day_curve.map((v: number, i: number) => ({ day: i+1, value: v }))
+      }
+      
+      setAbResults({
+        version_a: dataA,
+        version_b: dataB,
+        winner: dataA.W_attn > dataB.W_attn ? 'A' : 'B'
+      })
+    } catch (err: any) {
+      console.error('A/B test failed:', err)
+      setApiError('A/B test failed. Backend may be unavailable.')
+    } finally {
+      setAbTestRunning(false)
+    }
   }
 
   const loadDemoData = () => {
