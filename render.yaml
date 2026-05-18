@@ -5,9 +5,11 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: CORS_ORIGINS
-        value: '["http://localhost:3000","https://frontend-skg200257.vercel.app"]'
+        value: '["http://localhost:3000"]'
       - key: TRIBE_USE_REAL
         value: "false"
       - key: MIROFISH_USE_REAL
@@ -16,6 +18,10 @@ services:
         value: "/tmp/uploads"
       - key: STAGEGATE_THRESHOLD
         value: "0.4"
+      - key: PREMIUM_ENABLED
+        value: "false"
+      - key: PREMIUM_MAX_ANALYSES_FREE
+        value: "10"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY

@@ -45,6 +45,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    import time
+    start = time.time()
+    response = await call_next(request)
+    duration = round((time.time() - start) * 1000, 1)
+    client_ip = request.client.host if request.client else "unknown"
+    print(f"[{datetime.now().isoformat()}] {request.method} {request.url.path} {response.status_code} {duration}ms — {client_ip}")
+    return response
+
 # In-memory fallback when Supabase is not configured
 _videos_cache: Dict[str, dict] = {}
 _analyses_cache: Dict[str, dict] = {}
@@ -127,6 +137,17 @@ async def root():
         "tribe_mode": "real" if tribe_engine.is_real else "simulated",
         "mirofish_mode": "real" if mirofish_engine.is_real else "simulated",
         "whisper_available": transcriber.available,
+    }
+
+@app.get("/health")
+async def health():
+    """Health check for Render keep-alive and monitoring."""
+    return {
+        "status": "healthy",
+        "version": "2.2.0",
+        "whisper": "ready" if transcriber.available else "unavailable",
+        "supabase": "connected" if db.enabled else "fallback",
+        "uptime": "ok",
     }
 
 @app.post("/upload")

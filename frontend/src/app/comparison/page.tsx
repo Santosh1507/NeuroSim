@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useAuth } from '../../lib/auth-context'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { BarChart3, TrendingUp, ArrowUp, ArrowDown, Minus, Brain, Target, Zap, Activity, type LucideIcon } from 'lucide-react'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
@@ -10,9 +10,10 @@ import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-export default function ComparisonPage() {
+function ComparisonContent() {
   const { isSignedIn, isLoaded } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [videoA, setVideoA] = useState<any>(null)
   const [videoB, setVideoB] = useState<any>(null)
   const [idA, setIdA] = useState('')
@@ -23,23 +24,37 @@ export default function ComparisonPage() {
     if (isLoaded && !isSignedIn) router.push('/')
   }, [isLoaded, isSignedIn, router])
 
+  useEffect(() => {
+    const a = searchParams.get('a')
+    const b = searchParams.get('b')
+    if (a && b) {
+      setIdA(a)
+      setIdB(b)
+      handleCompareWithIds(a, b)
+    }
+  }, [searchParams])
+
   const fetchAnalysis = async (videoId: string) => {
     const res = await axios.get(`${API_URL}/analyses/${videoId}`)
     return res.data
   }
 
-  const handleCompare = async () => {
-    if (!idA || !idB) return
+  const handleCompareWithIds = async (a: string, b: string) => {
     setLoading(true)
     try {
-      const [a, b] = await Promise.all([fetchAnalysis(idA), fetchAnalysis(idB)])
-      setVideoA(a)
-      setVideoB(b)
+      const [va, vb] = await Promise.all([fetchAnalysis(a), fetchAnalysis(b)])
+      setVideoA(va)
+      setVideoB(vb)
     } catch (err) {
       console.error('Comparison failed:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCompare = async () => {
+    if (!idA || !idB) return
+    handleCompareWithIds(idA, idB)
   }
 
   if (!isLoaded || !isSignedIn) return null
@@ -171,5 +186,13 @@ export default function ComparisonPage() {
         </section>
       </div>
     </div>
+  )
+}
+
+export default function ComparisonPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-neural neural-grid flex items-center justify-center"><div className="w-8 h-8 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>}>
+      <ComparisonContent />
+    </Suspense>
   )
 }

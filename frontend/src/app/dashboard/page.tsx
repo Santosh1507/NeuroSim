@@ -55,6 +55,8 @@ export default function Dashboard() {
   const [uploadStatusMsg, setUploadStatusMsg] = useState('')
   const [uploadStage, setUploadStage] = useState<string>('')
   const [isMobile, setIsMobile] = useState(false)
+  const [compareIds, setCompareIds] = useState<string[]>([])
+  const [backendReachable, setBackendReachable] = useState<boolean | null>(null)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -62,6 +64,26 @@ export default function Dashboard() {
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  useEffect(() => {
+    axios.get(`${API_URL}/health`, { timeout: 5000 })
+      .then(() => setBackendReachable(true))
+      .catch(() => setBackendReachable(false))
+  }, [])
+
+  const toggleCompare = (videoId: string) => {
+    setCompareIds(prev => {
+      if (prev.includes(videoId)) return prev.filter(id => id !== videoId)
+      if (prev.length >= 2) return [prev[1], videoId]
+      return [...prev, videoId]
+    })
+  }
+
+  const goToComparison = () => {
+    if (compareIds.length === 2) {
+      router.push(`/comparison?a=${compareIds[0]}&b=${compareIds[1]}`)
+    }
+  }
 
   const pollAnalysis = async (videoId: string, file: File) => {
     const maxAttempts = 60
@@ -319,6 +341,11 @@ export default function Dashboard() {
           
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className={`status-dot ${backendReachable === null ? 'bg-white/20' : backendReachable ? 'status-neural' : 'status-red'}`}></span>
+                <span className="text-[11px] mono text-text-tertiary">API</span>
+              </div>
+              <div className="w-px h-3 bg-white/10"></div>
               <div className="flex items-center gap-1.5">
                 <span className="status-dot status-neural"></span>
                 <span className="text-[11px] mono text-text-tertiary">TRIBE</span>
@@ -919,27 +946,43 @@ export default function Dashboard() {
             {/* Recent Uploads */}
             {videos.length > 0 && (
               <div className="glass-panel p-4 max-h-[300px] overflow-y-auto">
-                <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Recent</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider">Recent</h4>
+                  {compareIds.length === 2 && (
+                    <button onClick={goToComparison} className="text-[10px] mono text-neural hover:underline cursor-pointer">
+                      Compare →
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-1.5">
                   {videos.slice(-5).reverse().map(video => (
                     <div 
                       key={video.id}
-                      className="p-2.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors cursor-pointer"
+                      className="p-2.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-2"
                       onClick={() => setSelectedVideo(video.id)}
                     >
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-xs text-white truncate max-w-[140px]">{video.filename}</span>
-                        <span className={`text-[10px] mono px-1.5 py-0.5 rounded ${
-                          video.status === 'analyzed' ? 'bg-green-400/10 text-green-400' :
-                          video.status === 'processing' ? 'bg-orange-400/10 text-orange-400' :
-                          'bg-white/5 text-text-tertiary'
-                        }`}>
-                          {video.status}
-                        </span>
+                      <input
+                        type="checkbox"
+                        checked={compareIds.includes(video.id)}
+                        onChange={e => { e.stopPropagation(); toggleCompare(video.id) }}
+                        onClick={e => e.stopPropagation()}
+                        className="w-3 h-3 rounded bg-white/[0.04] border border-white/[0.08] text-neural focus:ring-0 cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs text-white truncate max-w-[140px]">{video.filename}</span>
+                          <span className={`text-[10px] mono px-1.5 py-0.5 rounded ${
+                            video.status === 'analyzed' ? 'bg-green-400/10 text-green-400' :
+                            video.status === 'processing' ? 'bg-orange-400/10 text-orange-400' :
+                            'bg-white/5 text-text-tertiary'
+                          }`}>
+                            {video.status}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-text-tertiary mono">
+                          {new Date(video.upload_time).toLocaleTimeString()}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-text-tertiary mono">
-                        {new Date(video.upload_time).toLocaleTimeString()}
-                      </p>
                     </div>
                   ))}
                 </div>
