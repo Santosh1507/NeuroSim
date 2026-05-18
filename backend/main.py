@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="NeuroSim API",
-    version="2.0",
+    version="2.1.0",
     lifespan=lifespan,
 )
 
@@ -43,6 +43,44 @@ app.add_middleware(
 # In-memory fallback when Supabase is not configured
 _videos_cache: Dict[str, dict] = {}
 _analyses_cache: Dict[str, dict] = {}
+_cache_timestamps: Dict[str, float] = {}
+_VIDEO_TTL = 3600  # 1 hour
+_ANALYSIS_TTL = 1800  # 30 minutes
+_task_status: Dict[str, dict] = {}
+_share_links: Dict[str, str] = {}
+_waitlist: List[Dict[str, Any]] = []
+_digest_subs: Dict[str, dict] = {}
+_usage_tracker: Dict[str, int] = {}
+
+def _evict_stale():
+    now = datetime.now().timestamp()
+    stale_videos = [k for k in _cache_timestamps if k.startswith("v:") and now - _cache_timestamps[k] > _VIDEO_TTL]
+    stale_analyses = [k for k in _cache_timestamps if k.startswith("a:") and now - _cache_timestamps[k] > _ANALYSIS_TTL]
+    for k in stale_videos:
+        vid = k[2:]
+        _videos_cache.pop(vid, None)
+        _cache_timestamps.pop(k, None)
+    for k in stale_analyses:
+        aid = k[2:]
+        _analyses_cache.pop(aid, None)
+        _cache_timestamps.pop(k, None)
+
+def _touch_cache(key: str):
+    _cache_timestamps[key] = datetime.now().timestamp()
+
+# WebSocket connection manager
+_ws_connections: Dict[str, list[WebSocket]] = {}
+
+async def _broadcast_progress(video_id: str, data: dict):
+    if video_id in _ws_connections:
+        dead = []
+        for ws in _ws_connections[video_id]:
+            try:
+                await ws.send_json(data)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            _ws_connections[video_id].remove(ws)
 
 class VideoMetadata(BaseModel):
     id: str
@@ -51,6 +89,19 @@ class VideoMetadata(BaseModel):
     status: str = "uploaded"
     duration: Optional[float] = None
     transcript: Optional[str] = None
+
+class DigestRequest(BaseModel):
+    email: str
+    frequency: str  # "weekly" | "monthly"
+
+class DigestPreview(BaseModel):
+    digest_id: str
+    generated_at: str
+    total_analyses: int
+    average_hook_score: float
+    average_viral_potential: float
+    average_success_probability: float
+    top_performers: List[dict]
 
 @app.get("/")
 async def root():
@@ -73,11 +124,12 @@ async def upload_video(file: UploadFile = File(...)):
     
     async with aiofiles.open(file_path, "wb") as f:
         while True:
-            chunk = await file.read(1024 * 1024)  # 1MB chunks
+            chunk = await file.read(1024 * 1024)
             if not chunk:
                 break
             await f.write(chunk)
     
+    _evict_stale()
     await db.insert_video(video_id, file.filename, "processing")
     _videos_cache[video_id] = {
         "id": video_id,
@@ -86,16 +138,59 @@ async def upload_video(file: UploadFile = File(...)):
         "status": "processing",
         "file_path": str(file_path)
     }
+    _touch_cache(f"v:{video_id}")
     
-    analysis = await process_video(video_id, str(file_path))
-    await db.insert_analysis(video_id, analysis)
-    await db.update_video_status(video_id, "analyzed")
-    _analyses_cache[video_id] = analysis
-    _videos_cache[video_id]["status"] = "analyzed"
+    _task_status[video_id] = {"status": "processing", "progress": 0, "message": "Starting analysis..."}
+    if os.environ.get("NEUROSIM_SYNC_MODE"):
+        await _process_in_background(video_id, str(file_path), file.filename)
+    else:
+        asyncio.create_task(_process_in_background(video_id, str(file_path), file.filename))
     
-    analysis["filename"] = file.filename
-    analysis["status"] = "analyzed"
-    return analysis
+    return {"video_id": video_id, "status": "processing", "message": "Analysis started"}
+
+async def _process_in_background(video_id: str, file_path: str, filename: str):
+    try:
+        _task_status[video_id] = {"status": "processing", "progress": 10, "message": "Running TRIBE v2 neural analysis..."}
+        await _broadcast_progress(video_id, _task_status[video_id])
+        
+        analysis = await process_video(video_id, file_path)
+        
+        _task_status[video_id] = {"status": "processing", "progress": 80, "message": "Saving results..."}
+        await _broadcast_progress(video_id, _task_status[video_id])
+        await db.insert_analysis(video_id, analysis)
+        await db.update_video_status(video_id, "analyzed")
+        
+        _analyses_cache[video_id] = analysis
+        _touch_cache(f"a:{video_id}")
+        _videos_cache[video_id]["status"] = "analyzed"
+        
+        _task_status[video_id] = {"status": "completed", "progress": 100, "message": "Analysis complete"}
+        await _broadcast_progress(video_id, _task_status[video_id])
+    except Exception as e:
+        _task_status[video_id] = {"status": "error", "progress": 0, "message": str(e)}
+        _videos_cache[video_id]["status"] = "error"
+        await _broadcast_progress(video_id, _task_status[video_id])
+        raise
+
+@app.websocket("/ws/{video_id}")
+async def websocket_progress(websocket: WebSocket, video_id: str):
+    await websocket.accept()
+    if video_id not in _ws_connections:
+        _ws_connections[video_id] = []
+    _ws_connections[video_id].append(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        if video_id in _ws_connections:
+            _ws_connections[video_id].remove(websocket)
+
+@app.get("/status/{video_id}")
+async def get_processing_status(video_id: str):
+    status = _task_status.get(video_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return status
 
 async def process_video(video_id: str, file_path: str) -> Dict[str, Any]:
     tribe_result = await tribe_engine.predict_from_video(file_path)
@@ -187,6 +282,7 @@ async def process_video(video_id: str, file_path: str) -> Dict[str, Any]:
 
 @app.get("/videos")
 async def list_videos():
+    _evict_stale()
     if db.enabled:
         videos = await db.list_videos()
         return {"videos": videos}
@@ -194,6 +290,7 @@ async def list_videos():
 
 @app.get("/videos/{video_id}")
 async def get_video(video_id: str):
+    _evict_stale()
     video = await db.get_video(video_id) or _videos_cache.get(video_id)
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
@@ -201,6 +298,7 @@ async def get_video(video_id: str):
 
 @app.get("/analyses/{video_id}")
 async def get_analysis(video_id: str):
+    _evict_stale()
     analysis = await db.get_analysis(video_id)
     if analysis:
         return analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
@@ -210,6 +308,7 @@ async def get_analysis(video_id: str):
 
 @app.get("/reports/{video_id}")
 async def get_report(video_id: str):
+    _evict_stale()
     video = await db.get_video(video_id) or _videos_cache.get(video_id, {})
     analysis = await db.get_analysis(video_id)
     if analysis:
@@ -228,6 +327,7 @@ async def get_report(video_id: str):
 
 @app.get("/simulation/{video_id}")
 async def get_simulation(video_id: str):
+    _evict_stale()
     analysis = await db.get_analysis(video_id)
     if analysis:
         data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
@@ -238,6 +338,7 @@ async def get_simulation(video_id: str):
 
 @app.get("/brain-response/{video_id}")
 async def get_brain_response(video_id: str):
+    _evict_stale()
     analysis = await db.get_analysis(video_id)
     if analysis:
         data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
@@ -251,6 +352,7 @@ class WhatIfRequest(BaseModel):
 
 @app.post("/simulation/what-if/{video_id}")
 async def run_what_if(video_id: str, request: WhatIfRequest):
+    _evict_stale()
     analysis = await db.get_analysis(video_id)
     if analysis:
         data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
@@ -265,6 +367,13 @@ async def run_what_if(video_id: str, request: WhatIfRequest):
 
 class SingleSimRequest(BaseModel):
     content_url: str
+
+class ShareRequest(BaseModel):
+    video_id: str
+
+class WaitlistRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
 
 @app.post("/simulate/single")
 async def simulate_single(req: SingleSimRequest):
@@ -331,6 +440,7 @@ async def roi_metadata():
 @app.get("/reports/{video_id}/pdf")
 async def download_report_pdf(video_id: str):
     """Download analysis report as PDF."""
+    _evict_stale()
     video = await db.get_video(video_id) or _videos_cache.get(video_id, {})
     analysis = await db.get_analysis(video_id)
     if analysis:
@@ -346,3 +456,108 @@ async def download_report_pdf(video_id: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=neurosim_report_{video_id[:8]}.pdf"}
     )
+
+@app.post("/api/share")
+async def create_share_link(req: ShareRequest):
+    _evict_stale()
+    analysis = await db.get_analysis(req.video_id)
+    if not analysis and req.video_id not in _analyses_cache:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    share_id = str(uuid.uuid4())
+    _share_links[share_id] = req.video_id
+    return {"share_id": share_id, "url": f"/r/{share_id}"}
+
+@app.get("/api/share/{share_id}")
+async def get_shared_analysis(share_id: str):
+    video_id = _share_links.get(share_id)
+    if not video_id:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    _evict_stale()
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        analysis = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+    elif video_id in _analyses_cache:
+        analysis = _analyses_cache[video_id]
+    else:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return {"share_id": share_id, "video_id": video_id, "analysis": analysis}
+
+@app.post("/api/waitlist")
+async def join_waitlist(req: WaitlistRequest):
+    for entry in _waitlist:
+        if entry["email"] == req.email:
+            raise HTTPException(status_code=409, detail="You're already on the waitlist!")
+    entry = {"id": str(uuid.uuid4()), "email": req.email, "name": req.name, "created_at": datetime.now().isoformat()}
+    _waitlist.append(entry)
+    return {"message": "Joined waitlist!", "queue_position": len(_waitlist)}
+
+@app.get("/api/analytics")
+async def get_analytics():
+    _evict_stale()
+    total = len(_analyses_cache)
+    scores = []
+    hooks = []
+    virals = []
+    for a in _analyses_cache.values():
+        if isinstance(a, dict):
+            scores.append(a.get("success_probability", 0))
+            hooks.append(a.get("hook_score", 0))
+            virals.append(a.get("viral_potential", 0))
+    return {
+        "total_analyses": total,
+        "total_videos": len(_videos_cache),
+        "average_success_probability": round(sum(scores) / len(scores), 1) if scores else 0,
+        "average_hook_score": round(sum(hooks) / len(hooks), 1) if hooks else 0,
+        "average_viral_potential": round(sum(virals) / len(virals), 1) if virals else 0,
+    }
+
+@app.post("/api/digest/subscribe")
+async def digest_subscribe(req: DigestRequest):
+    if req.frequency not in ("weekly", "monthly"):
+        raise HTTPException(status_code=400, detail="Frequency must be 'weekly' or 'monthly'")
+    if req.email in _digest_subs:
+        raise HTTPException(status_code=409, detail="Email already subscribed")
+    _digest_subs[req.email] = {
+        "email": req.email,
+        "frequency": req.frequency,
+        "subscribed_at": datetime.now().isoformat()
+    }
+    return {"message": "Subscribed to digest", "email": req.email, "frequency": req.frequency}
+
+@app.get("/api/digest/preview")
+async def digest_preview():
+    _evict_stale()
+    analyses = list(_analyses_cache.values())
+    scores = [a.get("success_probability", 0) for a in analyses if isinstance(a, dict)]
+    hooks = [a.get("hook_score", 0) for a in analyses if isinstance(a, dict)]
+    virals = [a.get("viral_potential", 0) for a in analyses if isinstance(a, dict)]
+    top = sorted(analyses, key=lambda a: a.get("success_probability", 0) if isinstance(a, dict) else 0, reverse=True)[:5]
+    return DigestPreview(
+        digest_id=str(uuid.uuid4()),
+        generated_at=datetime.now().isoformat(),
+        total_analyses=len(analyses),
+        average_hook_score=round(sum(hooks) / len(hooks), 1) if hooks else 0,
+        average_viral_potential=round(sum(virals) / len(virals), 1) if virals else 0,
+        average_success_probability=round(sum(scores) / len(scores), 1) if scores else 0,
+        top_performers=[{"video_id": a.get("video_id", "unknown"), "success_probability": a.get("success_probability", 0)} for a in top],
+    )
+
+@app.get("/api/premium/status")
+async def premium_status():
+    return {
+        "enabled": settings.premium_enabled,
+        "price_monthly": settings.premium_price_monthly,
+        "price_yearly": settings.premium_price_yearly,
+        "max_analyses_free": settings.premium_max_analyses_free,
+        "gpu_provider": settings.gpu_provider,
+    }
+
+@app.get("/api/premium/usage/{user_id}")
+async def premium_usage(user_id: str):
+    count = _usage_tracker.get(user_id, 0)
+    is_premium = count > settings.premium_max_analyses_free
+    return {
+        "analyses_this_month": count,
+        "limit": settings.premium_max_analyses_free,
+        "is_premium": is_premium,
+    }
