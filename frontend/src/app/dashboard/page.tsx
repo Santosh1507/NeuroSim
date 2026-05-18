@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useAuth } from '../../lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -16,6 +16,12 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts'
 import axios from 'axios'
+import dynamic from 'next/dynamic'
+
+const Brain3D = dynamic(() => import('../components/Brain3D'), { 
+  ssr: false,
+  loading: () => <div className="w-full h-[300px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>
+})
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -465,6 +471,11 @@ export default function Dashboard() {
                   transition={{ duration: 0.2, ease: 'easeOut' }}
                   className="space-y-6"
                 >
+                  {/* 3D Brain Heatmap */}
+                  <Suspense fallback={<div className="w-full h-[300px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>}>
+                    <Brain3D brainData={analysis.tribev2_brain_response} />
+                  </Suspense>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="glass-panel p-5">
                       <div className="flex items-center justify-between mb-5">
