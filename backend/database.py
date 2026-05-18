@@ -3,7 +3,13 @@ import os
 import json
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from supabase import create_client, Client
+
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    Client = None
 
 class Database:
     """Supabase-backed persistent storage."""
@@ -12,13 +18,22 @@ class Database:
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
         
-        if url and key:
-            self.client: Client = create_client(url, key)
-            self.enabled = True
+        if url and key and SUPABASE_AVAILABLE:
+            try:
+                self.client = create_client(url, key)
+                self.enabled = True
+                print("Supabase connected.")
+            except Exception as e:
+                print(f"Supabase connection failed: {e}")
+                self.client = None
+                self.enabled = False
         else:
             self.client = None
             self.enabled = False
-            print("Supabase not configured. Using in-memory storage.")
+            if not SUPABASE_AVAILABLE:
+                print("Supabase package not available. Using in-memory storage.")
+            else:
+                print("Supabase not configured. Using in-memory storage.")
     
     async def insert_video(self, video_id: str, filename: str, status: str = "uploaded") -> Dict:
         """Insert a video record."""
