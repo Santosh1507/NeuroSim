@@ -8,7 +8,7 @@ import {
   Upload, Play, Brain, Users, Zap, TrendingUp, 
   AlertTriangle, CheckCircle, Sparkles, BarChart2, 
   Activity, Target, Eye, MessageSquare, ChevronRight,
-  Scan, Waves, Network, Cpu, Radio, Shield
+  Scan, Waves, Network, Cpu, Radio, Shield, Download
 } from 'lucide-react'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
@@ -256,6 +256,25 @@ export default function Dashboard() {
     setSelectedVideo(demoId)
   }
 
+  const downloadPDF = async () => {
+    if (!selectedVideo) return
+    try {
+      const res = await fetch(`${API_URL}/reports/${selectedVideo}/pdf`)
+      if (!res.ok) throw new Error('Failed to generate PDF')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `neurosim_report_${selectedVideo.slice(0, 8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('PDF download failed:', err)
+    }
+  }
+
   const radarData = analysis ? [
     { subject: 'Hook', value: analysis.hook_score || 0, fullMark: 100 },
     { subject: 'Authenticity', value: analysis.authenticity_score || 0, fullMark: 100 },
@@ -300,6 +319,14 @@ export default function Dashboard() {
             >
               Load Demo
             </button>
+            {analysis && (
+              <button 
+                onClick={downloadPDF}
+                className="btn-neural text-xs py-1.5 px-3 flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" /> PDF
+              </button>
+            )}
           </div>
         </div>
       </header>
