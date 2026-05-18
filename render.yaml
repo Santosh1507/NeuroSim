@@ -2,12 +2,12 @@ services:
   - type: web
     name: neurosim-api
     runtime: python
-    rootDir: neurosim/backend
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_ORIGINS
-        value: '["http://localhost:3000","https://neurosim.vercel.app"]'
+        value: '["http://localhost:3000","https://frontend-skg200257.vercel.app"]'
       - key: TRIBE_USE_REAL
         value: "false"
       - key: MIROFISH_USE_REAL

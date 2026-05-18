@@ -1,5 +1,4 @@
 {
   "buildCommand": "cd neurosim/frontend && npm install && npm run build",
-  "outputDirectory": "neurosim/frontend/out",
-  "installCommand": "cd neurosim/frontend && npm install"
+  "outputDirectory": "neurosim/frontend/out"
 }
