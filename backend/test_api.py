@@ -3,6 +3,7 @@ import pytest
 import io
 from fastapi.testclient import TestClient
 from main import app, _videos_cache, _analyses_cache
+from rate_limiter import upload_limiter
 
 os.environ["NEUROSIM_SYNC_MODE"] = "1"
 
@@ -10,6 +11,7 @@ os.environ["NEUROSIM_SYNC_MODE"] = "1"
 def clean_dbs():
     _videos_cache.clear()
     _analyses_cache.clear()
+    upload_limiter._requests.clear()
     yield
 
 @pytest.fixture
@@ -22,7 +24,7 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
-        assert "TRIBE v2" in data["message"]
+        assert "Simulated Analysis" in data["message"]
     
     def test_models_status(self, client):
         response = client.get("/models/status")

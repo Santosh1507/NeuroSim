@@ -2,87 +2,97 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
-import { Brain, AlertTriangle } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Brain, TrendingUp, Target, Zap, Activity } from 'lucide-react'
 import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function EmbedPage() {
   const params = useParams()
+  const shareId = params.id as string
   const [analysis, setAnalysis] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!params.id) return
-    const fetchShare = async () => {
+    const fetch = async () => {
       try {
-        const res = await axios.get(`${API_URL}/api/share/${params.id}`)
+        const res = await axios.get(`${API_URL}/api/share/${shareId}`)
         setAnalysis(res.data.analysis)
       } catch {
-        setNotFound(true)
+        setError('This analysis no longer exists or the link is invalid.')
       } finally {
         setLoading(false)
       }
     }
-    fetchShare()
-  }, [params.id])
+    fetch()
+  }, [shareId])
 
   if (loading) {
     return (
-      <div className="bg-transparent min-h-[200px] flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
-  if (notFound || !analysis) {
+  if (error || !analysis) {
     return (
-      <div className="bg-neural neural-grid min-h-[300px] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-6 h-6 text-amber-400" />
-          </div>
-          <p className="text-sm text-gray-400">Analysis not found or has expired.</p>
+          <p className="text-white font-medium mb-2">Analysis Unavailable</p>
+          <p className="text-text-tertiary text-sm">{error || 'No data found.'}</p>
         </div>
       </div>
     )
   }
 
-  const scores = [
-    { label: 'Hook', value: analysis.hook_score || 0, color: 'text-neural' },
-    { label: 'Authenticity', value: analysis.authenticity_score || 0, color: 'text-swarm' },
-    { label: 'Viral', value: analysis.viral_potential || 0, color: 'text-blue-400' },
-    { label: 'Success', value: analysis.success_probability || 0, color: 'text-green-400' },
-  ]
-
   return (
-    <div className="bg-neural neural-grid min-h-[400px] w-full max-w-[400px] mx-auto">
-      <div className="p-5">
-        <div className="space-y-3">
-          {scores.map((s) => (
-            <div key={s.label}>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="mono text-text-tertiary uppercase tracking-wider">{s.label}</span>
-                <span className={`mono font-bold ${s.color}`}>{s.value}%</span>
+    <div className="min-h-screen bg-[#0a0a0f] p-4">
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="w-4 h-4 text-neural" />
+          <h1 className="text-sm font-semibold text-white">NeuroSim Analysis</h1>
+          <span className="text-[9px] mono text-amber-400/70 border border-amber-400/20 px-1.5 py-0.5 rounded">SIMULATED</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {[
+            { label: 'Success', value: analysis.success_probability, icon: Target, color: 'text-neural' },
+            { label: 'Hook', value: analysis.hook_score, icon: Activity, color: 'text-neural' },
+            { label: 'Viral', value: analysis.viral_potential, icon: Zap, color: 'text-swarm' },
+            { label: 'Risk', value: analysis.risk_score, icon: TrendingUp, color: 'text-orange-400' },
+          ].map(m => (
+            <div key={m.label} className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <m.icon className={`w-3 h-3 ${m.color}`} />
+                <span className="text-[10px] mono text-text-tertiary">{m.label}</span>
               </div>
-              <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${s.value}%`, background: s.color === 'text-neural' ? '#4deeea' : s.color === 'text-swarm' ? '#a78bfa' : s.color === 'text-blue-400' ? '#60a5fa' : '#4ade80' }}
-                />
-              </div>
+              <p className={`text-xl font-bold mono ${m.color}`}>{m.value}%</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-6 pt-4 border-t border-white/[0.06] text-center">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-[10px] mono text-text-tertiary hover:text-neural transition-colors">
-            <Brain className="w-3 h-3" />
-            Powered by NeuroSim
-          </Link>
-        </div>
+        {analysis.stage_gate && (
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 mb-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] mono text-text-tertiary">Stage-Gate</span>
+              <span className={`text-xs mono font-medium ${analysis.stage_gate.passed ? 'text-green-400' : 'text-red-400'}`}>
+                {analysis.stage_gate.passed ? 'PASS' : 'FAIL'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {analysis.recommendations && analysis.recommendations.length > 0 && (
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+            <p className="text-[10px] mono text-text-tertiary mb-2">Top Recommendation</p>
+            <p className="text-xs text-text-secondary">{analysis.recommendations[0]}</p>
+          </div>
+        )}
+
+        <p className="text-[9px] text-text-tertiary text-center mt-4 mono">Powered by NeuroSim v2.2</p>
       </div>
     </div>
   )

@@ -1,12 +1,13 @@
 import os
 import uuid
+import gc
 import asyncio
 import numpy as np
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -19,16 +20,20 @@ from roi_extractor import roi_extractor
 from bridge_logic import NeuroSocialBridge, ROI
 from database import db
 from pdf_report import generate_pdf_report
+from transcriber import transcriber
+from heuristic_scorer import score_transcript
+from rate_limiter import upload_limiter, api_limiter, rate_limit
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(f"NeuroSim API starting - TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}")
+    whisper_status = "ready" if transcriber.available else "unavailable (install faster-whisper)"
+    print(f"NeuroSim API starting — TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}, Whisper: {whisper_status}")
     yield
     print("NeuroSim API shutting down")
 
 app = FastAPI(
     title="NeuroSim API",
-    version="2.1.0",
+    version="2.2.0",
     lifespan=lifespan,
 )
 
@@ -51,6 +56,14 @@ _share_links: Dict[str, str] = {}
 _waitlist: List[Dict[str, Any]] = []
 _digest_subs: Dict[str, dict] = {}
 _usage_tracker: Dict[str, int] = {}
+_premium_users: set = set()  # Manually add user IDs here when Pro launches
+
+def _is_premium(user_id: str) -> bool:
+    return user_id in _premium_users
+
+def _increment_usage(user_id: str):
+    if user_id and user_id != "anonymous":
+        _usage_tracker[user_id] = _usage_tracker.get(user_id, 0) + 1
 
 def _evict_stale():
     now = datetime.now().timestamp()
@@ -90,6 +103,9 @@ class VideoMetadata(BaseModel):
     duration: Optional[float] = None
     transcript: Optional[str] = None
 
+class UploadRequest(BaseModel):
+    user_id: Optional[str] = "anonymous"
+
 class DigestRequest(BaseModel):
     email: str
     frequency: str  # "weekly" | "monthly"
@@ -107,13 +123,26 @@ class DigestPreview(BaseModel):
 async def root():
     return {
         "status": "ok",
-        "message": "NeuroSim API v2.0 - TRIBE v2 + MiroFish",
+        "message": "NeuroSim API v2.2 — Simulated Analysis (Heuristic + Swarm)",
         "tribe_mode": "real" if tribe_engine.is_real else "simulated",
-        "mirofish_mode": "real" if mirofish_engine.is_real else "simulated"
+        "mirofish_mode": "real" if mirofish_engine.is_real else "simulated",
+        "whisper_available": transcriber.available,
     }
 
 @app.post("/upload")
-async def upload_video(file: UploadFile = File(...)):
+async def upload_video(request: Request, file: UploadFile = File(...), user_id: str = "anonymous"):
+    client_ip = request.client.host if request.client else "unknown"
+    if not upload_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=429, detail="Upload rate limit exceeded. Max 5 uploads per 5 minutes.")
+    
+    if user_id != "anonymous" and not _is_premium(user_id):
+        current_usage = _usage_tracker.get(user_id, 0)
+        if current_usage >= settings.premium_max_analyses_free:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Free tier limit reached ({settings.premium_max_analyses_free}/month). Upgrade to Pro for unlimited analyses."
+            )
+    
     allowed_extensions = {".mp4", ".mov", ".avi", ".webm"}
     file_ext = Path(file.filename).suffix.lower()
     if file_ext not in allowed_extensions:
@@ -130,46 +159,84 @@ async def upload_video(file: UploadFile = File(...)):
             await f.write(chunk)
     
     _evict_stale()
-    await db.insert_video(video_id, file.filename, "processing")
+    await db.insert_video(video_id, file.filename, "processing", user_id=user_id)
     _videos_cache[video_id] = {
         "id": video_id,
         "filename": file.filename,
         "upload_time": datetime.now().isoformat(),
         "status": "processing",
-        "file_path": str(file_path)
+        "file_path": str(file_path),
+        "user_id": user_id,
     }
     _touch_cache(f"v:{video_id}")
     
     _task_status[video_id] = {"status": "processing", "progress": 0, "message": "Starting analysis..."}
     if os.environ.get("NEUROSIM_SYNC_MODE"):
-        await _process_in_background(video_id, str(file_path), file.filename)
+        await _process_in_background(video_id, str(file_path), file.filename, user_id)
     else:
-        asyncio.create_task(_process_in_background(video_id, str(file_path), file.filename))
+        asyncio.create_task(_process_in_background(video_id, str(file_path), file.filename, user_id))
     
     return {"video_id": video_id, "status": "processing", "message": "Analysis started"}
 
-async def _process_in_background(video_id: str, file_path: str, filename: str):
+async def _process_in_background(video_id: str, file_path: str, filename: str, user_id: str = "anonymous"):
     try:
-        _task_status[video_id] = {"status": "processing", "progress": 10, "message": "Running TRIBE v2 neural analysis..."}
+        # Stage 1: Transcription
+        _task_status[video_id] = {"status": "processing", "progress": 10, "message": "Transcribing audio...", "stage": "transcribing"}
         await _broadcast_progress(video_id, _task_status[video_id])
         
-        analysis = await process_video(video_id, file_path)
+        transcript = transcriber.transcribe(file_path)
+        if not transcript:
+            transcript = "No audio detected. Analysis based on file metadata only."
         
-        _task_status[video_id] = {"status": "processing", "progress": 80, "message": "Saving results..."}
+        _task_status[video_id] = {"status": "processing", "progress": 30, "message": f"Transcript ready ({len(transcript.split())} words)", "stage": "transcribing"}
         await _broadcast_progress(video_id, _task_status[video_id])
-        await db.insert_analysis(video_id, analysis)
+        
+        # Free whisper model from memory
+        transcriber.unload()
+        gc.collect()
+        
+        # Stage 2: Heuristic ROI scoring
+        _task_status[video_id] = {"status": "processing", "progress": 40, "message": "Analyzing neural patterns...", "stage": "scoring"}
+        await _broadcast_progress(video_id, _task_status[video_id])
+        
+        roi_scores = score_transcript(transcript)
+        roi = ROI(A5=roi_scores["A5"], LO=roi_scores["LO"], Area45=roi_scores["Area45"], TPJ=roi_scores["TPJ"])
+        
+        _task_status[video_id] = {"status": "processing", "progress": 55, "message": "Running TRIBE v2 neural analysis...", "stage": "scoring"}
+        await _broadcast_progress(video_id, _task_status[video_id])
+        
+        # Stage 3: Full analysis
+        analysis = await process_video(video_id, file_path, transcript, roi)
+        
+        _task_status[video_id] = {"status": "processing", "progress": 80, "message": "Saving results...", "stage": "saving"}
+        await _broadcast_progress(video_id, _task_status[video_id])
+        
+        await db.insert_analysis(video_id, analysis, user_id=user_id)
         await db.update_video_status(video_id, "analyzed")
         
         _analyses_cache[video_id] = analysis
         _touch_cache(f"a:{video_id}")
         _videos_cache[video_id]["status"] = "analyzed"
         
-        _task_status[video_id] = {"status": "completed", "progress": 100, "message": "Analysis complete"}
+        _increment_usage(user_id)
+        
+        # Stage 4: Cleanup — delete uploaded file
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        
+        _task_status[video_id] = {"status": "completed", "progress": 100, "message": "Analysis complete", "stage": "done"}
         await _broadcast_progress(video_id, _task_status[video_id])
     except Exception as e:
         _task_status[video_id] = {"status": "error", "progress": 0, "message": str(e)}
         _videos_cache[video_id]["status"] = "error"
         await _broadcast_progress(video_id, _task_status[video_id])
+        # Clean up file on error too
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
         raise
 
 @app.websocket("/ws/{video_id}")
@@ -192,20 +259,24 @@ async def get_processing_status(video_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
     return status
 
-async def process_video(video_id: str, file_path: str) -> Dict[str, Any]:
-    tribe_result = await tribe_engine.predict_from_video(file_path)
+async def process_video(video_id: str, file_path: str, transcript: str = "", heuristic_roi: Optional[ROI] = None) -> Dict[str, Any]:
+    # Use heuristic ROI if provided, otherwise fall back to TRIBE engine
+    if heuristic_roi:
+        roi = heuristic_roi
+        tribe_result = {"predictions": [], "mode": "heuristic", "transcript_word_count": len(transcript.split())}
+    else:
+        tribe_result = await tribe_engine.predict_from_video(file_path)
+        predictions = np.array(tribe_result["predictions"])
+        roi_scores = roi_extractor.extract_from_predictions(predictions)
+        roi = ROI(A5=roi_scores.A5, LO=roi_scores.LO, Area45=roi_scores.Area45, TPJ=roi_scores.TPJ)
     
-    predictions = np.array(tribe_result["predictions"])
-    roi_scores = roi_extractor.extract_from_predictions(predictions)
-    
-    roi = ROI(A5=roi_scores.A5, LO=roi_scores.LO, Area45=roi_scores.Area45, TPJ=roi_scores.TPJ)
     social_params = NeuroSocialBridge.compute_social_params(roi)
     stage_passed, stage_msg = NeuroSocialBridge.stage_gate_check(social_params.W_attn)
     
-    temporal_roi = roi_extractor.extract_with_temporal_dynamics(predictions, n_segments=4)
+    temporal_roi = roi_extractor.extract_with_temporal_dynamics(np.array(tribe_result.get("predictions", [[0.5]*20484]*20)), n_segments=4) if tribe_result.get("predictions") else {"segments": []}
     
     mirofish_result = await mirofish_engine.run_simulation(
-        content={"transcript": "Sample transcript from video", "requirements": "Predict audience reaction"},
+        content={"transcript": transcript or "Sample transcript from video", "requirements": "Predict audience reaction"},
         roi_scores={"A5": roi.A5, "LO": roi.LO, "Area45": roi.Area45, "TPJ": roi.TPJ}
     )
     
@@ -277,6 +348,7 @@ async def process_video(video_id: str, file_path: str) -> Dict[str, Any]:
             "W_attn": social_params.W_attn,
             "threshold": settings.stage_gate_threshold
         },
+        "transcript": transcript[:500] + "..." if len(transcript) > 500 else transcript,
         "created_at": datetime.now().isoformat()
     }
 
@@ -457,6 +529,25 @@ async def download_report_pdf(video_id: str):
         headers={"Content-Disposition": f"attachment; filename=neurosim_report_{video_id[:8]}.pdf"}
     )
 
+class MergeRequest(BaseModel):
+    guest_session_id: str
+    user_id: str
+
+@app.post("/api/merge")
+async def merge_guest_session(req: MergeRequest):
+    """Reassign guest videos/analyses to a newly signed-up user."""
+    if db.enabled:
+        await db.client.table("videos").update({"user_id": req.user_id}).eq("user_id", req.guest_session_id).execute()
+        await db.client.table("analyses").update({"user_id": req.user_id}).eq("user_id", req.guest_session_id).execute()
+        merged_count = len([v for v in _videos_cache.values() if v.get("user_id") == req.guest_session_id])
+    else:
+        merged_count = 0
+        for vid, v in _videos_cache.items():
+            if v.get("user_id") == req.guest_session_id:
+                v["user_id"] = req.user_id
+    
+    return {"message": "Session merged", "videos_reassigned": merged_count}
+
 @app.post("/api/share")
 async def create_share_link(req: ShareRequest):
     _evict_stale()
@@ -555,9 +646,11 @@ async def premium_status():
 @app.get("/api/premium/usage/{user_id}")
 async def premium_usage(user_id: str):
     count = _usage_tracker.get(user_id, 0)
-    is_premium = count > settings.premium_max_analyses_free
+    is_premium = _is_premium(user_id)
+    remaining = settings.premium_max_analyses_free - count if not is_premium else -1
     return {
         "analyses_this_month": count,
         "limit": settings.premium_max_analyses_free,
+        "remaining": remaining,
         "is_premium": is_premium,
     }

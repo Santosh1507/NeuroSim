@@ -12,10 +12,11 @@ const tiers = [
     name: 'Free',
     monthly: 0,
     yearly: 0,
-    desc: 'Perfect for creators exploring predictive intelligence.',
+    desc: 'Heuristic content analysis — no GPU required.',
     features: [
       '10 analyses per month',
-      'TRIBE v2 simulated brain encoding',
+      'Audio transcription (Whisper)',
+      'Heuristic neural scoring',
       'MiroFish swarm simulation',
       'Stage-Gate guardrail check',
       'A/B content comparison',
@@ -23,15 +24,16 @@ const tiers = [
     ],
     cta: 'Start Free',
     popular: false,
+    stripePriceId: null,
   },
   {
-    name: 'Premium',
+    name: 'Pro',
     monthly: 29,
     yearly: 290,
-    desc: 'Unlimited access with real GPU-powered neural processing.',
+    desc: 'Real GPU-powered neural processing with TRIBE v2.',
     features: [
       'Unlimited analyses',
-      'Real GPU TRIBE v2 encoding',
+      'Real TRIBE v2 brain encoding',
       'Priority swarm simulation',
       'Custom ROI thresholds',
       'Export reports (PDF/CSV)',
@@ -41,6 +43,7 @@ const tiers = [
     cta: 'Join Waitlist',
     popular: true,
     comingSoon: true,
+    stripePriceId: null,
   },
 ]
 

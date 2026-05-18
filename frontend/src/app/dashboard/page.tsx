@@ -27,7 +27,7 @@ const Brain3D = dynamic(() => import('../components/Brain3D'), {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function Dashboard() {
-  const { isSignedIn, isLoaded } = useAuth()
+  const { isSignedIn, isLoaded, guestSessionId } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -53,6 +53,15 @@ export default function Dashboard() {
 
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatusMsg, setUploadStatusMsg] = useState('')
+  const [uploadStage, setUploadStage] = useState<string>('')
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const pollAnalysis = async (videoId: string, file: File) => {
     const maxAttempts = 60
@@ -62,6 +71,7 @@ export default function Dashboard() {
         const s = statusRes.data
         setUploadProgress(s.progress || 0)
         setUploadStatusMsg(s.message || '')
+        setUploadStage(s.stage || '')
         if (s.status === 'completed') {
           const analysisRes = await axios.get(`${API_URL}/analyses/${videoId}`, { timeout: 10000 })
           setAnalysis({ filename: file.name, ...analysisRes.data })
@@ -86,12 +96,13 @@ export default function Dashboard() {
     setUploading(true)
     setUploadProgress(0)
     setUploadStatusMsg('Uploading...')
+    setUploadStage('uploading')
     setApiError(null)
     
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('filename', file.name)
+      formData.append('user_id', guestSessionId || 'anonymous')
       
       const res = await axios.post(`${API_URL}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -301,7 +312,8 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-semibold text-white tracking-tight">NeuroSim</h1>
-              <span className="text-[10px] mono text-text-tertiary">v2.0</span>
+              <span className="text-[10px] mono text-text-tertiary">v2.2</span>
+              <span className="text-[9px] mono text-amber-400/70 border border-amber-400/20 px-1.5 py-0.5 rounded">SIM</span>
             </div>
           </div>
           
@@ -358,8 +370,8 @@ export default function Dashboard() {
                 <span className="text-text-tertiary">before you publish.</span>
               </h2>
               <p className="text-text-secondary text-sm max-w-md">
-                TRIBE v2 encodes biological brain responses. MiroFish simulates social swarm behavior. 
-                Together, they predict how your content will perform.
+                Heuristic content analysis + MiroFish swarm simulation. 
+                Predicts how your content will perform — no GPU required.
               </p>
             </div>
           </div>
@@ -403,6 +415,25 @@ export default function Dashboard() {
                 <p className="text-text-tertiary text-xs mono">
                   MP4, MOV, AVI, WebM &bull; Up to 2GB
                 </p>
+                {uploading && uploadStage && (
+                  <div className="flex items-center gap-2 mt-3">
+                    {['transcribing', 'scoring', 'saving', 'done'].map((stage, i) => {
+                      const stages = ['transcribing', 'scoring', 'saving', 'done']
+                      const currentIdx = stages.indexOf(uploadStage)
+                      const isActive = i <= currentIdx
+                      const isCurrent = i === currentIdx
+                      return (
+                        <div key={stage} className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-neural' : 'bg-white/10'} ${isCurrent ? 'animate-pulse' : ''}`} />
+                          <span className={`text-[10px] mono ${isActive ? 'text-neural' : 'text-text-tertiary'}`}>
+                            {stage === 'transcribing' ? 'Audio' : stage === 'scoring' ? 'Score' : stage === 'saving' ? 'Save' : 'Done'}
+                          </span>
+                          {i < 3 && <div className="w-4 h-px bg-white/10" />}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </label>
         </div>
@@ -520,10 +551,37 @@ export default function Dashboard() {
                   transition={{ duration: 0.2, ease: 'easeOut' }}
                   className="space-y-6"
                 >
-                  {/* 3D Brain Heatmap */}
-                  <Suspense fallback={<div className="w-full h-[300px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>}>
-                    <Brain3D brainData={analysis.tribev2_brain_response} />
-                  </Suspense>
+                  {/* 3D Brain Heatmap (desktop) / 2D Scorecard (mobile) */}
+                  {isMobile ? (
+                    <div className="glass-panel p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-4 h-4 text-neural" />
+                          <h4 className="text-sm font-semibold text-white">Neural Response</h4>
+                        </div>
+                        <span className="badge badge-ghost">SIM</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          { label: 'Visual Cortex', value: analysis.tribev2_brain_response?.cortical_response?.visual_cortex || 0 },
+                          { label: 'Auditory Cortex', value: analysis.tribev2_brain_response?.cortical_response?.auditory_cortex || 0 },
+                          { label: 'Language Center', value: analysis.tribev2_brain_response?.cortical_response?.language_center || 0 },
+                          { label: 'Amygdala', value: analysis.tribev2_brain_response?.cortical_response?.amygdala || 0 },
+                          { label: 'Prefrontal', value: analysis.tribev2_brain_response?.cortical_response?.prefrontal_cortex || 0 },
+                          { label: 'Reward Center', value: analysis.tribev2_brain_response?.cortical_response?.reward_center || 0 },
+                        ].map(item => (
+                          <div key={item.label} className="p-3 rounded-lg bg-white/[0.02]">
+                            <p className="text-[10px] mono text-text-tertiary mb-1">{item.label}</p>
+                            <p className="text-lg font-bold mono text-neural">{item.value.toFixed(1)}%</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <Suspense fallback={<div className="w-full h-[300px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>}>
+                      <Brain3D brainData={analysis.tribev2_brain_response} />
+                    </Suspense>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="glass-panel p-5">
@@ -533,7 +591,7 @@ export default function Dashboard() {
                           <h4 className="text-sm font-semibold text-white">Neural Response</h4>
                         </div>
                         <span className={`badge ${analysis.tribev2_brain_response?.mode === 'real' ? 'badge-neural' : 'badge-ghost'}`}>
-                          {analysis.tribev2_brain_response?.mode === 'real' ? 'REAL' : 'SIM'}
+                          {analysis.tribev2_brain_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
                         </span>
                       </div>
                       <ResponsiveContainer width="100%" height={200}>
@@ -553,7 +611,7 @@ export default function Dashboard() {
                           <h4 className="text-sm font-semibold text-white">Sentiment</h4>
                         </div>
                         <span className={`badge ${analysis.mirofish_simulation?.mode === 'real' ? 'badge-swarm' : 'badge-ghost'}`}>
-                          {analysis.mirofish_simulation?.mode === 'real' ? 'REAL' : 'SIM'}
+                          {analysis.mirofish_simulation?.mode === 'real' ? 'REAL' : 'SIMULATED'}
                         </span>
                       </div>
                       <div className="space-y-4">

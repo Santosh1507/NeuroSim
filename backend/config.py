@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     premium_price_yearly: int = 290
     premium_max_analyses_free: int = 10
     gpu_provider: str = "modal"
+    gpu_model: str = "a10g"
+    gpu_timeout_seconds: int = 60
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_id_monthly: str = ""
+    stripe_price_id_yearly: str = ""
     
     class Config:
         env_file = ".env"
