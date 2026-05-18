@@ -16,3 +16,7 @@ services:
         value: "/tmp/uploads"
       - key: STAGEGATE_THRESHOLD
         value: "0.4"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

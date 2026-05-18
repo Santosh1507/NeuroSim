@@ -16,31 +16,11 @@ from tribe_engine import tribe_engine
 from mirofish_engine import mirofish_engine
 from roi_extractor import roi_extractor
 from bridge_logic import NeuroSocialBridge, ROI
+from database import db
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await tribe_engine.initialize()
-    print("NeuroSim API v2.0 started")
-    print(f"TRIBE v2: {'Real (GPU)' if tribe_engine.is_real else 'Simulated'}")
-    print(f"MiroFish: {'Real API' if mirofish_engine.is_real else 'Simulated'}")
-    yield
-
-if not os.path.isabs(settings.upload_dir):
-    settings.upload_dir = os.path.join(os.path.dirname(__file__), settings.upload_dir)
-Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
-
-app = FastAPI(title="NeuroSim API", version="2.0", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-videos_db: Dict[str, dict] = {}
-analyses_db: Dict[str, dict] = {}
+# In-memory fallback when Supabase is not configured
+_videos_cache: Dict[str, dict] = {}
+_analyses_cache: Dict[str, dict] = {}
 
 class VideoMetadata(BaseModel):
     id: str
@@ -76,7 +56,8 @@ async def upload_video(file: UploadFile = File(...)):
                 break
             await f.write(chunk)
     
-    videos_db[video_id] = {
+    await db.insert_video(video_id, file.filename, "processing")
+    _videos_cache[video_id] = {
         "id": video_id,
         "filename": file.filename,
         "upload_time": datetime.now().isoformat(),
@@ -85,8 +66,10 @@ async def upload_video(file: UploadFile = File(...)):
     }
     
     analysis = await process_video(video_id, str(file_path))
-    analyses_db[video_id] = analysis
-    videos_db[video_id]["status"] = "analyzed"
+    await db.insert_analysis(video_id, analysis)
+    await db.update_video_status(video_id, "analyzed")
+    _analyses_cache[video_id] = analysis
+    _videos_cache[video_id]["status"] = "analyzed"
     
     analysis["filename"] = file.filename
     analysis["status"] = "analyzed"
@@ -182,27 +165,37 @@ async def process_video(video_id: str, file_path: str) -> Dict[str, Any]:
 
 @app.get("/videos")
 async def list_videos():
-    return {"videos": list(videos_db.values())}
+    if db.enabled:
+        videos = await db.list_videos()
+        return {"videos": videos}
+    return {"videos": list(_videos_cache.values())}
 
 @app.get("/videos/{video_id}")
 async def get_video(video_id: str):
-    if video_id not in videos_db:
+    video = await db.get_video(video_id) or _videos_cache.get(video_id)
+    if not video:
         raise HTTPException(status_code=404, detail="Video not found")
-    return {"video": videos_db[video_id]}
+    return {"video": video}
 
 @app.get("/analyses/{video_id}")
 async def get_analysis(video_id: str):
-    if video_id not in analyses_db:
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        return analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+    if video_id not in _analyses_cache:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return analyses_db[video_id]
+    return _analyses_cache[video_id]
 
 @app.get("/reports/{video_id}")
 async def get_report(video_id: str):
-    if video_id not in analyses_db:
+    video = await db.get_video(video_id) or _videos_cache.get(video_id, {})
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        analysis = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+    elif video_id in _analyses_cache:
+        analysis = _analyses_cache[video_id]
+    else:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    
-    analysis = analyses_db[video_id]
-    video = videos_db.get(video_id, {})
     
     return {
         "report_id": f"report_{video_id}",
@@ -213,25 +206,38 @@ async def get_report(video_id: str):
 
 @app.get("/simulation/{video_id}")
 async def get_simulation(video_id: str):
-    if video_id not in analyses_db:
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+        return data.get("mirofish_simulation", {})
+    if video_id not in _analyses_cache:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return analyses_db[video_id].get("mirofish_simulation", {})
+    return _analyses_cache[video_id].get("mirofish_simulation", {})
 
 @app.get("/brain-response/{video_id}")
 async def get_brain_response(video_id: str):
-    if video_id not in analyses_db:
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+        return data.get("tribev2_brain_response", {})
+    if video_id not in _analyses_cache:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return analyses_db[video_id].get("tribev2_brain_response", {})
+    return _analyses_cache[video_id].get("tribev2_brain_response", {})
 
 class WhatIfRequest(BaseModel):
     modifications: Dict[str, Any]
 
 @app.post("/simulation/what-if/{video_id}")
 async def run_what_if(video_id: str, request: WhatIfRequest):
-    if video_id not in analyses_db:
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+        base_sim = data.get("mirofish_simulation", {})
+    elif video_id in _analyses_cache:
+        base_sim = _analyses_cache[video_id].get("mirofish_simulation", {})
+    else:
         raise HTTPException(status_code=404, detail="Analysis not found")
     
-    base_sim = analyses_db[video_id].get("mirofish_simulation", {})
     result = await mirofish_engine.run_what_if(base_sim, request.modifications)
     return result
 
