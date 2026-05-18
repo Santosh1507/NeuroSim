@@ -18,6 +18,26 @@ from roi_extractor import roi_extractor
 from bridge_logic import NeuroSocialBridge, ROI
 from database import db
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print(f"NeuroSim API starting - TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}")
+    yield
+    print("NeuroSim API shutting down")
+
+app = FastAPI(
+    title="NeuroSim API",
+    version="2.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # In-memory fallback when Supabase is not configured
 _videos_cache: Dict[str, dict] = {}
 _analyses_cache: Dict[str, dict] = {}
