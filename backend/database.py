@@ -35,10 +35,11 @@ class Database:
             else:
                 print("Supabase not configured. Using in-memory storage.")
     
-    async def insert_video(self, video_id: str, filename: str, status: str = "uploaded") -> Dict:
+    async def insert_video(self, video_id: str, filename: str, status: str = "uploaded", user_id: str = "anonymous") -> Dict:
         """Insert a video record."""
         record = {
             "id": video_id,
+            "user_id": user_id,
             "filename": filename,
             "status": status,
             "upload_time": datetime.now().isoformat(),
@@ -68,11 +69,12 @@ class Database:
             return result.data
         return []
     
-    async def insert_analysis(self, video_id: str, analysis: Dict) -> Dict:
+    async def insert_analysis(self, video_id: str, analysis: Dict, user_id: str = "anonymous") -> Dict:
         """Insert an analysis record."""
         record = {
             "id": f"analysis_{video_id}",
             "video_id": video_id,
+            "user_id": user_id,
             "data": analysis,
             "created_at": datetime.now().isoformat(),
         }
