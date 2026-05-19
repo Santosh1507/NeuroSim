@@ -128,7 +128,7 @@ class TestAPIEndpoints:
                 return True
             import time
 
-            time.sleep(0.5)
+            time.sleep(0.1)
         return False
 
     def test_upload_and_retrieve(self, client):

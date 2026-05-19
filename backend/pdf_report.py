@@ -28,87 +28,34 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     )
 
     styles = getSampleStyleSheet()
-    styles.add(
-        ParagraphStyle(
-            name="Title",
-            fontSize=24,
-            leading=28,
-            spaceAfter=6,
-            textColor=colors.HexColor("#0a0a0f"),
-            fontName="Helvetica-Bold",
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            name="Subtitle",
-            fontSize=11,
-            leading=14,
-            spaceAfter=12,
-            textColor=colors.HexColor("#666666"),
-            fontName="Helvetica",
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            name="SectionHeader",
-            fontSize=14,
-            leading=18,
-            spaceBefore=16,
-            spaceAfter=8,
-            textColor=colors.HexColor("#0a0a0f"),
-            fontName="Helvetica-Bold",
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            name="BodyText",
-            fontSize=10,
-            leading=14,
-            spaceAfter=4,
-            textColor=colors.HexColor("#333333"),
-            fontName="Helvetica",
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            name="MetricValue",
-            fontSize=18,
-            leading=22,
-            spaceAfter=2,
-            textColor=colors.HexColor("#0a0a0f"),
-            fontName="Helvetica-Bold",
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            name="MetricLabel",
-            fontSize=8,
-            leading=10,
-            spaceAfter=8,
-            textColor=colors.HexColor("#666666"),
-            fontName="Helvetica",
-        )
-    )
-    styles.add(
-        ParagraphStyle(
-            name="BulletPoint",
-            fontSize=10,
-            leading=14,
-            leftIndent=20,
-            spaceAfter=4,
-            textColor=colors.HexColor("#333333"),
-            fontName="Helvetica",
-            bulletIndent=10,
-        )
-    )
+    # Add custom styles with unique names to avoid conflicts with built-ins
+    custom_styles = [
+        ParagraphStyle("ReportTitle", fontSize=24, leading=28, spaceAfter=6,
+                       textColor=colors.HexColor("#0a0a0f"), fontName="Helvetica-Bold"),
+        ParagraphStyle("ReportSubtitle", fontSize=11, leading=14, spaceAfter=12,
+                       textColor=colors.HexColor("#666666"), fontName="Helvetica"),
+        ParagraphStyle("ReportSection", fontSize=14, leading=18, spaceBefore=16, spaceAfter=8,
+                       textColor=colors.HexColor("#0a0a0f"), fontName="Helvetica-Bold"),
+        ParagraphStyle("ReportBody", fontSize=10, leading=14, spaceAfter=4,
+                       textColor=colors.HexColor("#333333"), fontName="Helvetica"),
+        ParagraphStyle("MetricValue", fontSize=18, leading=22, spaceAfter=2,
+                       textColor=colors.HexColor("#0a0a0f"), fontName="Helvetica-Bold"),
+        ParagraphStyle("MetricLabel", fontSize=8, leading=10, spaceAfter=8,
+                       textColor=colors.HexColor("#666666"), fontName="Helvetica"),
+        ParagraphStyle("ReportBullet", fontSize=10, leading=14, leftIndent=20, spaceAfter=4,
+                       textColor=colors.HexColor("#333333"), fontName="Helvetica",
+                       bulletIndent=10),
+    ]
+    for s in custom_styles:
+        styles.add(s)
 
     story = []
 
     # Header
-    story.append(Paragraph("NeuroSim Analysis Report", styles["Title"]))
+    story.append(Paragraph("NeuroSim Analysis Report", styles["ReportTitle"]))
     story.append(
         Paragraph(
-            f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", styles["Subtitle"]
+            f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", styles["ReportSubtitle"]
         )
     )
     story.append(
@@ -117,12 +64,12 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
 
     if video_info:
         story.append(
-            Paragraph(f"File: {video_info.get('filename', 'Unknown')}", styles["BodyText"])
+            Paragraph(f"File: {video_info.get('filename', 'Unknown')}", styles["ReportBody"])
         )
         story.append(Spacer(1, 12))
 
     # Summary metrics
-    story.append(Paragraph("Summary", styles["SectionHeader"]))
+    story.append(Paragraph("Summary", styles["ReportSection"]))
 
     metrics = [
         ("Hook Score", f"{analysis.get('hook_score', 0)}%"),
@@ -157,7 +104,7 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     story.append(metric_table)
 
     # Stage-Gate
-    story.append(Paragraph("Stage-Gate Analysis", styles["SectionHeader"]))
+    story.append(Paragraph("Stage-Gate Analysis", styles["ReportSection"]))
     sg = analysis.get("stage_gate", {})
     status = "PASS" if sg.get("passed") else "FAIL"
     status_color = colors.HexColor("#34d399") if sg.get("passed") else colors.HexColor("#f87171")
@@ -201,7 +148,7 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     brain = analysis.get("tribev2_brain_response", {})
     cortical = brain.get("cortical_response", {})
     if cortical:
-        story.append(Paragraph("Neural Response (TRIBE v2)", styles["SectionHeader"]))
+        story.append(Paragraph("Neural Response (TRIBE v2)", styles["ReportSection"]))
         roi_data = [
             [
                 Paragraph(k.replace("_", " ").title(), styles["MetricLabel"]),
@@ -224,14 +171,14 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     # Recommendations
     recs = analysis.get("recommendations", [])
     if recs:
-        story.append(Paragraph("Recommendations", styles["SectionHeader"]))
+        story.append(Paragraph("Recommendations", styles["ReportSection"]))
         for rec in recs:
-            story.append(Paragraph(f"• {rec}", styles["BulletPoint"]))
+            story.append(Paragraph(f"• {rec}", styles["ReportBullet"]))
 
     # Sentiment
     sentiment = analysis.get("sentiment_forecast", {})
     if sentiment:
-        story.append(Paragraph("Sentiment Forecast", styles["SectionHeader"]))
+        story.append(Paragraph("Sentiment Forecast", styles["ReportSection"]))
         sent_data = [
             [
                 Paragraph("Positive", styles["MetricLabel"]),

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import random
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -116,7 +117,8 @@ class MiroFishEngine:
         num_agents: int = 1000,
         simulation_rounds: int = 20,
     ) -> Dict[str, Any]:
-        await asyncio.sleep(0.8)
+        # Use shorter sleep in test mode (NEUROSIM_SYNC_MODE)
+        await asyncio.sleep(0.05 if os.environ.get("NEUROSIM_SYNC_MODE") else 0.8)
 
         roi_boost = 0
         if roi_scores:
@@ -284,7 +286,8 @@ class MiroFishEngine:
             except Exception:
                 pass
 
-        await asyncio.sleep(0.5)
+        # Use shorter sleep in test mode (NEUROSIM_SYNC_MODE)
+        await asyncio.sleep(0.05 if os.environ.get("NEUROSIM_SYNC_MODE") else 0.5)
 
         effects = []
         if modifications.get("earlier_product_mention"):
