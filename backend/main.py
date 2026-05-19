@@ -43,6 +43,19 @@ from tribe_engine import tribe_engine
 _BACKGROUND_SWEEP_INTERVAL = 60  # seconds between automatic housekeeping sweeps
 
 
+def _user_error(message: str, detail: str = "", status_code: int = 500):
+    """Return a user-friendly error response."""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": message,
+            "detail": detail,
+            "help": "If this persists, try again in a few minutes or contact support.",
+        },
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure upload directory exists
@@ -566,7 +579,12 @@ async def _process_in_background(
         }
         await _broadcast_progress(video_id, _task_status[video_id])
     except Exception as e:
-        _task_status[video_id] = {"status": "error", "progress": 0, "message": str(e)}
+        _task_status[video_id] = {
+            "status": "error",
+            "progress": 0,
+            "message": "Analysis failed. Please try uploading again.",
+            "detail": str(e),
+        }
         await store.update_video_status(video_id, "error")
         await _broadcast_progress(video_id, _task_status[video_id])
         # Clean up file on error too

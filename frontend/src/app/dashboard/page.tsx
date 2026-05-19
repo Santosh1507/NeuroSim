@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useAuth } from '../../lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { tabSwitch, pulseSlow, hoverLift, tapPress } from '../../lib/easing'
 import {
   Upload, Play, Brain, Users, Zap, TrendingUp,
   AlertTriangle, CheckCircle, Sparkles, BarChart2,
@@ -421,8 +422,8 @@ export default function Dashboard() {
             <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-4">
               <motion.div 
                 className="w-14 h-14 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={hoverLift.whileHover}
+                whileTap={tapPress.whileTap}
               >
                 {uploading ? (
                   <div className="relative w-14 h-14 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center">
@@ -457,9 +458,17 @@ export default function Dashboard() {
       </div>
 
         {apiError && (
-          <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-3">
-            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            <p className="text-sm text-amber-200">{apiError}</p>
+          <div className="glass-panel p-4 mb-4 border border-signal-orange/30">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-signal-orange" />
+              <p className="text-sm text-text-primary">{apiError}</p>
+            </div>
+            <button
+              onClick={() => setApiError(null)}
+              className="btn-ghost mt-2 text-sm"
+            >
+              Try Again
+            </button>
           </div>
         )}
 
@@ -513,7 +522,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  transition={tabSwitch}
                   className="space-y-6"
                 >
                   {analysis ? (
@@ -541,8 +550,8 @@ export default function Dashboard() {
                     <div className="glass-panel p-16 flex flex-col items-center justify-center text-center">
                       <motion.div 
                         className="w-16 h-16 rounded-xl bg-neural/5 border border-neural/10 flex items-center justify-center mb-5"
-                        animate={{ opacity: [0.5, 1, 0.5] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={pulseSlow}
                       >
                         <Activity className="w-7 h-7 text-neural/60" />
                       </motion.div>
@@ -565,7 +574,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  transition={tabSwitch}
                   className="space-y-6"
                 >
                   {/* 3D Brain Heatmap (desktop) / 2D Scorecard (mobile) */}
@@ -676,7 +685,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  transition={tabSwitch}
                   className="space-y-6"
                 >
                   <div className="glass-panel p-6">
