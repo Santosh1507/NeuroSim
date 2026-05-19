@@ -4,23 +4,24 @@ Items deferred from the v2.3 autoplan review. These are not critical blockers bu
 
 ## Eng: Architecture & Maintainability
 
-- [ ] **Analysis deletion endpoint** — Users cannot delete analyses. With share links in play, there's no way to revoke access. Minor for demo, problematic for real usage.
+- [x] **Analysis deletion endpoint** — `DELETE /analyses/{video_id}` implemented. Cleans caches, share links (via reverse map), and Supabase.
+- [x] **Upload MIME validation** — `_is_video_magic()` checks ftyp/RIFF+AVI/EBML signatures from first 32 bytes. Zero dependencies.
 - [ ] **Supabase/cache abstraction leak** — Analysis data wraps inconsistently between Supabase (`{"data": {...}}`) and in-memory cache (flat). The `_get_analysis_or_404` helper normalizes this, but the leaky storage layer remains. Consider a `StorageAdapter` interface.
-- [ ] **Upload MIME validation** — Extension-only validation (`.mp4`, `.mov`, etc.) with no magic byte checking. Real users could upload non-video files.
 
 ## Eng: Tests
 
-- [ ] **Missing module tests** — `database.py`, `transcriber.py`, `mirofish_engine.py`, `pdf_report.py` have no tests.
+- [x] **Missing module tests** — `database.py` (12 async tests, fallback mode) and `transcriber.py` (7 whisper-agnostic tests) now have coverage.
 - [ ] **Slow API tests** — Artificial 2.3s delay per analysis test via `NEUROSIM_SYNC_MODE`. Tests are functional but slow.
+- [ ] **mirofish_engine.py & pdf_report.py tests** — These two modules still lack dedicated test coverage.
 
 ## Eng: Security (demo-acceptable, address before real users)
 
 - [ ] **No auth enforcement** — API accepts arbitrary `user_id` query params with no validation. Any user can masquerade as any other user.
-- [ ] **Share links never expire** — Added 7-day TTL in v2.3, but no user-facing revoke mechanism.
+- [x] **Share link expiration** — 7-day TTL added in v2.3. Expired links return 410 with clear message.
 
 ## Eng: Background Processing
 
-- [ ] **No periodic cleanup** — `_evict_stale()` is called on request and is now rate-limited to 30s intervals. Consider a background sweep for long-running sessions with no API calls.
+- [x] **Periodic cleanup sweep** — Background asyncio task runs every 60s in lifespan, resets `_last_eviction` gate to force `_evict_stale()`.
 - [ ] **No cache warming** — Free-tier Render instances sleep after inactivity. First request wakes the server AND runs analysis. Consider a warm-up endpoint for premium users.
 
 ## Design

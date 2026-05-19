@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from config import settings
 from main import _analyses_cache, _videos_cache, app
 from rate_limiter import upload_limiter
 
@@ -34,6 +35,9 @@ def clean_dbs():
     _videos_cache.clear()
     _analyses_cache.clear()
     upload_limiter._requests.clear()
+    # Ensure upload directory exists (TestClient may not trigger lifespan)
+    import os
+    os.makedirs(settings.upload_dir, exist_ok=True)
     yield
 
 

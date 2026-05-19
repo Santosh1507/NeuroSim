@@ -34,6 +34,9 @@ from transcriber import transcriber
 from tribe_engine import tribe_engine
 
 
+_BACKGROUND_SWEEP_INTERVAL = 60  # seconds between automatic housekeeping sweeps
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure upload directory exists
@@ -42,7 +45,23 @@ async def lifespan(app: FastAPI):
     print(
         f"NeuroSim API starting — TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}, Whisper: {whisper_status}"
     )
+
+    # Start background housekeeping sweep
+    async def _background_sweep():
+        while True:
+            await asyncio.sleep(_BACKGROUND_SWEEP_INTERVAL)
+            try:
+                global _last_eviction
+                _last_eviction = 0  # reset gate so _evict_stale runs
+                _evict_stale()
+            except Exception as e:
+                print(f"[WARN] Background sweep failed: {e}")
+
+    sweep_task = asyncio.create_task(_background_sweep())
+
     yield
+
+    sweep_task.cancel()
     print("NeuroSim API shutting down")
 
 
@@ -599,11 +618,8 @@ async def delete_analysis(video_id: str):
     Cleans up: analyses cache, videos cache, share links, task status,
     WebSocket connections, and cache timestamps.
     """
-    # Check it exists first
-    try:
-        await _get_analysis_or_404(video_id)
-    except HTTPException:
-        raise HTTPException(status_code=404, detail="Analysis not found") from None
+    # _get_analysis_or_404 already raises 404 if not found — no need for try/except
+    await _get_analysis_or_404(video_id)
 
     # Remove from in-memory caches
     _analyses_cache.pop(video_id, None)
