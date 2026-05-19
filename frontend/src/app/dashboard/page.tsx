@@ -61,6 +61,9 @@ export default function Dashboard() {
   const [isMobile, setIsMobile] = useState(false)
   const [compareIds, setCompareIds] = useState<string[]>([])
   const [backendReachable, setBackendReachable] = useState<boolean | null>(null)
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false)
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
+  const [feedbackData, setFeedbackData] = useState({ views: '', engagement: '', wouldPublish: true })
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -690,6 +693,33 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
+
+                  {!feedbackSubmitted && (
+                    <div className="glass-panel p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-white mb-1">How did this video perform?</h4>
+                          <p className="text-xs text-text-tertiary">Share actual results to help us improve predictions.</p>
+                        </div>
+                        <button
+                          onClick={() => setShowFeedbackForm(true)}
+                          className="btn-ghost text-sm flex items-center gap-1"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          Share Results
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {feedbackSubmitted && (
+                    <div className="glass-panel p-5 border-neural/20">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-neural" />
+                        <p className="text-sm text-text-secondary">Thanks! Your data helps improve predictions for everyone.</p>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -1042,6 +1072,71 @@ export default function Dashboard() {
             {copied && (
               <p className="text-xs text-green-400 mt-2 text-center">Copied to clipboard!</p>
             )}
+          </motion.div>
+        </div>
+      )}
+
+      {showFeedbackForm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFeedbackForm(false)} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl p-6"
+          >
+            <button onClick={() => setShowFeedbackForm(false)} className="absolute top-4 right-4 text-text-tertiary hover:text-white cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center">
+                <BarChart2 className="w-5 h-5 text-neural" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Video Performance</h3>
+                <p className="text-sm text-text-tertiary">Help us improve predictions</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-text-secondary mb-1 block">Actual Views</label>
+                <input
+                  type="number"
+                  value={feedbackData.views}
+                  onChange={(e) => setFeedbackData({ ...feedbackData, views: e.target.value })}
+                  placeholder="e.g. 15000"
+                  className="w-full p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-neural/40"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-secondary mb-1 block">Engagement Rate (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={feedbackData.engagement}
+                  onChange={(e) => setFeedbackData({ ...feedbackData, engagement: e.target.value })}
+                  placeholder="e.g. 4.2"
+                  className="w-full p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-neural/40"
+                />
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+                <span className="text-sm text-text-secondary">Would you publish this?</span>
+                <button
+                  onClick={() => setFeedbackData({ ...feedbackData, wouldPublish: !feedbackData.wouldPublish })}
+                  className={`w-12 h-6 rounded-full transition-colors ${feedbackData.wouldPublish ? 'bg-neural' : 'bg-white/20'}`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${feedbackData.wouldPublish ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  setFeedbackSubmitted(true)
+                  setShowFeedbackForm(false)
+                }}
+                className="w-full btn-neural py-3"
+              >
+                Submit Feedback
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
