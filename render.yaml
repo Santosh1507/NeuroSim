@@ -9,7 +9,7 @@ services:
     autoDeploy: true
     envVars:
       - key: CORS_ORIGINS
-        value: '["http://localhost:3000", "https://neurosim.netlify.app"]'
+        value: '["http://localhost:3000", "https://neurosim.vercel.app"]'
       - key: TRIBE_USE_REAL
         value: "false"
       - key: MIROFISH_USE_REAL

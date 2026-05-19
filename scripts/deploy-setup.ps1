@@ -1,4 +1,4 @@
-# NeuroSim v3.0 — Deploy & Setup Script
+# Deploy NeuroSim v3.0 — Setup Script
 # Run this after cloning to set up all deployment surfaces.
 
 param(
@@ -37,37 +37,35 @@ if (-not $remoteUrl) {
 }
 Write-Host "  Remote: $remoteUrl" -ForegroundColor Green
 
-# Step 2: Set GitHub secrets
+# Check Vercel connection
+$vercelDir = Join-Path $repoRoot ".vercel"
+if (Test-Path $vercelDir) {
+    Write-Host "  Vercel: connected (.vercel/ found)" -ForegroundColor Green
+} else {
+    Write-Host "  Vercel: NOT connected — run 'vercel link' in the repo root" -ForegroundColor Yellow
+}
+
+# Step 2: Set GitHub secrets (Render only — Vercel auto-deploys on push)
 if (-not $SkipSecrets) {
     Write-Host ""
-    Write-Host "[2/5] Setting GitHub Actions secrets..." -ForegroundColor Yellow
-    Write-Host "  You'll need these values from your Render and Netlify dashboards:"
+    Write-Host "[2/5] Setting GitHub Actions secrets (Render only)..." -ForegroundColor Yellow
+    Write-Host "  Note: Vercel auto-deploys on push — no secrets needed."
     Write-Host ""
-    Write-Host "  Render:"
+    Write-Host "  Get these from Render dashboard:"
     Write-Host "    - API Key: https://dashboard.render.com/user/settings > API Keys"
-    Write-Host "    - Service ID: Render dashboard > your service > Settings > Service ID"
-    Write-Host ""
-    Write-Host "  Netlify:"
-    Write-Host "    - Auth Token: https://app.netlify.com/user/applications > Personal access tokens"
-    Write-Host "    - Site ID: Netlify dashboard > Site settings > Site details"
+    Write-Host "    - Service ID: Render dashboard > neurosim-api > Settings > Service ID"
     Write-Host ""
 
     $renderApiKey = Read-Host "  Render API Key"
     $renderServiceId = Read-Host "  Render Service ID"
-    $netlifyToken = Read-Host "  Netlify Auth Token"
-    $netlifySiteId = Read-Host "  Netlify Site ID"
 
     if ($DryRun) {
         Write-Host "  [DRY RUN] Would set secrets:" -ForegroundColor Gray
         Write-Host "    RENDER_API_KEY = $($renderApiKey.Substring(0,8))..."
         Write-Host "    RENDER_SERVICE_ID = $renderServiceId"
-        Write-Host "    NETLIFY_AUTH_TOKEN = $($netlifyToken.Substring(0,8))..."
-        Write-Host "    NETLIFY_SITE_ID = $netlifySiteId"
     } else {
         gh secret set RENDER_API_KEY --body $renderApiKey
         gh secret set RENDER_SERVICE_ID --body $renderServiceId
-        gh secret set NETLIFY_AUTH_TOKEN --body $netlifyToken
-        gh secret set NETLIFY_SITE_ID --body $netlifySiteId
         Write-Host "  Secrets set successfully." -ForegroundColor Green
     }
 }
@@ -82,14 +80,13 @@ try {
     $body = $response.Content | ConvertFrom-Json
     if ($body.status -eq "healthy") {
         Write-Host "  Backend is healthy at $healthUrl" -ForegroundColor Green
-        Write-Host "  Mode: TRIBE=$($body.tribe), MiroFish=$($body.mirofish), Whisper=$($body.whisper)" -ForegroundColor Gray
+        Write-Host "  Version: $($body.version), Whisper: $($body.whisper), Supabase: $($body.supabase)" -ForegroundColor Gray
     } else {
         Write-Host "  Backend responded but status is not healthy: $($body.status)" -ForegroundColor Yellow
     }
 } catch {
     Write-Host "  Backend unreachable at $healthUrl" -ForegroundColor Yellow
     Write-Host "  This is normal if Render hasn't deployed the latest code yet." -ForegroundColor Gray
-    Write-Host "  After secrets are set, push to master to trigger auto-deploy." -ForegroundColor Gray
 }
 
 # Step 4: Trigger deploy
@@ -102,17 +99,17 @@ if (-not $SkipDeploy) {
     } else {
         if ($renderServiceId -and $renderApiKey) {
             try {
-                $deployResponse = Invoke-WebRequest -Uri "https://api.render.com/v1/services/$renderServiceId/deploys" -Method POST -Headers @{
+                Invoke-WebRequest -Uri "https://api.render.com/v1/services/$renderServiceId/deploys" -Method POST -Headers @{
                     "Authorization" = "Bearer $renderApiKey"
                     "Content-Type" = "application/json"
-                } -TimeoutSec 30
-                Write-Host "  Deploy triggered!" -ForegroundColor Green
+                } -TimeoutSec 30 | Out-Null
+                Write-Host "  Deploy triggered! Watch at https://dashboard.render.com" -ForegroundColor Green
             } catch {
                 Write-Host "  Deploy trigger failed: $_" -ForegroundColor Yellow
                 Write-Host "  Pushing to master will trigger auto-deploy instead." -ForegroundColor Gray
             }
         } else {
-            Write-Host "  No Render credentials available. Pushing to master will trigger auto-deploy." -ForegroundColor Gray
+            Write-Host "  No Render credentials. Push to master to trigger auto-deploy." -ForegroundColor Gray
         }
     }
 }
@@ -132,7 +129,7 @@ Write-Host "2. Run database migrations (after Supabase is set):"
 Write-Host "   cd backend"
 Write-Host "   python migrate.py"
 Write-Host ""
-Write-Host "3. Verify deploy:"
+Write-Host "3. Verify deploys:"
 Write-Host "   curl https://neurosim-nm22.onrender.com/health"
 Write-Host "   curl https://neurosim-nm22.onrender.com/api/metrics"
 Write-Host ""
