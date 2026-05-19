@@ -12,6 +12,7 @@ from pdf_report import generate_pdf_report
 from correlation_tracker import CorrelationTracker
 from validation_study import ValidationStudy
 from youtube_client import extract_video_id, fetch_video_metadata, fetch_youtube_transcript
+from benchmark_data import get_benchmark, get_all_cohorts, compare_to_benchmark
 from bridge_logic import ROI, NeuroSocialBridge
 from config import settings
 from heuristic_scorer import score_transcript
@@ -344,3 +345,41 @@ async def get_my_validation_data(user_id: str = Depends(require_auth_user)):
     """Return the authenticated user's validation submissions."""
     entries = _study.get_user_entries(user_id)
     return {"user_id": user_id, "entries": entries, "count": len(entries)}
+
+
+@router.get("/api/benchmarks")
+async def get_benchmarks():
+    """Return all available benchmark cohorts."""
+    return {"cohorts": get_all_cohorts()}
+
+
+@router.post("/api/benchmarks/compare")
+async def compare_with_benchmark(req: dict):
+    """Compare analysis scores against a benchmark cohort.
+
+    Body: {"video_id": "...", "cohort": "all"}
+    """
+    video_id = req.get("video_id")
+    cohort = req.get("cohort", "all")
+
+    if not video_id:
+        raise HTTPException(status_code=400, detail="video_id required")
+
+    analysis = await _get_analysis_or_404(video_id)
+    user_scores = {
+        "hook_score": analysis.get("hook_score", 0),
+        "viral_potential": analysis.get("viral_potential", 0),
+        "success_probability": analysis.get("success_probability", 0),
+        "authenticity_score": analysis.get("authenticity_score", 0),
+        "risk_score": analysis.get("risk_score", 0),
+    }
+
+    comparison = compare_to_benchmark(user_scores, cohort)
+    benchmark = get_benchmark(cohort)
+
+    return {
+        "video_id": video_id,
+        "cohort": benchmark["label"],
+        "cohort_n": benchmark["n"],
+        "comparison": comparison,
+    }

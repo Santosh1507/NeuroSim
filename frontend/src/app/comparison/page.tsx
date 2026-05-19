@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { fadeIn } from '../../lib/easing'
 import { BarChart3, TrendingUp, ArrowUp, ArrowDown, Minus, Brain, Target, Zap, Activity, type LucideIcon } from 'lucide-react'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts'
 import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -15,37 +15,38 @@ function ComparisonContent() {
   const { isSignedIn, isLoaded } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [videoA, setVideoA] = useState<any>(null)
-  const [videoB, setVideoB] = useState<any>(null)
-  const [idA, setIdA] = useState('')
-  const [idB, setIdB] = useState('')
+  const [video, setVideo] = useState<any>(null)
+  const [videoId, setVideoId] = useState('')
   const [loading, setLoading] = useState(false)
+  const [comparison, setComparison] = useState<any>(null)
+  const [cohort, setCohort] = useState('all')
+  const [cohorts, setCohorts] = useState<any[]>([])
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push('/')
   }, [isLoaded, isSignedIn, router])
 
   useEffect(() => {
-    const a = searchParams.get('a')
-    const b = searchParams.get('b')
-    if (a && b) {
-      setIdA(a)
-      setIdB(b)
-      handleCompareWithIds(a, b)
+    axios.get(`${API_URL}/api/benchmarks`).then(r => setCohorts(r.data.cohorts))
+  }, [])
+
+  useEffect(() => {
+    const id = searchParams.get('id')
+    if (id) {
+      setVideoId(id)
+      handleCompare(id, cohort)
     }
   }, [searchParams])
 
-  const fetchAnalysis = async (videoId: string) => {
-    const res = await axios.get(`${API_URL}/analyses/${videoId}`)
-    return res.data
-  }
-
-  const handleCompareWithIds = async (a: string, b: string) => {
+  const handleCompare = async (id: string, selectedCohort: string) => {
     setLoading(true)
     try {
-      const [va, vb] = await Promise.all([fetchAnalysis(a), fetchAnalysis(b)])
-      setVideoA(va)
-      setVideoB(vb)
+      const [analysisRes, compareRes] = await Promise.all([
+        axios.get(`${API_URL}/analyses/${id}`),
+        axios.post(`${API_URL}/api/benchmarks/compare`, { video_id: id, cohort: selectedCohort }),
+      ])
+      setVideo(analysisRes.data)
+      setComparison(compareRes.data)
     } catch (err) {
       console.error('Comparison failed:', err)
     } finally {
@@ -53,76 +54,69 @@ function ComparisonContent() {
     }
   }
 
-  const handleCompare = async () => {
-    if (!idA || !idB) return
-    handleCompareWithIds(idA, idB)
-  }
-
   if (!isLoaded || !isSignedIn) return null
 
-  const metrics: { label: string; key: string; icon: LucideIcon; path?: string }[] = [
+  const metrics: { label: string; key: string; icon: LucideIcon; invert?: boolean }[] = [
     { label: 'Success Probability', key: 'success_probability', icon: Target },
     { label: 'Hook Score', key: 'hook_score', icon: Activity },
     { label: 'Authenticity', key: 'authenticity_score', icon: Brain },
     { label: 'Viral Potential', key: 'viral_potential', icon: Zap },
-    { label: 'Risk Score', key: 'risk_score', icon: TrendingUp },
-    { label: 'CTA Activation', key: 'cta_activation_score', path: 'cta_analysis.cta_activation_score', icon: Target },
+    { label: 'Risk Score', key: 'risk_score', icon: TrendingUp, invert: true },
   ]
 
-  const getVal = (analysis: any, key: string, path?: string) => {
-    if (path) {
-      const parts = path.split('.')
-      let obj = analysis
-      for (const p of parts) { if (obj) obj = obj[p] }
-      return obj ?? 0
-    }
-    return analysis?.[key] ?? 0
-  }
-
-  const chartData = metrics.map(m => ({
-    name: m.label.split(' ')[0],
-    A: getVal(videoA, m.key, m.path),
-    B: getVal(videoB, m.key, m.path),
-  }))
+  const chartData = comparison
+    ? metrics.map(m => ({
+        name: m.label.split(' ')[0],
+        Yours: comparison.comparison[m.key]?.user_value ?? 0,
+        Average: comparison.comparison[m.key]?.benchmark_mean ?? 0,
+      }))
+    : []
 
   return (
     <div className="min-h-screen bg-neural neural-grid">
       <div className="relative z-10">
-        <section className="max-w-6xl mx-auto px-6 py-12">
+        <section className="max-w-4xl mx-auto px-6 py-12">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={fadeIn}>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neural/10 border border-neural/20 mb-6">
               <BarChart3 className="w-3 h-3 text-neural" />
-              <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Comparison</span>
+              <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Benchmark</span>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-8">
-              Compare<span className="text-gradient"> analyses</span>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              How does your content<span className="text-gradient"> compare</span>?
             </h1>
+            <p className="text-text-secondary text-sm mb-8">
+              Compare your analysis against {comparison?.cohort_n?.toLocaleString() || '43,751'} creators from the FineVideo dataset.
+            </p>
 
             <div className="glass-panel p-5 mb-8">
               <div className="flex flex-col sm:flex-row gap-3 items-end">
                 <div className="flex-1">
-                  <label className="text-[10px] mono text-text-tertiary mb-1 block">Video A ID</label>
+                  <label className="text-[10px] mono text-text-tertiary mb-1 block">Video ID</label>
                   <input
                     type="text"
-                    value={idA}
-                    onChange={e => setIdA(e.target.value)}
+                    value={videoId}
+                    onChange={e => setVideoId(e.target.value)}
                     placeholder="Enter video ID"
                     className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/40"
                   />
                 </div>
-                <div className="flex-1">
-                  <label className="text-[10px] mono text-text-tertiary mb-1 block">Video B ID</label>
-                  <input
-                    type="text"
-                    value={idB}
-                    onChange={e => setIdB(e.target.value)}
-                    placeholder="Enter video ID"
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/40"
-                  />
+                <div className="w-48">
+                  <label className="text-[10px] mono text-text-tertiary mb-1 block">Cohort</label>
+                  <select
+                    value={cohort}
+                    onChange={e => setCohort(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-neural/40"
+                  >
+                    {cohorts.map(c => (
+                      <option key={c.key} value={c.key} className="bg-[#0f0f16]">
+                        {c.label} ({c.n.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <button
-                  onClick={handleCompare}
-                  disabled={loading || !idA || !idB}
+                  onClick={() => handleCompare(videoId, cohort)}
+                  disabled={loading || !videoId}
                   className="btn-neural text-sm px-6 py-2 disabled:opacity-50"
                 >
                   {loading ? 'Loading...' : 'Compare'}
@@ -130,13 +124,13 @@ function ComparisonContent() {
               </div>
             </div>
 
-            {videoA && videoB && (
+            {comparison && (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
                   {metrics.map(m => {
-                    const valA = getVal(videoA, m.key, m.path)
-                    const valB = getVal(videoB, m.key, m.path)
-                    const delta = valA - valB
+                    const data = comparison.comparison[m.key]
+                    if (!data) return null
+                    const delta = data.delta
                     const Icon = m.icon
                     return (
                       <div key={m.label} className="glass-panel p-4">
@@ -146,18 +140,17 @@ function ComparisonContent() {
                         </div>
                         <div className="flex items-end justify-between">
                           <div>
-                            <p className="text-lg font-bold mono text-neural">{valA}%</p>
-                            <p className="text-xs text-text-tertiary">A</p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {delta > 0 ? <ArrowUp className="w-3 h-3 text-green-400" /> : delta < 0 ? <ArrowDown className="w-3 h-3 text-red-400" /> : <Minus className="w-3 h-3 text-text-tertiary" />}
-                            <span className={`text-xs mono ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-text-tertiary'}`}>
-                              {delta > 0 ? '+' : ''}{delta.toFixed(1)}
-                            </span>
+                            <p className="text-lg font-bold mono text-neural">{data.user_value.toFixed(1)}</p>
+                            <p className="text-[10px] text-text-tertiary">yours</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold mono text-swarm">{valB}%</p>
-                            <p className="text-xs text-text-tertiary">B</p>
+                            <div className="flex items-center gap-1 justify-end">
+                              {delta > 0 ? <ArrowUp className="w-3 h-3 text-green-400" /> : delta < 0 ? <ArrowDown className="w-3 h-3 text-red-400" /> : <Minus className="w-3 h-3 text-text-tertiary" />}
+                              <span className={`text-xs mono ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-text-tertiary'}`}>
+                                {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-text-tertiary">P{data.percentile}</p>
                           </div>
                         </div>
                       </div>
@@ -165,21 +158,29 @@ function ComparisonContent() {
                   })}
                 </div>
 
-                <div className="glass-panel p-5">
-                  <h4 className="text-sm font-semibold text-white mb-4">Score Comparison</h4>
+                <div className="glass-panel p-5 mb-8">
+                  <h3 className="text-sm font-semibold text-white mb-4">Your Score vs Average</h3>
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                      <XAxis dataKey="name" stroke="#444" fontSize={11} />
-                      <YAxis domain={[0, 100]} stroke="#444" fontSize={11} />
+                      <XAxis dataKey="name" stroke="#444" fontSize={10} />
+                      <YAxis stroke="#444" fontSize={10} domain={[0, 100]} />
                       <Tooltip
                         contentStyle={{ background: '#0f0f16', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}
                         labelStyle={{ color: '#fff' }}
                       />
-                      <Bar dataKey="A" fill="#4deeea" radius={[4, 4, 0, 0]} fillOpacity={0.7} />
-                      <Bar dataKey="B" fill="#a78bfa" radius={[4, 4, 0, 0]} fillOpacity={0.7} />
+                      <Bar dataKey="Yours" fill="#4deeea" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Average" fill="rgba(255,255,255,0.15)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+
+                <div className="glass-panel p-5 border-neural/20">
+                  <h3 className="text-sm font-semibold text-white mb-3">Cohort: {comparison.cohort}</h3>
+                  <p className="text-xs text-text-tertiary">
+                    Based on {comparison.cohort_n.toLocaleString()} videos from the FineVideo dataset.
+                    Percentiles estimated from cohort quartile distributions.
+                  </p>
                 </div>
               </>
             )}
@@ -192,7 +193,7 @@ function ComparisonContent() {
 
 export default function ComparisonPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-neural neural-grid flex items-center justify-center"><div className="w-8 h-8 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-neural flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>}>
       <ComparisonContent />
     </Suspense>
   )
