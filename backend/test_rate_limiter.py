@@ -1,5 +1,5 @@
 """Tests for rate_limiter module."""
-import pytest
+
 from rate_limiter import RateLimiter
 
 
@@ -31,10 +31,11 @@ class TestRateLimiter:
 
     def test_window_expiry(self):
         import time
+
         limiter = RateLimiter(max_requests=1, window_seconds=1)
         assert limiter.is_allowed("127.0.0.1") is True
         assert limiter.is_allowed("127.0.0.1") is False
-        
+
         original_time = time.time
         try:
             time.time = lambda: original_time() + 2

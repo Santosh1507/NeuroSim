@@ -1,171 +1,287 @@
 """PDF report generation for NeuroSim analyses."""
-from io import BytesIO
+
 from datetime import datetime
-from typing import Dict, Any
-from reportlab.lib.pagesizes import letter
+from io import BytesIO
+from typing import Any, Dict
+
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, HRFlowable, KeepTogether
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+
 
 def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = None) -> bytes:
     """Generate PDF report from analysis data."""
+    video_info = video_info or {}  # Ensure we always have a dict
     buffer = BytesIO()
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        rightMargin=72,
-        leftMargin=72,
-        topMargin=72,
-        bottomMargin=72
+        buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72
     )
-    
+
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name='Title', fontSize=24, leading=28, spaceAfter=6,
-        textColor=colors.HexColor('#0a0a0f'), fontName='Helvetica-Bold'
-    ))
-    styles.add(ParagraphStyle(
-        name='Subtitle', fontSize=11, leading=14, spaceAfter=12,
-        textColor=colors.HexColor('#666666'), fontName='Helvetica'
-    ))
-    styles.add(ParagraphStyle(
-        name='SectionHeader', fontSize=14, leading=18, spaceBefore=16, spaceAfter=8,
-        textColor=colors.HexColor('#0a0a0f'), fontName='Helvetica-Bold'
-    ))
-    styles.add(ParagraphStyle(
-        name='BodyText', fontSize=10, leading=14, spaceAfter=4,
-        textColor=colors.HexColor('#333333'), fontName='Helvetica'
-    ))
-    styles.add(ParagraphStyle(
-        name='MetricValue', fontSize=18, leading=22, spaceAfter=2,
-        textColor=colors.HexColor('#0a0a0f'), fontName='Helvetica-Bold'
-    ))
-    styles.add(ParagraphStyle(
-        name='MetricLabel', fontSize=8, leading=10, spaceAfter=8,
-        textColor=colors.HexColor('#666666'), fontName='Helvetica'
-    ))
-    styles.add(ParagraphStyle(
-        name='BulletPoint', fontSize=10, leading=14, leftIndent=20, spaceAfter=4,
-        textColor=colors.HexColor('#333333'), fontName='Helvetica', bulletIndent=10
-    ))
-    
+    styles.add(
+        ParagraphStyle(
+            name="Title",
+            fontSize=24,
+            leading=28,
+            spaceAfter=6,
+            textColor=colors.HexColor("#0a0a0f"),
+            fontName="Helvetica-Bold",
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="Subtitle",
+            fontSize=11,
+            leading=14,
+            spaceAfter=12,
+            textColor=colors.HexColor("#666666"),
+            fontName="Helvetica",
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="SectionHeader",
+            fontSize=14,
+            leading=18,
+            spaceBefore=16,
+            spaceAfter=8,
+            textColor=colors.HexColor("#0a0a0f"),
+            fontName="Helvetica-Bold",
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="BodyText",
+            fontSize=10,
+            leading=14,
+            spaceAfter=4,
+            textColor=colors.HexColor("#333333"),
+            fontName="Helvetica",
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="MetricValue",
+            fontSize=18,
+            leading=22,
+            spaceAfter=2,
+            textColor=colors.HexColor("#0a0a0f"),
+            fontName="Helvetica-Bold",
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="MetricLabel",
+            fontSize=8,
+            leading=10,
+            spaceAfter=8,
+            textColor=colors.HexColor("#666666"),
+            fontName="Helvetica",
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="BulletPoint",
+            fontSize=10,
+            leading=14,
+            leftIndent=20,
+            spaceAfter=4,
+            textColor=colors.HexColor("#333333"),
+            fontName="Helvetica",
+            bulletIndent=10,
+        )
+    )
+
     story = []
-    
+
     # Header
-    story.append(Paragraph('NeuroSim Analysis Report', styles['Title']))
-    story.append(Paragraph(f'Generated: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}', styles['Subtitle']))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#4deeea'), spaceAfter=12))
-    
+    story.append(Paragraph("NeuroSim Analysis Report", styles["Title"]))
+    story.append(
+        Paragraph(
+            f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", styles["Subtitle"]
+        )
+    )
+    story.append(
+        HRFlowable(width="100%", thickness=1, color=colors.HexColor("#4deeea"), spaceAfter=12)
+    )
+
     if video_info:
-        story.append(Paragraph(f'File: {video_info.get("filename", "Unknown")}', styles['BodyText']))
+        story.append(
+            Paragraph(f"File: {video_info.get('filename', 'Unknown')}", styles["BodyText"])
+        )
         story.append(Spacer(1, 12))
-    
+
     # Summary metrics
-    story.append(Paragraph('Summary', styles['SectionHeader']))
-    
+    story.append(Paragraph("Summary", styles["SectionHeader"]))
+
     metrics = [
-        ('Hook Score', f"{analysis.get('hook_score', 0)}%"),
-        ('Authenticity', f"{analysis.get('authenticity_score', 0)}%"),
-        ('Success Probability', f"{analysis.get('success_probability', 0)}%"),
-        ('Viral Potential', f"{analysis.get('viral_potential', 0)}%"),
-        ('Risk Score', f"{analysis.get('risk_score', 0)}%"),
+        ("Hook Score", f"{analysis.get('hook_score', 0)}%"),
+        ("Authenticity", f"{analysis.get('authenticity_score', 0)}%"),
+        ("Success Probability", f"{analysis.get('success_probability', 0)}%"),
+        ("Viral Potential", f"{analysis.get('viral_potential', 0)}%"),
+        ("Risk Score", f"{analysis.get('risk_score', 0)}%"),
     ]
-    
+
     metric_data = []
     for label, value in metrics:
-        metric_data.append([
-            Paragraph(label, styles['MetricLabel']),
-            Paragraph(value, styles['MetricValue'])
-        ])
-    
+        metric_data.append(
+            [Paragraph(label, styles["MetricLabel"]), Paragraph(value, styles["MetricValue"])]
+        )
+
     metric_table = Table(
-        [[Paragraph(label, styles['MetricLabel']), Paragraph(value, styles['MetricValue'])]
-         for label, value in metrics],
-        colWidths=[2.5*inch, 2*inch]
+        [
+            [Paragraph(label, styles["MetricLabel"]), Paragraph(value, styles["MetricValue"])]
+            for label, value in metrics
+        ],
+        colWidths=[2.5 * inch, 2 * inch],
     )
-    metric_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-    ]))
+    metric_table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
     story.append(metric_table)
-    
+
     # Stage-Gate
-    story.append(Paragraph('Stage-Gate Analysis', styles['SectionHeader']))
-    sg = analysis.get('stage_gate', {})
-    status = 'PASS' if sg.get('passed') else 'FAIL'
-    status_color = colors.HexColor('#34d399') if sg.get('passed') else colors.HexColor('#f87171')
-    
+    story.append(Paragraph("Stage-Gate Analysis", styles["SectionHeader"]))
+    sg = analysis.get("stage_gate", {})
+    status = "PASS" if sg.get("passed") else "FAIL"
+    status_color = colors.HexColor("#34d399") if sg.get("passed") else colors.HexColor("#f87171")
+
     sg_data = [
-        [Paragraph('W_attn', styles['MetricLabel']), Paragraph(f"{sg.get('W_attn', 0):.3f}", styles['MetricValue'])],
-        [Paragraph('Threshold', styles['MetricLabel']), Paragraph(f"{sg.get('threshold', 0):.1f}", styles['MetricValue'])],
-        [Paragraph('Status', styles['MetricLabel']), Paragraph(status, ParagraphStyle(
-            'StatusStyle', fontSize=18, leading=22, textColor=status_color, fontName='Helvetica-Bold'
-        ))],
+        [
+            Paragraph("W_attn", styles["MetricLabel"]),
+            Paragraph(f"{sg.get('W_attn', 0):.3f}", styles["MetricValue"]),
+        ],
+        [
+            Paragraph("Threshold", styles["MetricLabel"]),
+            Paragraph(f"{sg.get('threshold', 0):.1f}", styles["MetricValue"]),
+        ],
+        [
+            Paragraph("Status", styles["MetricLabel"]),
+            Paragraph(
+                status,
+                ParagraphStyle(
+                    "StatusStyle",
+                    fontSize=18,
+                    leading=22,
+                    textColor=status_color,
+                    fontName="Helvetica-Bold",
+                ),
+            ),
+        ],
     ]
-    sg_table = Table(sg_data, colWidths=[2.5*inch, 2*inch])
-    sg_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-    ]))
+    sg_table = Table(sg_data, colWidths=[2.5 * inch, 2 * inch])
+    sg_table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
     story.append(sg_table)
-    
+
     # ROI Scores
-    brain = analysis.get('tribev2_brain_response', {})
-    cortical = brain.get('cortical_response', {})
+    brain = analysis.get("tribev2_brain_response", {})
+    cortical = brain.get("cortical_response", {})
     if cortical:
-        story.append(Paragraph('Neural Response (TRIBE v2)', styles['SectionHeader']))
-        roi_data = [[
-            Paragraph(k.replace('_', ' ').title(), styles['MetricLabel']),
-            Paragraph(f"{v:.1f}%", styles['MetricValue'])
-        ] for k, v in cortical.items()]
-        roi_table = Table(roi_data, colWidths=[2.5*inch, 2*inch])
-        roi_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ]))
-        story.append(roi_table)
-    
-    # Recommendations
-    recs = analysis.get('recommendations', [])
-    if recs:
-        story.append(Paragraph('Recommendations', styles['SectionHeader']))
-        for rec in recs:
-            story.append(Paragraph(f'• {rec}', styles['BulletPoint']))
-    
-    # Sentiment
-    sentiment = analysis.get('sentiment_forecast', {})
-    if sentiment:
-        story.append(Paragraph('Sentiment Forecast', styles['SectionHeader']))
-        sent_data = [
-            [Paragraph('Positive', styles['MetricLabel']), Paragraph(f"{sentiment.get('positive_sentiment_pct', 0):.1f}%", styles['MetricValue'])],
-            [Paragraph('Negative', styles['MetricLabel']), Paragraph(f"{sentiment.get('negative_sentiment_pct', 0):.1f}%", styles['MetricValue'])],
-            [Paragraph('Neutral', styles['MetricLabel']), Paragraph(f"{sentiment.get('neutral_sentiment_pct', 0):.1f}%", styles['MetricValue'])],
-            [Paragraph('Shareability', styles['MetricLabel']), Paragraph(f"{sentiment.get('shareability_index', 0):.1f}%", styles['MetricValue'])],
+        story.append(Paragraph("Neural Response (TRIBE v2)", styles["SectionHeader"]))
+        roi_data = [
+            [
+                Paragraph(k.replace("_", " ").title(), styles["MetricLabel"]),
+                Paragraph(f"{v:.1f}%", styles["MetricValue"]),
+            ]
+            for k, v in cortical.items()
         ]
-        sent_table = Table(sent_data, colWidths=[2.5*inch, 2*inch])
-        sent_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ]))
+        roi_table = Table(roi_data, colWidths=[2.5 * inch, 2 * inch])
+        roi_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ]
+            )
+        )
+        story.append(roi_table)
+
+    # Recommendations
+    recs = analysis.get("recommendations", [])
+    if recs:
+        story.append(Paragraph("Recommendations", styles["SectionHeader"]))
+        for rec in recs:
+            story.append(Paragraph(f"• {rec}", styles["BulletPoint"]))
+
+    # Sentiment
+    sentiment = analysis.get("sentiment_forecast", {})
+    if sentiment:
+        story.append(Paragraph("Sentiment Forecast", styles["SectionHeader"]))
+        sent_data = [
+            [
+                Paragraph("Positive", styles["MetricLabel"]),
+                Paragraph(
+                    f"{sentiment.get('positive_sentiment_pct', 0):.1f}%", styles["MetricValue"]
+                ),
+            ],
+            [
+                Paragraph("Negative", styles["MetricLabel"]),
+                Paragraph(
+                    f"{sentiment.get('negative_sentiment_pct', 0):.1f}%", styles["MetricValue"]
+                ),
+            ],
+            [
+                Paragraph("Neutral", styles["MetricLabel"]),
+                Paragraph(
+                    f"{sentiment.get('neutral_sentiment_pct', 0):.1f}%", styles["MetricValue"]
+                ),
+            ],
+            [
+                Paragraph("Shareability", styles["MetricLabel"]),
+                Paragraph(f"{sentiment.get('shareability_index', 0):.1f}%", styles["MetricValue"]),
+            ],
+        ]
+        sent_table = Table(sent_data, colWidths=[2.5 * inch, 2 * inch])
+        sent_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ]
+            )
+        )
         story.append(sent_table)
-    
+
     # Footer
     story.append(Spacer(1, 24))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e0e0e0'), spaceBefore=12))
-    story.append(Paragraph(
-        'NeuroSim v2.0 — TRIBE v2 + MiroFish | Confidential',
-        ParagraphStyle('Footer', fontSize=8, textColor=colors.HexColor('#999999'), alignment=TA_CENTER)
-    ))
-    
+    story.append(
+        HRFlowable(width="100%", thickness=1, color=colors.HexColor("#e0e0e0"), spaceBefore=12)
+    )
+    story.append(
+        Paragraph(
+            "NeuroSim v2.0 — TRIBE v2 + MiroFish | Confidential",
+            ParagraphStyle(
+                "Footer", fontSize=8, textColor=colors.HexColor("#999999"), alignment=TA_CENTER
+            ),
+        )
+    )
+
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()

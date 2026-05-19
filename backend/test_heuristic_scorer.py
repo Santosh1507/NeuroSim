@@ -1,6 +1,6 @@
 """Tests for heuristic_scorer module."""
-import pytest
-from heuristic_scorer import score_transcript, score_a5, score_lo, score_area45, score_tpj
+
+from heuristic_scorer import score_transcript
 
 
 class TestHeuristicScorer:

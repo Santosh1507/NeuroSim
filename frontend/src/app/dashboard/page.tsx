@@ -4,13 +4,14 @@ import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useAuth } from '../../lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Upload, Play, Brain, Users, Zap, TrendingUp, 
-  AlertTriangle, CheckCircle, Sparkles, BarChart2, 
+import {
+  Upload, Play, Brain, Users, Zap, TrendingUp,
+  AlertTriangle, CheckCircle, Sparkles, BarChart2,
   Activity, Target, Eye, MessageSquare, ChevronRight,
   Scan, Waves, Network, Cpu, Radio, Shield, Download,
   Share2, Copy, Check, X
 } from 'lucide-react'
+import ProgressStageIndicator from '../components/ProgressStageIndicator'
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, AreaChart, Area,
@@ -444,21 +445,10 @@ export default function Dashboard() {
                 </p>
                 {uploading && uploadStage && (
                   <div className="flex items-center gap-2 mt-3">
-                    {['transcribing', 'scoring', 'saving', 'done'].map((stage, i) => {
-                      const stages = ['transcribing', 'scoring', 'saving', 'done']
-                      const currentIdx = stages.indexOf(uploadStage)
-                      const isActive = i <= currentIdx
-                      const isCurrent = i === currentIdx
-                      return (
-                        <div key={stage} className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-neural' : 'bg-white/10'} ${isCurrent ? 'animate-pulse' : ''}`} />
-                          <span className={`text-[10px] mono ${isActive ? 'text-neural' : 'text-text-tertiary'}`}>
-                            {stage === 'transcribing' ? 'Audio' : stage === 'scoring' ? 'Score' : stage === 'saving' ? 'Save' : 'Done'}
-                          </span>
-                          {i < 3 && <div className="w-4 h-px bg-white/10" />}
-                        </div>
-                      )
-                    })}
+                    <ProgressStageIndicator
+                      currentStage={uploadStage}
+                      accent="neural"
+                    />
                   </div>
                 )}
               </div>

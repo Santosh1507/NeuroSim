@@ -3,11 +3,13 @@
 IP-based, sliding window. Lightweight — no Redis, no external deps.
 Configurable per-endpoint via the rate_limiter decorator.
 """
+
 import time
 from collections import defaultdict
-from typing import Callable, Optional
-from fastapi import Request, HTTPException
 from functools import wraps
+from typing import Callable
+
+from fastapi import HTTPException, Request
 
 
 class RateLimiter:
@@ -36,6 +38,7 @@ class RateLimiter:
 
 def rate_limit(limiter: RateLimiter):
     """Decorator that applies rate limiting to a FastAPI route."""
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(request: Request, *args, **kwargs):
@@ -43,13 +46,15 @@ def rate_limit(limiter: RateLimiter):
             if not limiter.is_allowed(client_ip):
                 raise HTTPException(
                     status_code=429,
-                    detail=f"Rate limit exceeded. Try again in {limiter.window_seconds}s."
+                    detail=f"Rate limit exceeded. Try again in {limiter.window_seconds}s.",
                 )
             return await func(request, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # Default limiters
 upload_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 uploads per 5 min
-api_limiter = RateLimiter(max_requests=30, window_seconds=60)      # 30 API calls per min
+api_limiter = RateLimiter(max_requests=30, window_seconds=60)  # 30 API calls per min

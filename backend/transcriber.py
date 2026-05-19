@@ -4,11 +4,12 @@ Fits within Render's 512MB free tier:
   - tiny model: 75MB on disk, ~150MB loaded
   - Leaves ~350MB for FastAPI + numpy + heuristic scorer
 """
+
 import os
-from typing import Optional
 
 try:
     from faster_whisper import WhisperModel
+
     WHISPER_AVAILABLE = True
 except ImportError:
     WHISPER_AVAILABLE = False
@@ -61,6 +62,7 @@ class Transcriber:
     def unload(self):
         """Free model from memory."""
         import gc
+
         self._model = None
         gc.collect()
 

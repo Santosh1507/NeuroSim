@@ -10,11 +10,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="antialiased min-h-screen text-text-secondary font-sans">
+    <html lang="en" className="bg-void">
+      <body className="antialiased min-h-screen bg-neural neural-grid font-sans">
         <AuthProvider>
           <Navbar />
-          <main>{children}</main>
+          <main className="relative z-10">{children}</main>
         </AuthProvider>
       </body>
     </html>

@@ -8,62 +8,177 @@ Maps linguistic features to 4 ROI dimensions:
 
 No LLM, no external API. Fully self-contained, $0/mo.
 """
-import re
+
 import math
-from typing import Dict, Any
+import re
+from typing import Any, Dict
 
 # ── Lexicon lists ──────────────────────────────────────────────────────────
 
 VISUAL_WORDS = {
-    "see", "look", "watch", "view", "imagine", "picture", "visual", "bright",
-    "color", "dark", "light", "beautiful", "stunning", "gorgeous", "vivid",
-    "clear", "blurry", "shine", "glow", "sparkle", "reflect", "mirror",
-    "scene", "landscape", "face", "eye", "hand", "body", "movement",
-    "show", "display", "reveal", "appear", "visible", "transparent",
+    "see",
+    "look",
+    "watch",
+    "view",
+    "imagine",
+    "picture",
+    "visual",
+    "bright",
+    "color",
+    "dark",
+    "light",
+    "beautiful",
+    "stunning",
+    "gorgeous",
+    "vivid",
+    "clear",
+    "blurry",
+    "shine",
+    "glow",
+    "sparkle",
+    "reflect",
+    "mirror",
+    "scene",
+    "landscape",
+    "face",
+    "eye",
+    "hand",
+    "body",
+    "movement",
+    "show",
+    "display",
+    "reveal",
+    "appear",
+    "visible",
+    "transparent",
 }
 
 EMOTIONAL_WORDS = {
-    "love", "hate", "amazing", "terrible", "awesome", "horrible", "incredible",
-    "disappointing", "excited", "angry", "happy", "sad", "fear", "joy",
-    "surprised", "shocked", "thrilled", "devastated", "worried", "anxious",
-    "hopeful", "grateful", "frustrated", "overwhelmed", "passionate",
-    "heartbreaking", "inspiring", "motivating", "powerful", "emotional",
+    "love",
+    "hate",
+    "amazing",
+    "terrible",
+    "awesome",
+    "horrible",
+    "incredible",
+    "disappointing",
+    "excited",
+    "angry",
+    "happy",
+    "sad",
+    "fear",
+    "joy",
+    "surprised",
+    "shocked",
+    "thrilled",
+    "devastated",
+    "worried",
+    "anxious",
+    "hopeful",
+    "grateful",
+    "frustrated",
+    "overwhelmed",
+    "passionate",
+    "heartbreaking",
+    "inspiring",
+    "motivating",
+    "powerful",
+    "emotional",
 }
 
 SOCIAL_PRONOUNS = {
-    "we", "our", "us", "together", "community", "team", "family", "friends",
-    "everyone", "everybody", "people", "society", "shared", "collaborate",
+    "we",
+    "our",
+    "us",
+    "together",
+    "community",
+    "team",
+    "family",
+    "friends",
+    "everyone",
+    "everybody",
+    "people",
+    "society",
+    "shared",
+    "collaborate",
 }
 
 CTA_KEYWORDS = {
-    "subscribe", "click", "buy", "purchase", "order", "sign up", "register",
-    "download", "join", "follow", "share", "like", "comment", "get started",
-    "try now", "limited", "offer", "deal", "discount", "free trial",
-    "don't miss", "act now", "hurry", "exclusive", "bonus",
+    "subscribe",
+    "click",
+    "buy",
+    "purchase",
+    "order",
+    "sign up",
+    "register",
+    "download",
+    "join",
+    "follow",
+    "share",
+    "like",
+    "comment",
+    "get started",
+    "try now",
+    "limited",
+    "offer",
+    "deal",
+    "discount",
+    "free trial",
+    "don't miss",
+    "act now",
+    "hurry",
+    "exclusive",
+    "bonus",
 }
 
 QUESTION_PATTERNS = [
-    r"\bwhat\b", r"\bhow\b", r"\bwhy\b", r"\bwhen\b", r"\bwhere\b",
-    r"\bwho\b", r"\bwhich\b", r"\bis\b.*\?", r"\bare\b.*\?",
-    r"\bdo\b.*\?", r"\bdoes\b.*\?", r"\bcan\b.*\?", r"\bshould\b.*\?",
-    r"\bwould\b.*\?", r"\bcould\b.*\?",
+    r"\bwhat\b",
+    r"\bhow\b",
+    r"\bwhy\b",
+    r"\bwhen\b",
+    r"\bwhere\b",
+    r"\bwho\b",
+    r"\bwhich\b",
+    r"\bis\b.*\?",
+    r"\bare\b.*\?",
+    r"\bdo\b.*\?",
+    r"\bdoes\b.*\?",
+    r"\bcan\b.*\?",
+    r"\bshould\b.*\?",
+    r"\bwould\b.*\?",
+    r"\bcould\b.*\?",
 ]
 
 PAUSE_MARKERS = ["...", "—", "–", ",", ";", "um", "uh", "well,", "so,"]
 
 IMPERATIVE_STARTERS = {
-    "get", "try", "buy", "click", "subscribe", "join", "follow", "download",
-    "discover", "learn", "find", "start", "build", "create", "make", "watch",
+    "get",
+    "try",
+    "buy",
+    "click",
+    "subscribe",
+    "join",
+    "follow",
+    "download",
+    "discover",
+    "learn",
+    "find",
+    "start",
+    "build",
+    "create",
+    "make",
+    "watch",
 }
 
 # ── Scoring functions ──────────────────────────────────────────────────────
+
 
 def _word_count(text: str) -> int:
     return len(text.split())
 
 
 def _sentence_count(text: str) -> int:
-    return max(1, len(re.split(r'[.!?]+', text)))
+    return max(1, len(re.split(r"[.!?]+", text)))
 
 
 def _avg_sentence_length(text: str) -> float:
@@ -73,24 +188,24 @@ def _avg_sentence_length(text: str) -> float:
 
 
 def _sentence_length_variance(text: str) -> float:
-    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+    sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
     if not sentences:
         return 0
     lengths = [len(s.split()) for s in sentences]
     mean = sum(lengths) / len(lengths)
-    variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+    variance = sum((length - mean) ** 2 for length in lengths) / len(lengths)
     return variance
 
 
 def _lexical_diversity(text: str) -> float:
-    words = [w.lower() for w in re.findall(r'\b[a-z]+\b', text)]
+    words = [w.lower() for w in re.findall(r"\b[a-z]+\b", text)]
     if not words:
         return 0
     return len(set(words)) / len(words)
 
 
 def _count_pattern(text: str, word_set: set) -> int:
-    words = set(re.findall(r'\b[a-z]+\b', text.lower()))
+    words = set(re.findall(r"\b[a-z]+\b", text.lower()))
     return len(words & word_set)
 
 
@@ -111,7 +226,7 @@ def _pause_density(text: str) -> float:
 
 
 def _imperative_ratio(text: str) -> float:
-    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+    sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
     if not sentences:
         return 0
     imperative_count = 0
@@ -123,7 +238,7 @@ def _imperative_ratio(text: str) -> float:
 
 
 def _social_pronoun_ratio(text: str) -> float:
-    words = re.findall(r'\b[a-z]+\b', text.lower())
+    words = re.findall(r"\b[a-z]+\b", text.lower())
     if not words:
         return 0
     social_count = sum(1 for w in words if w in SOCIAL_PRONOUNS)
@@ -131,6 +246,7 @@ def _social_pronoun_ratio(text: str) -> float:
 
 
 # ── ROI scorers ────────────────────────────────────────────────────────────
+
 
 def score_a5(text: str) -> float:
     """Auditory cortex — pacing, rhythm, clarity."""
@@ -217,6 +333,7 @@ def score_tpj(text: str) -> float:
 
 # ── Public API ─────────────────────────────────────────────────────────────
 
+
 def score_transcript(text: str) -> Dict[str, Any]:
     """Score a transcript and return all 4 ROI dimensions.
 
@@ -226,8 +343,13 @@ def score_transcript(text: str) -> Dict[str, Any]:
     text = text.strip()
     if not text:
         return {
-            "A5": 0.5, "LO": 0.5, "Area45": 0.5, "TPJ": 0.5,
-            "mode": "heuristic", "word_count": 0, "note": "empty transcript"
+            "A5": 0.5,
+            "LO": 0.5,
+            "Area45": 0.5,
+            "TPJ": 0.5,
+            "mode": "heuristic",
+            "word_count": 0,
+            "note": "empty transcript",
         }
 
     return {

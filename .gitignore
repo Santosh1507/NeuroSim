@@ -46,3 +46,4 @@ mirofish/
 
 # Whisper cache
 backend/.whisper_cache/
+frontend/nul
