@@ -10,6 +10,7 @@ from storage_adapter import store
 from rate_limiter import check_api_limit, upload_limiter
 from pdf_report import generate_pdf_report
 from correlation_tracker import CorrelationTracker
+from validation_study import ValidationStudy
 from bridge_logic import ROI, NeuroSocialBridge
 from config import settings
 from heuristic_scorer import score_transcript
@@ -36,6 +37,14 @@ class FeedbackRequest(BaseModel):
     would_publish: bool = True
 
 
+class ValidationSubmitRequest(BaseModel):
+    video_id: str
+    actual_views: int
+    actual_engagement: float
+    would_publish: bool = True
+    days_after_publish: int = 7
+
+
 class ScriptAnalysisRequest(BaseModel):
     script: str
     title: Optional[str] = None
@@ -44,6 +53,7 @@ class ScriptAnalysisRequest(BaseModel):
 router = APIRouter(tags=["analysis"])
 
 _tracker = CorrelationTracker()
+_study = ValidationStudy()
 
 
 @router.post("/api/analyze/script")
@@ -196,3 +206,67 @@ async def submit_feedback(req: FeedbackRequest, user_id: str = Depends(require_a
 async def get_correlations():
     """Return current prediction accuracy correlations."""
     return _tracker.get_correlations()
+
+
+@router.post("/api/validation/submit")
+async def submit_validation_data(
+    req: ValidationSubmitRequest,
+    user_id: str = Depends(require_auth_user),
+):
+    """Submit actual performance data for the validation study.
+
+    Records the prediction-outcome pair and computes updated correlations.
+    Target: 20 users completing the validation loop.
+    """
+    analysis = await _get_analysis_or_404(req.video_id)
+    video = await _get_video_or_404(req.video_id)
+
+    predicted_scores = {
+        "hook_score": analysis.get("hook_score", 0),
+        "viral_potential": analysis.get("viral_potential", 0),
+        "success_probability": analysis.get("success_probability", 0),
+    }
+
+    analysis_type = analysis.get("analysis_type", "video")
+
+    entry = _study.add_entry(
+        video_id=req.video_id,
+        user_id=user_id,
+        analysis_type=analysis_type,
+        predicted_scores=predicted_scores,
+        actual_views=req.actual_views,
+        actual_engagement=req.actual_engagement,
+        would_publish=req.would_publish,
+        days_after_publish=req.days_after_publish,
+    )
+
+    correlations = _study.compute_correlations()
+    progress = _study.get_study_progress()
+
+    return {
+        "status": "received",
+        "entry_id": entry.video_id,
+        "progress": progress,
+        "correlations": correlations,
+    }
+
+
+@router.get("/api/validation/study")
+async def get_validation_study():
+    """Return validation study progress and correlation results."""
+    progress = _study.get_study_progress()
+    correlations = _study.compute_correlations()
+    benchmarks = _study.get_benchmark_comparison()
+
+    return {
+        "progress": progress,
+        "correlations": correlations,
+        "benchmarks": benchmarks,
+    }
+
+
+@router.get("/api/validation/my-data")
+async def get_my_validation_data(user_id: str = Depends(require_auth_user)):
+    """Return the authenticated user's validation submissions."""
+    entries = _study.get_user_entries(user_id)
+    return {"user_id": user_id, "entries": entries, "count": len(entries)}

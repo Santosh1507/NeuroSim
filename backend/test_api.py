@@ -1,6 +1,7 @@
 import io
 import os
 import random
+import uuid
 
 import numpy as np
 import pytest
@@ -354,3 +355,57 @@ class TestScriptAnalysis:
         assert videos_resp.status_code == 200
         video_ids = [v["id"] for v in videos_resp.json()["videos"]]
         assert video_id in video_ids
+
+
+class TestValidationStudyAPI:
+    def test_submit_validation_data(self, client):
+        """Submit validation data returns progress and correlations."""
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
+        upload_resp = client.post(
+            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+        )
+        assert upload_resp.status_code == 200
+        video_id = upload_resp.json()["video_id"]
+
+        tester = TestAPIEndpoints()
+        assert tester._wait_for_analysis(client, video_id), "Analysis did not complete"
+
+        response = client.post(
+            "/api/validation/submit",
+            json={
+                "video_id": video_id,
+                "actual_views": 5000,
+                "actual_engagement": 4.5,
+                "would_publish": True,
+                "days_after_publish": 7,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "received"
+        assert "progress" in data
+        assert "correlations" in data
+        assert data["progress"]["total_entries"] >= 1
+
+    def test_get_validation_study(self, client):
+        """Validation study endpoint returns progress, correlations, and benchmarks."""
+        response = client.get("/api/validation/study")
+        assert response.status_code == 200
+        data = response.json()
+        assert "progress" in data
+        assert "correlations" in data
+        assert "benchmarks" in data
+        assert "total_entries" in data["progress"]
+        assert "completion_pct" in data["progress"]
+
+    def test_validation_study_insufficient_data(self, client):
+        """Correlations show insufficient data when under threshold."""
+        from validation_study import ValidationStudy
+        from pathlib import Path
+        import tempfile
+
+        tmp = Path(tempfile.gettempdir()) / f"test_study_{uuid.uuid4().hex[:8]}.json"
+        study = ValidationStudy(str(tmp))
+        result = study.compute_correlations()
+        assert result["status"] == "insufficient_data"
+        tmp.unlink(missing_ok=True)

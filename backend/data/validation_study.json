@@ -1,0 +1,47 @@
+[
+  {
+    "video_id": "9c74fe21-886a-430d-9d57-7c9a10155153",
+    "user_id": "anonymous",
+    "analysis_type": "video",
+    "predicted_scores": {
+      "hook_score": 25.2,
+      "viral_potential": 0.0,
+      "success_probability": 12.6
+    },
+    "actual_views": 5000,
+    "actual_engagement": 4.5,
+    "would_publish": true,
+    "days_after_publish": 7,
+    "submitted_at": "2026-05-19T19:18:00.067785"
+  },
+  {
+    "video_id": "a6d2aa02-70c7-4cca-9d76-0260e33d05c0",
+    "user_id": "anonymous",
+    "analysis_type": "video",
+    "predicted_scores": {
+      "hook_score": 25.2,
+      "viral_potential": 0.0,
+      "success_probability": 12.6
+    },
+    "actual_views": 5000,
+    "actual_engagement": 4.5,
+    "would_publish": true,
+    "days_after_publish": 7,
+    "submitted_at": "2026-05-19T19:20:50.178788"
+  },
+  {
+    "video_id": "c7782479-0524-4f42-8ab9-01df565518e4",
+    "user_id": "anonymous",
+    "analysis_type": "video",
+    "predicted_scores": {
+      "hook_score": 25.2,
+      "viral_potential": 0.0,
+      "success_probability": 12.6
+    },
+    "actual_views": 5000,
+    "actual_engagement": 4.5,
+    "would_publish": true,
+    "days_after_publish": 7,
+    "submitted_at": "2026-05-19T19:22:22.017286"
+  }
+]
