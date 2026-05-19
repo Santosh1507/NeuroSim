@@ -384,11 +384,11 @@ async def stripe_webhook(request: Request):
         if user_id and user_id in _premium_users:
             _premium_users.discard(user_id)
             print(f"[STRIPE] Premium deactivated for user {user_id}")
-        print(f"[STRIPE] Subscription {subscription['id']} deleted")
+        print(f"[STRIPE] Subscription {subscription.get('id', 'unknown')} deleted")
 
     elif event["type"] == "invoice.payment_failed":
         invoice = event["data"]["object"]
-        print(f"[STRIPE] Payment failed for invoice {invoice['id']}")
+        print(f"[STRIPE] Payment failed for invoice {invoice.get('id', 'unknown')}")
 
     return {"status": "ok"}
 
