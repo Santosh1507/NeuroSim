@@ -98,8 +98,20 @@ def _increment_usage(user_id: str):
         _usage_tracker[user_id] = _usage_tracker.get(user_id, 0) + 1
 
 
+def _touch_cache(key: str):
+    _cache_timestamps[key] = datetime.now().timestamp()
+
+
+_last_eviction: float = 0
+_EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps
+
+
 def _evict_stale():
+    global _last_eviction
     now = datetime.now().timestamp()
+    if now - _last_eviction < _EVICTION_INTERVAL:
+        return
+    _last_eviction = now
     stale_videos = [
         k
         for k in _cache_timestamps
@@ -129,8 +141,24 @@ def _evict_stale():
         _share_link_timestamps.pop(sid, None)
 
 
-def _touch_cache(key: str):
-    _cache_timestamps[key] = datetime.now().timestamp()
+async def _get_analysis_or_404(video_id: str) -> Dict[str, Any]:
+    """Fetch analysis from Supabase or cache, normalizing the data shape. Raises 404 if not found."""
+    _evict_stale()
+    analysis = await db.get_analysis(video_id)
+    if analysis:
+        return analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
+    if video_id not in _analyses_cache:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return _analyses_cache[video_id]
+
+
+async def _get_video_or_404(video_id: str) -> Dict[str, Any]:
+    """Fetch video from Supabase or cache. Raises 404 if not found."""
+    _evict_stale()
+    video = await db.get_video(video_id) or _videos_cache.get(video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    return video
 
 
 # WebSocket connection manager
@@ -521,36 +549,19 @@ async def list_videos():
 
 @app.get("/videos/{video_id}")
 async def get_video(video_id: str):
-    _evict_stale()
-    video = await db.get_video(video_id) or _videos_cache.get(video_id)
-    if not video:
-        raise HTTPException(status_code=404, detail="Video not found")
+    video = await _get_video_or_404(video_id)
     return {"video": video}
 
 
 @app.get("/analyses/{video_id}")
 async def get_analysis(video_id: str):
-    _evict_stale()
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        return analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-    if video_id not in _analyses_cache:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-    return _analyses_cache[video_id]
+    return await _get_analysis_or_404(video_id)
 
 
 @app.get("/reports/{video_id}")
 async def get_report(video_id: str):
-    _evict_stale()
-    video = await db.get_video(video_id) or _videos_cache.get(video_id, {})
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        analysis = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-    elif video_id in _analyses_cache:
-        analysis = _analyses_cache[video_id]
-    else:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
+    video = await _get_video_or_404(video_id)
+    analysis = await _get_analysis_or_404(video_id)
     return {
         "report_id": f"report_{video_id}",
         "video": video,
@@ -561,26 +572,14 @@ async def get_report(video_id: str):
 
 @app.get("/simulation/{video_id}")
 async def get_simulation(video_id: str):
-    _evict_stale()
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-        return data.get("mirofish_simulation", {})
-    if video_id not in _analyses_cache:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-    return _analyses_cache[video_id].get("mirofish_simulation", {})
+    analysis = await _get_analysis_or_404(video_id)
+    return analysis.get("mirofish_simulation", {})
 
 
 @app.get("/brain-response/{video_id}")
 async def get_brain_response(video_id: str):
-    _evict_stale()
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-        return data.get("tribev2_brain_response", {})
-    if video_id not in _analyses_cache:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-    return _analyses_cache[video_id].get("tribev2_brain_response", {})
+    analysis = await _get_analysis_or_404(video_id)
+    return analysis.get("tribev2_brain_response", {})
 
 
 class WhatIfRequest(BaseModel):
@@ -589,16 +588,8 @@ class WhatIfRequest(BaseModel):
 
 @app.post("/simulation/what-if/{video_id}")
 async def run_what_if(video_id: str, request: WhatIfRequest):
-    _evict_stale()
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        data = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-        base_sim = data.get("mirofish_simulation", {})
-    elif video_id in _analyses_cache:
-        base_sim = _analyses_cache[video_id].get("mirofish_simulation", {})
-    else:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
+    analysis = await _get_analysis_or_404(video_id)
+    base_sim = analysis.get("mirofish_simulation", {})
     result = await mirofish_engine.run_what_if(base_sim, request.modifications)
     return result
 
@@ -683,16 +674,8 @@ async def roi_metadata():
 @app.get("/reports/{video_id}/pdf")
 async def download_report_pdf(video_id: str):
     """Download analysis report as PDF."""
-    _evict_stale()
-    video = await db.get_video(video_id) or _videos_cache.get(video_id, {})
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        analysis = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-    elif video_id in _analyses_cache:
-        analysis = _analyses_cache[video_id]
-    else:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
+    video = await _get_video_or_404(video_id)
+    analysis = await _get_analysis_or_404(video_id)
     pdf_bytes = generate_pdf_report(analysis, video)
     return StreamingResponse(
         iter([pdf_bytes]),
@@ -757,14 +740,7 @@ async def get_shared_analysis(share_id: str):
         _share_links.pop(share_id, None)
         _share_link_timestamps.pop(share_id, None)
         raise HTTPException(status_code=410, detail="Share link has expired (links expire after 7 days)")
-    _evict_stale()
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        analysis = analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-    elif video_id in _analyses_cache:
-        analysis = _analyses_cache[video_id]
-    else:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+    analysis = await _get_analysis_or_404(video_id)
     return {"share_id": share_id, "video_id": video_id, "analysis": analysis}
 
 
