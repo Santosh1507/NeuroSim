@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Brain, TrendingUp, Target, Zap, Activity } from 'lucide-react'
-import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -14,20 +13,44 @@ export default function EmbedPage() {
   const [analysis, setAnalysis] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isOffline, setIsOffline] = useState(false)
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchAnalysis = async () => {
+      setLoading(true)
       try {
-        const res = await axios.get(`${API_URL}/api/share/${shareId}`)
-        setAnalysis(res.data.analysis)
+        const response = await fetch(`${API_URL}/api/share/${shareId}`, {
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!response.ok) throw new Error('Failed to fetch')
+        const data = await response.json()
+        setAnalysis(data.analysis)
+        setIsOffline(false)
       } catch {
-        setError('This analysis no longer exists or the link is invalid.')
+        setIsOffline(true)
       } finally {
         setLoading(false)
       }
     }
-    fetch()
+    fetchAnalysis()
   }, [shareId])
+
+  if (isOffline) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-8">
+        <div className="glass-panel p-6 max-w-md text-center">
+          <div className="w-12 h-12 rounded-full bg-signal-orange/10 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-signal-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-display font-semibold text-text-primary mb-2">Analysis Unavailable</h3>
+          <p className="text-sm text-text-secondary mb-4">The server may be restarting. Please try again in a few minutes.</p>
+          <button onClick={() => { setIsOffline(false); setLoading(true); window.location.reload(); }} className="btn-ghost text-sm">Retry</button>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
