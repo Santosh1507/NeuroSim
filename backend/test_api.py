@@ -7,7 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from config import settings
-from main import _analyses_cache, _videos_cache, app
+from storage_adapter import _analyses_cache, _videos_cache
+from main import app
 from rate_limiter import upload_limiter
 
 # Seed RNGs once at import for module-level determinism.
@@ -246,3 +247,19 @@ class TestAPIEndpoints:
         # Delete again should 404
         delete_response2 = client.delete(f"/analyses/{video_id}")
         assert delete_response2.status_code == 404
+
+    def test_pdf_report_download(self, client):
+        """PDF report endpoint returns valid PDF bytes."""
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
+        upload_resp = client.post(
+            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+        )
+        assert upload_resp.status_code == 200
+        video_id = upload_resp.json()["video_id"]
+
+        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
+
+        pdf_resp = client.get(f"/reports/{video_id}/pdf")
+        assert pdf_resp.status_code == 200
+        assert pdf_resp.headers["content-type"] == "application/pdf"
+        assert pdf_resp.content[:4] == b"%PDF"
