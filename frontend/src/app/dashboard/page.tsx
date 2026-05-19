@@ -65,6 +65,12 @@ export default function Dashboard() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
   const [feedbackData, setFeedbackData] = useState({ views: '', engagement: '', wouldPublish: true })
 
+  const [inputMode, setInputMode] = useState<'upload' | 'script'>('upload')
+  const [scriptText, setScriptText] = useState('')
+  const [scriptTitle, setScriptTitle] = useState('')
+  const [scriptError, setScriptError] = useState<string | null>(null)
+  const [analyzingScript, setAnalyzingScript] = useState(false)
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
     check()
@@ -193,6 +199,69 @@ export default function Dashboard() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) handleUpload(e.target.files[0])
+  }
+
+  const handleScriptAnalyze = async () => {
+    if (!scriptText.trim()) {
+      setScriptError('Please enter your script text.')
+      return
+    }
+    if (scriptText.trim().length < 50) {
+      setScriptError('Script too short. Minimum 50 characters for meaningful analysis.')
+      return
+    }
+    setScriptError(null)
+    setAnalyzingScript(true)
+    setApiError(null)
+
+    try {
+      const res = await axios.post(
+        `${API_URL}/api/analyze/script`,
+        { script: scriptText.trim(), title: scriptTitle || undefined },
+        { timeout: 30000 },
+      )
+      const scriptId = res.data.video_id
+      setAnalysis({ filename: scriptTitle || 'Script Analysis', ...res.data })
+      setSelectedVideo(scriptId)
+      setVideos(prev => [...prev, {
+        id: scriptId,
+        filename: scriptTitle || 'Script Analysis',
+        upload_time: new Date().toISOString(),
+        status: 'analyzed',
+      }])
+      setScriptText('')
+      setScriptTitle('')
+    } catch (err: any) {
+      console.error('Script analysis failed:', err)
+      const errorMsg = err.response?.data?.detail || 'Analysis failed. Please try again.'
+      setScriptError(errorMsg)
+      if (err.response?.status === 429 || err.response?.status === 403) {
+        setDemoMode(true)
+        const demoId = `demo_${Date.now()}`
+        setVideos(prev => [...prev, {
+          id: demoId, filename: scriptTitle || 'Script Analysis', upload_time: new Date().toISOString(), status: 'analyzed'
+        }])
+        setAnalysis({
+          video_id: demoId, hook_score: 78,
+          hook_details: { strength: 'Strong', curiosity_gap_detected: true, question_detected: true },
+          authenticity_score: 72, authenticity_details: { authenticity_level: 'High', brand_intrusion: 'Low' },
+          sentiment_forecast: { positive_sentiment_pct: 62.5, negative_sentiment_pct: 7.2, neutral_sentiment_pct: 30.3, backlash_risk: 'Low', shareability_index: 78, sellout_probability: 23 },
+          cta_analysis: { cta_activation_score: 75, cognitive_load: 'Optimal', timing_recommendation: 'Current placement optimal' },
+          viral_potential: 72, success_probability: 74, risk_score: 16,
+          recommendations: ['Strong hook detected with curiosity gap - good viral potential', 'High authenticity score - content feels natural', 'CTA at 8s mark should perform well'],
+          mirofish_simulation: { simulation_id: 'sim_demo_001', final_sentiment: 68.5, viral_prediction: 'High - Positive sentiment spreading', backlash_prediction: 'Low risk - positive reception', share_prediction: 72, persona_distribution: { loyal_fan: 18, trend_seeker: 24, casual_viewer: 26, skeptic: 10, budget_shopper: 16, anti_ad: 6 }, comment_samples: [{ type: 'positive', persona: 'trend_seeker', comment: 'sharing this! everyone needs to see this', sentiment: 0.82 }, { type: 'neutral', persona: 'casual_viewer', comment: 'interesting', sentiment: 0.55 }, { type: 'positive', persona: 'loyal_fan', comment: 'omg love this!', sentiment: 0.91 }], trust_trajectory: [65, 68, 70, 72, 74, 76, 78] },
+          tribev2_brain_response: { cortical_response: { visual_cortex: 78, auditory_cortex: 72, language_center: 68, amygdala: 65, prefrontal_cortex: 70, reward_center: 82, social_cognition: 62, memory_formation: 68, overall_response_strength: 72 }, emotional_impact: { primary_emotion: 'excitement', emotional_intensity: 72 }, engagement_prediction: { overall_engagement: 78, retention_prediction: 'high' }, mode: 'simulated' },
+          stage_gate: { passed: true, W_attn: 0.72, threshold: 0.4 },
+          analysis_type: 'script',
+          source: 'text_input',
+        })
+        setSelectedVideo(demoId)
+        setScriptText('')
+        setScriptTitle('')
+      }
+    } finally {
+      setAnalyzingScript(false)
+    }
   }
 
   const runABTest = async () => {
@@ -405,63 +474,154 @@ export default function Dashboard() {
                 <span className="text-text-tertiary">before you publish.</span>
               </h2>
               <p className="text-text-secondary text-sm max-w-md">
-                Heuristic content analysis + MiroFish swarm simulation. 
-                Predicts how your content will perform — no GPU required.
+                Analyze before you film. Paste a script for instant predictions,
+                or upload a video for full neural analysis + swarm simulation.
               </p>
             </div>
           </div>
 
           {/* Upload Zone - hero element, asymmetric */}
-          <div 
-            className={`glass-panel-elevated p-12 flex flex-col items-center justify-center gap-5 min-h-[180px] cursor-pointer glass-interactive ${dragActive ? 'drag-active' : ''}`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            <input 
-              type="file" 
-              accept="video/mp4,video/mov,video/avi,video/webm"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
-            />
-            <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-4">
-              <motion.div 
-                className="w-14 h-14 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center"
-                whileHover={hoverLift.whileHover}
-                whileTap={tapPress.whileTap}
+          <div className="glass-panel-elevated p-8 min-h-[180px]">
+            {/* Input mode toggle */}
+            <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-lg w-fit mb-6">
+              <button
+                onClick={() => setInputMode('upload')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  inputMode === 'upload'
+                    ? 'bg-neural/15 text-neural border border-neural/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
               >
-                {uploading ? (
-                  <div className="relative w-14 h-14 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center">
-                    <svg className="w-14 h-14 -rotate-90 absolute" viewBox="0 0 36 36">
-                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(77,238,234,0.15)" strokeWidth="2"/>
-                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="#4deeea" strokeWidth="2" strokeDasharray={`${uploadProgress * 0.97} 97`} strokeLinecap="round"/>
-                    </svg>
-                    <span className="text-xs mono text-neural font-bold">{uploadProgress}%</span>
+                <Upload className="w-3.5 h-3.5" /> Upload Video
+              </button>
+              <button
+                onClick={() => setInputMode('script')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  inputMode === 'script'
+                    ? 'bg-neural/15 text-neural border border-neural/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
+              >
+                <Scan className="w-3.5 h-3.5" /> Paste Script
+              </button>
+            </div>
+
+            {inputMode === 'upload' ? (
+              /* Video upload mode */
+              <div
+                className={`p-8 flex flex-col items-center justify-center gap-5 min-h-[140px] cursor-pointer glass-interactive rounded-xl border-2 border-dashed ${
+                  dragActive ? 'border-neural/40 bg-neural/5' : 'border-white/[0.06]'
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
+                <input
+                  type="file"
+                  accept="video/mp4,video/mov,video/avi,video/webm"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-4">
+                  <motion.div
+                    className="w-14 h-14 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center"
+                    whileHover={hoverLift.whileHover}
+                    whileTap={tapPress.whileTap}
+                  >
+                    {uploading ? (
+                      <div className="relative w-14 h-14 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center">
+                        <svg className="w-14 h-14 -rotate-90 absolute" viewBox="0 0 36 36">
+                          <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(77,238,234,0.15)" strokeWidth="2"/>
+                          <circle cx="18" cy="18" r="15.5" fill="none" stroke="#4deeea" strokeWidth="2" strokeDasharray={`${uploadProgress * 0.97} 97`} strokeLinecap="round"/>
+                        </svg>
+                        <span className="text-xs mono text-neural font-bold">{uploadProgress}%</span>
+                      </div>
+                    ) : (
+                      <Upload className="w-6 h-6 text-neural" />
+                    )}
+                  </motion.div>
+                  <div className="text-center">
+                    <p className="text-white font-medium text-base mb-1">
+                      {uploading ? (uploadStatusMsg || 'Analyzing...') : 'Drop video to analyze'}
+                    </p>
+                    <p className="text-text-tertiary text-xs mono">
+                      MP4, MOV, AVI, WebM &bull; Up to 2GB
+                    </p>
+                    {uploading && uploadStage && (
+                      <div className="flex items-center gap-2 mt-3">
+                        <ProgressStageIndicator
+                          currentStage={uploadStage}
+                          accent="neural"
+                        />
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <Upload className="w-6 h-6 text-neural" />
-                )}
-              </motion.div>
-              <div className="text-center">
-                <p className="text-white font-medium text-base mb-1">
-                  {uploading ? (uploadStatusMsg || 'Analyzing...') : 'Drop video to analyze'}
-                </p>
-                <p className="text-text-tertiary text-xs mono">
-                  MP4, MOV, AVI, WebM &bull; Up to 2GB
-                </p>
-                {uploading && uploadStage && (
-                  <div className="flex items-center gap-2 mt-3">
-                    <ProgressStageIndicator
-                      currentStage={uploadStage}
-                      accent="neural"
-                    />
+                </label>
+              </div>
+            ) : (
+              /* Script input mode */
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Script title (optional)"
+                  value={scriptTitle}
+                  onChange={(e) => setScriptTitle(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/30 transition-colors"
+                />
+                <textarea
+                  placeholder="Paste your video script here... (minimum 50 characters)"
+                  value={scriptText}
+                  onChange={(e) => {
+                    setScriptText(e.target.value)
+                    if (scriptError) setScriptError(null)
+                  }}
+                  rows={8}
+                  className="w-full p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/30 transition-colors resize-y font-mono leading-relaxed"
+                />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs mono ${
+                      scriptText.length >= 50 ? 'text-green-400' : 'text-text-tertiary'
+                    }`}>
+                      {scriptText.length} chars
+                    </span>
+                    {scriptText.length > 0 && scriptText.length < 50 && (
+                      <span className="text-xs text-orange-400">
+                        {50 - scriptText.length} more needed
+                      </span>
+                    )}
+                  </div>
+                  <motion.button
+                    onClick={handleScriptAnalyze}
+                    disabled={analyzingScript || !scriptText.trim()}
+                    className="btn-neural flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                    whileHover={!analyzingScript && scriptText.trim() ? { scale: 1.02 } : {}}
+                    whileTap={!analyzingScript && scriptText.trim() ? { scale: 0.98 } : {}}
+                  >
+                    {analyzingScript ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-neural border-t-transparent rounded-full animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Scan className="w-4 h-4" />
+                        Analyze Script
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+                {scriptError && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-400/10 border border-orange-400/20">
+                    <AlertTriangle className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <p className="text-xs text-orange-400">{scriptError}</p>
                   </div>
                 )}
               </div>
-            </label>
+            )}
+          </div>
         </div>
-      </div>
 
         {apiError && (
           <div className="glass-panel p-4 mb-4 border border-signal-orange/30">
