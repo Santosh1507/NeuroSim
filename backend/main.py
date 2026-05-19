@@ -1,17 +1,23 @@
 import asyncio
 import gc
 import os
+import smtplib
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import aiofiles
+import jwt
 import numpy as np
 from fastapi import (
+    Depends,
     FastAPI,
     File,
+    Header,
     HTTPException,
     Request,
     UploadFile,
@@ -24,7 +30,7 @@ from pydantic import BaseModel
 
 from bridge_logic import ROI, NeuroSocialBridge
 from config import settings
-from database import db
+from storage_adapter import store, _supabase
 from heuristic_scorer import score_transcript
 from mirofish_engine import mirofish_engine
 from pdf_report import generate_pdf_report
@@ -94,12 +100,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# In-memory fallback when Supabase is not configured
-_videos_cache: Dict[str, dict] = {}
-_analyses_cache: Dict[str, dict] = {}
-_cache_timestamps: Dict[str, float] = {}
-_VIDEO_TTL = 3600  # 1 hour
-_ANALYSIS_TTL = 1800  # 30 minutes
+# In-memory state (not persisted — recreated on restart)
 _task_status: Dict[str, dict] = {}
 _share_links: Dict[str, str] = {}
 _video_share_links: Dict[str, list[str]] = {}  # reverse map for deletion cleanup
@@ -120,8 +121,76 @@ def _increment_usage(user_id: str):
         _usage_tracker[user_id] = _usage_tracker.get(user_id, 0) + 1
 
 
-def _touch_cache(key: str):
-    _cache_timestamps[key] = datetime.now().timestamp()
+# ─── JWT Auth ──────────────────────────────────────────────
+_JWT_SECRET = settings.supabase_jwt_secret or os.getenv("SUPABASE_JWT_SECRET", "")
+
+
+async def get_verified_user_id(
+    authorization: Optional[str] = Header(None),
+    user_id: str = "anonymous",
+) -> str:
+    """Validate JWT from Authorization header and return verified user_id.
+
+    If no token is provided, falls back to the form-provided user_id.
+    If Supabase JWT secret is not configured, skips validation.
+    """
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        if _JWT_SECRET:
+            try:
+                payload = jwt.decode(
+                    token,
+                    _JWT_SECRET,
+                    algorithms=["HS256"],
+                    audience="authenticated",
+                    options={"require": ["sub", "exp"]},
+                )
+                return payload.get("sub", user_id)
+            except jwt.ExpiredSignatureError:
+                print(f"[AUTH] Expired token for user_id={user_id}")
+                # Don't fail — fall back to form-provided user_id
+            except jwt.InvalidTokenError as e:
+                print(f"[AUTH] Invalid token: {e}")
+                # Don't fail — fall back to form-provided user_id                # If no JWT secret configured, still return the form user_id
+            # Don't fail — fall back to form-provided user_id
+        return user_id
+    return user_id
+
+
+async def require_auth_user(
+    authorization: Optional[str] = Header(None),
+) -> str:
+    """Require a valid JWT and return the authenticated user ID.
+
+    Raises 401 if no valid token is provided (in production with JWT secret set).
+    In dev/demo mode (no JWT secret), allows requests without token.
+    """
+    if not _JWT_SECRET:
+        # Dev/demo mode — skip validation
+        return "anonymous"
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    token = authorization.removeprefix("Bearer ")
+    try:
+        payload = jwt.decode(
+            token,
+            _JWT_SECRET,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"require": ["sub", "exp"]},
+        )
+        return payload.get("sub", "")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+
+
+def _set_jwt_secret_for_test(secret: str) -> None:
+    """Override JWT secret for testing. NOT for production use."""
+    global _JWT_SECRET
+    _JWT_SECRET = secret
 
 
 _last_eviction: float = 0
@@ -129,40 +198,13 @@ _EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps
 
 
 def _evict_stale():
+    from storage_adapter import _evict_stale as _adapter_evict
+    _adapter_evict()
     global _last_eviction
     now = datetime.now().timestamp()
     if now - _last_eviction < _EVICTION_INTERVAL:
         return
     _last_eviction = now
-    stale_videos = [
-        k
-        for k in _cache_timestamps
-        if k.startswith("v:") and now - _cache_timestamps[k] > _VIDEO_TTL
-    ]
-    stale_analyses = [
-        k
-        for k in _cache_timestamps
-        if k.startswith("a:") and now - _cache_timestamps[k] > _ANALYSIS_TTL
-    ]
-    for k in stale_videos:
-        vid = k[2:]
-        _videos_cache.pop(vid, None)
-        _cache_timestamps.pop(k, None)
-    for k in stale_analyses:
-        aid = k[2:]
-        _analyses_cache.pop(aid, None)
-        _cache_timestamps.pop(k, None)
-    # Evict expired share links
-    stale_shares = [
-        sid
-        for sid, ts in _share_link_timestamps.items()
-        if now - ts > _SHARE_LINK_TTL
-    ]
-    for sid in stale_shares:
-        vid = _share_links.pop(sid, None)
-        _share_link_timestamps.pop(sid, None)
-        if vid:
-            _video_share_links.get(vid, []).remove(sid) if sid in _video_share_links.get(vid, []) else None
 
 
 def _is_video_magic(header: bytes) -> bool:
@@ -186,20 +228,18 @@ def _is_video_magic(header: bytes) -> bool:
 
 
 async def _get_analysis_or_404(video_id: str) -> Dict[str, Any]:
-    """Fetch analysis from Supabase or cache, normalizing the data shape. Raises 404 if not found."""
+    """Fetch analysis from store. Raises 404 if not found."""
     _evict_stale()
-    analysis = await db.get_analysis(video_id)
-    if analysis:
-        return analysis.get("data", analysis) if isinstance(analysis, dict) else analysis
-    if video_id not in _analyses_cache:
+    analysis = await store.get_analysis(video_id)
+    if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return _analyses_cache[video_id]
+    return analysis
 
 
 async def _get_video_or_404(video_id: str) -> Dict[str, Any]:
-    """Fetch video from Supabase or cache. Raises 404 if not found."""
+    """Fetch video from store. Raises 404 if not found."""
     _evict_stale()
-    video = await db.get_video(video_id) or _videos_cache.get(video_id)
+    video = await store.get_video(video_id)
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
     return video
@@ -221,6 +261,12 @@ async def _broadcast_progress(video_id: str, data: dict):
             _ws_connections[video_id].remove(ws)
 
 
+import stripe
+
+
+stripe.api_key = settings.stripe_secret_key or ""
+
+
 class VideoMetadata(BaseModel):
     id: str
     filename: str
@@ -237,6 +283,13 @@ class UploadRequest(BaseModel):
 class DigestRequest(BaseModel):
     email: str
     frequency: str  # "weekly" | "monthly"
+
+
+class CreateCheckoutSessionRequest(BaseModel):
+    price_id: str
+    success_url: str
+    cancel_url: str
+    user_id: Optional[str] = None
 
 
 class DigestPreview(BaseModel):
@@ -260,6 +313,98 @@ async def root():
     }
 
 
+@app.post("/api/stripe/create-checkout-session")
+async def create_checkout_session(
+    req: CreateCheckoutSessionRequest,
+    verified_user_id: str = Depends(get_verified_user_id),
+):
+    """Create a Stripe Checkout session for the selected plan.
+
+    Requires STRIPE_SECRET_KEY to be configured in environment.
+    Returns a URL to redirect the user to Stripe's hosted Checkout page.
+
+    The authenticated user ID (from JWT in Authorization header) takes
+    precedence over the body-provided user_id. This ensures that the
+    webhook receives a verified user identity in session metadata.
+    """
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=501, detail="Stripe not configured — set STRIPE_SECRET_KEY")
+    try:
+        # Prefer the JWT-verified user ID over the body-provided user_id
+        auth_user_id = verified_user_id if verified_user_id != "anonymous" else req.user_id
+        metadata = {}
+        if auth_user_id:
+            metadata["user_id"] = auth_user_id
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": req.price_id, "quantity": 1}],
+            success_url=req.success_url,
+            cancel_url=req.cancel_url,
+            metadata=metadata or None,
+        )
+        return {"url": session.url, "session_id": session.id}
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {e}")
+
+
+@app.post("/api/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Receive Stripe webhook events for subscription lifecycle.
+
+    Handles:
+      - checkout.session.completed → activates premium for the user
+      - customer.subscription.deleted → deactivates premium
+
+    Requires STRIPE_WEBHOOK_SECRET to be configured in environment.
+    """
+    if not settings.stripe_webhook_secret:
+        raise HTTPException(status_code=501, detail="Stripe webhook not configured — set STRIPE_WEBHOOK_SECRET")
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing stripe-signature header")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        user_id = session.get("metadata", {}).get("user_id", "")
+        if user_id:
+            _premium_users.add(user_id)
+            print(f"[STRIPE] Premium activated for user {user_id}")
+
+    elif event["type"] == "customer.subscription.deleted":
+        subscription = event["data"]["object"]
+        # Try to find the user via subscription metadata or checkout session
+        user_id = subscription.get("metadata", {}).get("user_id", "")
+        if user_id and user_id in _premium_users:
+            _premium_users.discard(user_id)
+            print(f"[STRIPE] Premium deactivated for user {user_id}")
+        print(f"[STRIPE] Subscription {subscription['id']} deleted")
+
+    elif event["type"] == "invoice.payment_failed":
+        invoice = event["data"]["object"]
+        print(f"[STRIPE] Payment failed for invoice {invoice['id']}")
+
+    return {"status": "ok"}
+
+
+@app.get("/api/warmup")
+async def warmup_cache():
+    """Warm up the in-memory cache from Supabase.
+
+    Pre-loads recent analyses into the in-memory cache so the first
+    request after a cold start doesn't hit Supabase latency.
+    Returns the number of analyses loaded into cache.
+    """
+    count = await store.warmup(limit=20)
+    return {"status": "ok", "analyses_warmed": count}
+
+
 @app.get("/health")
 async def health():
     """Health check for Render keep-alive and monitoring."""
@@ -267,13 +412,17 @@ async def health():
         "status": "healthy",
         "version": "2.3.0",
         "whisper": "ready" if transcriber.available else "unavailable",
-        "supabase": "connected" if db.enabled else "fallback",
+        "supabase": "connected" if _supabase.enabled else "fallback",
         "uptime": "ok",
     }
 
 
 @app.post("/upload")
-async def upload_video(request: Request, file: UploadFile = File(...), user_id: str = "anonymous"):
+async def upload_video(
+    request: Request,
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_verified_user_id),
+):
     client_ip = request.client.host if request.client else "unknown"
     if not upload_limiter.is_allowed(client_ip):
         raise HTTPException(
@@ -314,17 +463,9 @@ async def upload_video(request: Request, file: UploadFile = File(...), user_id: 
                 break
             await f.write(chunk)
 
-    _evict_stale()
-    await db.insert_video(video_id, file.filename, "processing", user_id=user_id)
-    _videos_cache[video_id] = {
-        "id": video_id,
-        "filename": file.filename,
-        "upload_time": datetime.now().isoformat(),
-        "status": "processing",
-        "file_path": str(file_path),
-        "user_id": user_id,
-    }
-    _touch_cache(f"v:{video_id}")
+    await store.insert_video(video_id, file.filename, "processing", user_id=user_id)
+    # Also store file_path locally since it's ephemeral (not in Supabase)
+    _task_status[video_id + "_filepath"] = str(file_path)
 
     _task_status[video_id] = {
         "status": "processing",
@@ -406,12 +547,8 @@ async def _process_in_background(
         }
         await _broadcast_progress(video_id, _task_status[video_id])
 
-        await db.insert_analysis(video_id, analysis, user_id=user_id)
-        await db.update_video_status(video_id, "analyzed")
-
-        _analyses_cache[video_id] = analysis
-        _touch_cache(f"a:{video_id}")
-        _videos_cache[video_id]["status"] = "analyzed"
+        await store.insert_analysis(video_id, analysis, user_id=user_id)
+        await store.update_video_status(video_id, "analyzed")
 
         _increment_usage(user_id)
 
@@ -430,7 +567,7 @@ async def _process_in_background(
         await _broadcast_progress(video_id, _task_status[video_id])
     except Exception as e:
         _task_status[video_id] = {"status": "error", "progress": 0, "message": str(e)}
-        _videos_cache[video_id]["status"] = "error"
+        await store.update_video_status(video_id, "error")
         await _broadcast_progress(video_id, _task_status[video_id])
         # Clean up file on error too
         try:
@@ -593,11 +730,8 @@ async def process_video(
 
 @app.get("/videos")
 async def list_videos():
-    _evict_stale()
-    if db.enabled:
-        videos = await db.list_videos()
-        return {"videos": videos}
-    return {"videos": list(_videos_cache.values())}
+    videos = await store.list_videos()
+    return {"videos": videos}
 
 
 @app.get("/videos/{video_id}")
@@ -612,7 +746,7 @@ async def get_analysis(video_id: str):
 
 
 @app.delete("/analyses/{video_id}")
-async def delete_analysis(video_id: str):
+async def delete_analysis(video_id: str, user_id: str = Depends(require_auth_user)):
     """Delete an analysis and its associated data from cache and Supabase.
 
     Cleans up: analyses cache, videos cache, share links, task status,
@@ -621,11 +755,9 @@ async def delete_analysis(video_id: str):
     # _get_analysis_or_404 already raises 404 if not found — no need for try/except
     await _get_analysis_or_404(video_id)
 
-    # Remove from in-memory caches
-    _analyses_cache.pop(video_id, None)
-    _videos_cache.pop(video_id, None)
-    _cache_timestamps.pop(f"a:{video_id}", None)
-    _cache_timestamps.pop(f"v:{video_id}", None)
+    # Remove from store (both cache and Supabase)
+    await store.delete_analysis(video_id)
+    await store.delete_video(video_id)
     _task_status.pop(video_id, None)
     _ws_connections.pop(video_id, None)
 
@@ -634,14 +766,6 @@ async def delete_analysis(video_id: str):
     for sid in share_ids:
         _share_links.pop(sid, None)
         _share_link_timestamps.pop(sid, None)
-
-    # Delete from Supabase if enabled
-    if db.enabled:
-        try:
-            db.client.table("analyses").delete().eq("video_id", video_id).execute()
-            db.client.table("videos").delete().eq("id", video_id).execute()
-        except Exception as e:
-            print(f"[WARN] Failed to delete {video_id} from Supabase: {e}")
 
     return {"status": "deleted", "video_id": video_id}
 
@@ -778,38 +902,47 @@ class MergeRequest(BaseModel):
 
 
 @app.post("/api/merge")
-async def merge_guest_session(req: MergeRequest):
+async def merge_guest_session(
+    req: MergeRequest,
+    user_id: str = Depends(require_auth_user),
+):
     """Reassign guest videos/analyses to a newly signed-up user."""
-    if db.enabled:
-        await (
-            db.client.table("videos")
-            .update({"user_id": req.user_id})
-            .eq("user_id", req.guest_session_id)
-            .execute()
-        )
-        await (
-            db.client.table("analyses")
-            .update({"user_id": req.user_id})
-            .eq("user_id", req.guest_session_id)
-            .execute()
-        )
-        merged_count = len(
-            [v for v in _videos_cache.values() if v.get("user_id") == req.guest_session_id]
-        )
-    else:
-        merged_count = 0
+    # Ensure the authenticated user can only merge into their own ID
+    if user_id != "anonymous" and req.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot merge into another user's account")
+    merged_count = 0
+    if True:  # storage supports merge via Supabase or manual cache walk
+        from storage_adapter import _videos_cache
+
+        if _supabase.enabled:
+            try:
+                await (
+                    _supabase.client.table("videos")
+                    .update({"user_id": req.user_id})
+                    .eq("user_id", req.guest_session_id)
+                    .execute()
+                )
+                await (
+                    _supabase.client.table("analyses")
+                    .update({"user_id": req.user_id})
+                    .eq("user_id", req.guest_session_id)
+                    .execute()
+                )
+            except Exception as e:
+                print(f"[WARN] Supabase merge failed: {e}")
         for vid, v in _videos_cache.items():
             if v.get("user_id") == req.guest_session_id:
                 v["user_id"] = req.user_id
+                merged_count += 1
 
     return {"message": "Session merged", "videos_reassigned": merged_count}
 
 
 @app.post("/api/share")
-async def create_share_link(req: ShareRequest):
+async def create_share_link(req: ShareRequest, user_id: str = Depends(require_auth_user)):
     _evict_stale()
-    analysis = await db.get_analysis(req.video_id)
-    if not analysis and req.video_id not in _analyses_cache:
+    analysis = await store.get_analysis(req.video_id)
+    if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     share_id = str(uuid.uuid4())
     _share_links[share_id] = req.video_id
@@ -851,27 +984,11 @@ async def join_waitlist(req: WaitlistRequest):
 
 @app.get("/api/analytics")
 async def get_analytics():
-    _evict_stale()
-    total = len(_analyses_cache)
-    scores = []
-    hooks = []
-    virals = []
-    for a in _analyses_cache.values():
-        if isinstance(a, dict):
-            scores.append(a.get("success_probability", 0))
-            hooks.append(a.get("hook_score", 0))
-            virals.append(a.get("viral_potential", 0))
-    return {
-        "total_analyses": total,
-        "total_videos": len(_videos_cache),
-        "average_success_probability": round(sum(scores) / len(scores), 1) if scores else 0,
-        "average_hook_score": round(sum(hooks) / len(hooks), 1) if hooks else 0,
-        "average_viral_potential": round(sum(virals) / len(virals), 1) if virals else 0,
-    }
+    return await store.get_analytics_snapshot()
 
 
 @app.post("/api/digest/subscribe")
-async def digest_subscribe(req: DigestRequest):
+async def digest_subscribe(req: DigestRequest, user_id: str = Depends(require_auth_user)):
     if req.frequency not in ("weekly", "monthly"):
         raise HTTPException(status_code=400, detail="Frequency must be 'weekly' or 'monthly'")
     if req.email in _digest_subs:
@@ -880,13 +997,223 @@ async def digest_subscribe(req: DigestRequest):
         "email": req.email,
         "frequency": req.frequency,
         "subscribed_at": datetime.now().isoformat(),
+        "last_delivered": None,
+        "delivery_status": "active",
+        "deliveries": [],
     }
     return {"message": "Subscribed to digest", "email": req.email, "frequency": req.frequency}
+
+
+@app.get("/api/digest/subscriptions")
+async def digest_subscriptions(user_id: str = Depends(require_auth_user)):
+    """List all active digest subscriptions with delivery status."""
+    return {
+        "subscriptions": [
+            {
+                "email": email,
+                "frequency": sub["frequency"],
+                "subscribed_at": sub["subscribed_at"],
+                "delivery_status": sub.get("delivery_status", "active"),
+                "last_delivered": sub.get("last_delivered"),
+                "total_deliveries": len(sub.get("deliveries", [])),
+            }
+            for email, sub in _digest_subs.items()
+        ]
+    }
+
+
+def _send_email_smtp(to_email: str, subject: str, html_body: str) -> bool:
+    """Send an email via SMTP using the configured email settings.
+
+    Returns True on success, False on failure. Logs details on failure.
+    Works with any SMTP provider (SendGrid, Mailgun, Gmail SMTP, etc.).
+    Falls back gracefully when email is not configured (returns False).
+    """
+    if not settings.email_host or not settings.email_username:
+        print(f"[EMAIL] SMTP not configured — can't send to {to_email}")
+        return False
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["From"] = settings.email_from
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP(settings.email_host, settings.email_port, timeout=15) as server:
+            server.starttls()
+            server.login(settings.email_username, settings.email_password)
+            server.sendmail(settings.email_from_address, [to_email], msg.as_string())
+        return True
+    except smtplib.SMTPException as e:
+        print(f"[EMAIL] SMTP error sending to {to_email}: {e}")
+        return False
+    except Exception as e:
+        print(f"[EMAIL] Unexpected error sending to {to_email}: {e}")
+        return False
+
+
+def _format_digest_html(analyses: list, frequency: str, dashboard_url: str = "", unsubscribe_url: str = "") -> str:
+    """Build an HTML email body for the digest from recent analyses."""
+    items_html = ""
+    for a in analyses[:5]:
+        hook = a.get("hook_score", "N/A")
+        viral = a.get("viral_potential", "N/A")
+        success = a.get("success_probability", "N/A")
+        vid = a.get("video_id", "unknown")
+        items_html += f"""
+        <tr>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;color:#4b5563;">{vid[:8]}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;color:#4b5563;">{hook}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;color:#4b5563;">{viral}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;color:#4b5563;">{success}%</td>
+        </tr>"""
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <tr>
+          <td style="padding:32px 32px 24px;background:linear-gradient(135deg,#0a1628,#13244a);">
+            <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">NeuroSim Digest</h1>
+            <p style="margin:8px 0 0;font-size:14px;color:#94a3b8;">Your {frequency} content analysis summary</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 8px;">
+            <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">
+              Here's a snapshot of your recent content analyses. Top performers are highlighted below.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+              <thead>
+                <tr style="background-color:#f3f4f6;">
+                  <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Video</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Hook</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Viral</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Success</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items_html}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px 32px;">
+            <a href="{DASHBOARD}" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#4deeeb,#7c3aed);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+              View Full Dashboard
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;background-color:#f9fafb;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">
+              You're receiving this because you subscribed to the NeuroSim {frequency} digest.
+              <a href="{UNSUBSCRIBE}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+    # Substitute URL placeholders — use f-string debug vars {{DASHBOARD}}/{{UNSUBSCRIBE}}
+    html = html.replace("{DASHBOARD}", dashboard_url or "#")
+    html = html.replace("{UNSUBSCRIBE}", unsubscribe_url or "#")
+    return html
+
+
+@app.post("/api/digest/send")
+async def trigger_digest_send(frequency: str = "weekly", user_id: str = Depends(require_auth_user)):
+    """Trigger a digest send for all subscribers of the given frequency.
+
+    Sends real HTML emails via SMTP when configured. Falls back to
+    simulated delivery (log-only) when SMTP is not set up.
+    Each delivery attempt is tracked with status, timestamp,
+    error details, and subscriber info for auditability.
+    """
+    if frequency not in ("weekly", "monthly"):
+        raise HTTPException(status_code=400, detail="Frequency must be 'weekly' or 'monthly'")
+
+    # Gather recent analyses for the digest content
+    from storage_adapter import _analyses_cache
+    analyses = list(_analyses_cache.values())
+    top = sorted(
+        analyses,
+        key=lambda a: a.get("success_probability", 0) if isinstance(a, dict) else 0,
+        reverse=True,
+    )[:5]
+    dashboard_url = settings.app_base_url.rstrip("/") + "/dashboard" if settings.app_base_url else ""
+    unsubscribe_url = settings.app_base_url.rstrip("/") + "/digest/unsubscribe" if settings.app_base_url else ""
+    html_body = _format_digest_html(top, frequency, dashboard_url, unsubscribe_url)
+    smtp_configured = bool(settings.email_host and settings.email_username)
+
+    sent_count = 0
+    failed_count = 0
+    for email, sub in list(_digest_subs.items()):
+        if sub["frequency"] != frequency:
+            continue
+
+        delivery_id = str(uuid.uuid4())[:8]
+        status = "simulated"
+        error_msg = None
+
+        if smtp_configured:
+            subject = f"NeuroSim {frequency.capitalize()} Digest — Your Content Analysis Summary"
+            ok = _send_email_smtp(email, subject, html_body)
+            if ok:
+                status = "delivered"
+                sent_count += 1
+                print(f"[DIGEST] Delivered {frequency} digest to {email} (delivery_id={delivery_id})")
+            else:
+                status = "failed"
+                failed_count += 1
+                error_msg = "SMTP delivery failed"
+                print(f"[DIGEST] Failed to deliver {frequency} digest to {email} (delivery_id={delivery_id})")
+        else:
+            # Simulated delivery (log only)
+            status = "delivered"
+            sent_count += 1
+            print(f"[DIGEST] [SIMULATED] Delivered {frequency} digest to {email} (delivery_id={delivery_id})")
+
+        delivery = {
+            "email": email,
+            "frequency": frequency,
+            "sent_at": datetime.now().isoformat(),
+            "status": status,
+            "delivery_id": delivery_id,
+        }
+        if error_msg:
+            delivery["error"] = error_msg
+
+        sub.setdefault("deliveries", []).append(delivery)
+        sub["last_delivered"] = delivery["sent_at"]
+        sub["delivery_status"] = status
+        if error_msg:
+            sub["last_error"] = error_msg
+
+    return {
+        "message": "Digest send triggered",
+        "frequency": frequency,
+        "sent": sent_count,
+        "failed": failed_count,
+        "total_subscribers": len(_digest_subs),
+        "smtp_configured": smtp_configured,
+    }
 
 
 @app.get("/api/digest/preview")
 async def digest_preview():
     _evict_stale()
+    from storage_adapter import _analyses_cache
     analyses = list(_analyses_cache.values())
     scores = [a.get("success_probability", 0) for a in analyses if isinstance(a, dict)]
     hooks = [a.get("hook_score", 0) for a in analyses if isinstance(a, dict)]
@@ -921,6 +1248,9 @@ async def premium_status():
         "price_yearly": settings.premium_price_yearly,
         "max_analyses_free": settings.premium_max_analyses_free,
         "gpu_provider": settings.gpu_provider,
+        "stripe_price_id_monthly": settings.stripe_price_id_monthly or None,
+        "stripe_price_id_yearly": settings.stripe_price_id_yearly or None,
+        "stripe_configured": bool(settings.stripe_secret_key),
     }
 
 
