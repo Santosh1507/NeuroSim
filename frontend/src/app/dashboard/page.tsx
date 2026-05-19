@@ -20,6 +20,7 @@ import {
 } from 'recharts'
 import axios from 'axios'
 import dynamic from 'next/dynamic'
+import OnboardingTour from '../components/OnboardingTour'
 
 const Brain3D = dynamic(() => import('../components/Brain3D'), { 
   ssr: false,
@@ -29,7 +30,7 @@ const Brain3D = dynamic(() => import('../components/Brain3D'), {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function Dashboard() {
-  const { isSignedIn, isLoaded, guestSessionId } = useAuth()
+  const { isSignedIn, isLoaded, guestSessionId, recoverGuestSession } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function Dashboard() {
   const [shareUrl, setShareUrl] = useState('')
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [onboardingComplete, setOnboardingComplete] = useState(true)
 
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatusMsg, setUploadStatusMsg] = useState('')
@@ -327,6 +329,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-neural neural-grid">
+      <OnboardingTour onComplete={() => setOnboardingComplete(true)} />
       {/* Header - minimal, precise */}
       <header className="sticky top-0 z-50 border-b border-white/[0.04] bg-black/60 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -469,6 +472,17 @@ export default function Dashboard() {
             >
               Try Again
             </button>
+          </div>
+        )}
+
+        {isSignedIn && typeof window !== 'undefined' && localStorage.getItem('neurosim_guest_id') && (
+          <div className="glass-panel p-4 mb-4 border border-neural/30">
+            <p className="text-sm text-text-primary">
+              You have videos from a previous guest session.{' '}
+              <button onClick={recoverGuestSession} className="text-neural underline">
+                Merge them into your account
+              </button>
+            </p>
           </div>
         )}
 
