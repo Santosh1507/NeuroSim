@@ -263,3 +263,94 @@ class TestAPIEndpoints:
         assert pdf_resp.status_code == 200
         assert pdf_resp.headers["content-type"] == "application/pdf"
         assert pdf_resp.content[:4] == b"%PDF"
+
+
+_SAMPLE_SCRIPT = """
+Have you ever wondered why some videos go viral while others flop?
+Today I'm going to show you the three secrets that top creators use
+to hook viewers in the first three seconds. Stick around because
+number three will completely change how you think about content.
+First, you need a pattern interrupt. Something that breaks the
+viewer's scrolling habit instantly. Second, create a curiosity gap
+that makes them need to know the answer. And third, deliver on
+your promise with a payoff that makes them want to share it with
+their friends. If you found this helpful, hit subscribe and let
+me know in the comments which tip you're going to try first.
+""".strip()
+
+
+class TestScriptAnalysis:
+    def test_analyze_script_success(self, client):
+        """Script analysis returns full analysis structure instantly."""
+        response = client.post("/api/analyze/script", json={"script": _SAMPLE_SCRIPT})
+        assert response.status_code == 200
+        data = response.json()
+        assert "hook_score" in data
+        assert "viral_potential" in data
+        assert "success_probability" in data
+        assert "risk_score" in data
+        assert "recommendations" in data
+        assert "tribev2_brain_response" in data
+        assert "mirofish_simulation" in data
+        assert "stage_gate" in data
+        assert data["analysis_type"] == "script"
+        assert data["source"] == "text_input"
+        assert data["video_id"].startswith("script_")
+
+    def test_analyze_script_roi_scores(self, client):
+        """Script analysis returns valid ROI scores in 0-1 range."""
+        response = client.post("/api/analyze/script", json={"script": _SAMPLE_SCRIPT})
+        brain = response.json()["tribev2_brain_response"]["cortical_response"]
+        assert 0 <= brain["auditory_cortex"] <= 100
+        assert 0 <= brain["visual_cortex"] <= 100
+        assert 0 <= brain["language_center"] <= 100
+        assert 0 <= brain["amygdala"] <= 100
+        assert 0 <= brain["prefrontal_cortex"] <= 100
+        assert 0 <= brain["reward_center"] <= 100
+
+    def test_analyze_script_with_title(self, client):
+        """Script analysis accepts optional title field."""
+        response = client.post(
+            "/api/analyze/script",
+            json={"script": _SAMPLE_SCRIPT, "title": "My Viral Video Script"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["script_title"] == "My Viral Video Script"
+
+    def test_analyze_script_empty_rejected(self, client):
+        """Empty script text returns 400."""
+        response = client.post("/api/analyze/script", json={"script": ""})
+        assert response.status_code == 400
+
+    def test_analyze_script_whitespace_only_rejected(self, client):
+        """Whitespace-only script returns 400."""
+        response = client.post("/api/analyze/script", json={"script": "   \n\n  "})
+        assert response.status_code == 400
+
+    def test_analyze_script_too_short_rejected(self, client):
+        """Script under 50 characters returns 400."""
+        response = client.post("/api/analyze/script", json={"script": "Too short!"})
+        assert response.status_code == 400
+
+    def test_analyze_script_stored_in_cache(self, client):
+        """Script analysis is stored in the analysis cache."""
+        response = client.post("/api/analyze/script", json={"script": _SAMPLE_SCRIPT})
+        video_id = response.json()["video_id"]
+
+        fetch = client.get(f"/analyses/{video_id}")
+        assert fetch.status_code == 200
+        assert fetch.json()["video_id"] == video_id
+
+    def test_analyze_script_listed_in_videos(self, client):
+        """Script analysis appears in video listing."""
+        response = client.post(
+            "/api/analyze/script",
+            json={"script": _SAMPLE_SCRIPT, "title": "Test Script"},
+        )
+        video_id = response.json()["video_id"]
+
+        videos_resp = client.get("/videos")
+        assert videos_resp.status_code == 200
+        video_ids = [v["id"] for v in videos_resp.json()["videos"]]
+        assert video_id in video_ids

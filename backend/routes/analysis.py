@@ -1,14 +1,19 @@
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from storage_adapter import store
-from rate_limiter import check_api_limit
+from rate_limiter import check_api_limit, upload_limiter
 from pdf_report import generate_pdf_report
 from correlation_tracker import CorrelationTracker
+from bridge_logic import ROI, NeuroSocialBridge
+from config import settings
+from heuristic_scorer import score_transcript
+from routes.upload import process_video
 from shared_state import (
     _get_analysis_or_404,
     _get_video_or_404,
@@ -17,7 +22,10 @@ from shared_state import (
     _share_links,
     _video_share_links,
     _share_link_timestamps,
+    _increment_usage,
+    _is_premium,
     require_auth_user,
+    get_verified_user_id,
 )
 
 
@@ -28,11 +36,77 @@ class FeedbackRequest(BaseModel):
     would_publish: bool = True
 
 
+class ScriptAnalysisRequest(BaseModel):
+    script: str
+    title: Optional[str] = None
+
+
 router = APIRouter(tags=["analysis"])
 
 _tracker = CorrelationTracker()
 
-_tracker = CorrelationTracker()
+
+@router.post("/api/analyze/script")
+async def analyze_script(
+    request: Request,
+    req: ScriptAnalysisRequest,
+    user_id: str = Depends(get_verified_user_id),
+):
+    """Analyze a script/text instantly using heuristic pipeline.
+
+    No transcription, no video upload. Returns full analysis
+    (ROI scores, MiroFish simulation, TRIBE brain response,
+    stage-gate, recommendations) in one synchronous call.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if not upload_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Max 5 analyses per 5 minutes.",
+        )
+
+    if user_id != "anonymous" and not _is_premium(user_id):
+        from shared_state import _usage_tracker
+        current_usage = _usage_tracker.get(user_id, 0)
+        if current_usage >= settings.premium_max_analyses_free:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Free tier limit reached ({settings.premium_max_analyses_free}/month). Upgrade to Pro for unlimited analyses.",
+            )
+
+    text = req.script.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Script text cannot be empty.")
+    if len(text) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Script too short. Minimum 50 characters for meaningful analysis.",
+        )
+
+    script_id = f"script_{uuid.uuid4().hex[:12]}"
+
+    roi_scores = score_transcript(text)
+    roi = ROI(
+        A5=roi_scores["A5"],
+        LO=roi_scores["LO"],
+        Area45=roi_scores["Area45"],
+        TPJ=roi_scores["TPJ"],
+    )
+
+    analysis = await process_video(script_id, "", text, roi)
+
+    analysis["script_title"] = req.title
+    analysis["analysis_type"] = "script"
+    analysis["source"] = "text_input"
+
+    await store.insert_analysis(script_id, analysis, user_id=user_id)
+    await store.insert_video(
+        script_id, req.title or "Script Analysis", "analyzed", user_id=user_id
+    )
+
+    _increment_usage(user_id)
+
+    return analysis
 
 
 @router.get("/analyses/{video_id}")
