@@ -17,6 +17,7 @@ _SHARE_LINK_TTL = 604800  # 7 days
 _waitlist: List[Dict[str, Any]] = []
 _digest_subs: Dict[str, dict] = {}
 _usage_tracker: Dict[str, int] = {}
+_usage_tracker_month: int = datetime.now().month
 _premium_users: set = set()
 _ws_connections: Dict[str, list] = {}
 _share_permissions: Dict[str, dict] = {}
@@ -100,6 +101,11 @@ def _is_premium(user_id: str) -> bool:
 
 
 def _increment_usage(user_id: str):
+    global _usage_tracker_month
+    current_month = datetime.now().month
+    if current_month != _usage_tracker_month:
+        _usage_tracker.clear()
+        _usage_tracker_month = current_month
     if user_id and user_id != "anonymous":
         _usage_tracker[user_id] = _usage_tracker.get(user_id, 0) + 1
 

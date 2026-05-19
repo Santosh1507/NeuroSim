@@ -270,3 +270,12 @@ async def digest_preview():
             for a in top
         ],
     )
+
+
+@router.get("/api/digest/unsubscribe")
+async def digest_unsubscribe(email: str):
+    """Unsubscribe an email from digest deliveries."""
+    if email in _digest_subs:
+        sub = _digest_subs.pop(email)
+        return {"message": "Unsubscribed", "email": email}
+    return {"message": "Email not found in subscriptions", "email": email}

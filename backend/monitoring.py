@@ -23,20 +23,34 @@ class MetricsCollector:
         if len(self._response_times[key]) > 100:
             self._response_times[key] = self._response_times[key][-100:]
 
+    def _percentile(self, data: List[float], pct: float) -> float:
+        if not data:
+            return 0
+        sorted_data = sorted(data)
+        idx = int(len(sorted_data) * pct / 100)
+        idx = min(idx, len(sorted_data) - 1)
+        return round(sorted_data[idx], 2)
+
     def get_summary(self) -> dict:
         uptime = time.time() - self._start_time
         total_requests = sum(self._request_counts.values())
         total_errors = sum(self._error_counts.values())
         avg_times = {}
+        p95_times = {}
+        p99_times = {}
         for key, times in self._response_times.items():
             if times:
                 avg_times[key] = round(sum(times) / len(times), 2)
+                p95_times[key] = self._percentile(times, 95)
+                p99_times[key] = self._percentile(times, 99)
         return {
             "uptime_seconds": round(uptime, 0),
             "total_requests": total_requests,
             "total_errors": total_errors,
             "error_rate": round(total_errors / max(total_requests, 1), 4),
             "avg_response_times_ms": avg_times,
+            "p95_response_times_ms": p95_times,
+            "p99_response_times_ms": p99_times,
             "top_endpoints": sorted(self._request_counts.items(), key=lambda x: x[1], reverse=True)[:10],
         }
 

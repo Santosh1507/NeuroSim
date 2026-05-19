@@ -96,7 +96,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="NeuroSim API",
-    version="2.3.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -167,7 +167,7 @@ async def health():
     """Health check for Render keep-alive and monitoring."""
     return {
         "status": "healthy",
-        "version": "2.3.0",
+        "version": "3.0.0",
         "whisper": "ready" if transcriber.available else "unavailable",
         "supabase": "connected" if _supabase.enabled else "fallback",
         "uptime": "ok",

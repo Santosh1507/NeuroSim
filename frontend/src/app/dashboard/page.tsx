@@ -1128,8 +1128,23 @@ export default function Dashboard() {
                 </button>
               </div>
               <button
-                onClick={() => {
-                  setFeedbackSubmitted(true)
+                onClick={async () => {
+                  if (!selectedVideo) return
+                  try {
+                    await fetch(`${API_URL}/api/feedback`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        video_id: selectedVideo,
+                        actual_views: parseInt(feedbackData.views) || 0,
+                        actual_engagement: parseFloat(feedbackData.engagement) || 0,
+                        would_publish: feedbackData.wouldPublish,
+                      }),
+                    })
+                    setFeedbackSubmitted(true)
+                  } catch {
+                    console.error('Failed to submit feedback')
+                  }
                   setShowFeedbackForm(false)
                 }}
                 className="w-full btn-neural py-3"

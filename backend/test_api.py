@@ -71,7 +71,7 @@ class TestAPIEndpoints:
         assert "LO" in data
 
     def test_simulate_single_strong(self, client):
-        response = client.post("/simulate/single", json={"content_url": "version_a.mp4"})
+        response = client.post("/simulate/single", json={"content_url": "https://example.com/video.mp4", "variant": "a"})
         assert response.status_code == 200
         data = response.json()
         assert "roi" in data
@@ -79,7 +79,7 @@ class TestAPIEndpoints:
         assert "stage_gate_passed" in data
 
     def test_simulate_single_weak(self, client):
-        response = client.post("/simulate/single", json={"content_url": "version_b.mp4"})
+        response = client.post("/simulate/single", json={"content_url": "https://example.com/video.mp4", "variant": "b"})
         assert response.status_code == 200
         data = response.json()
         assert data["stage_gate_passed"] is False

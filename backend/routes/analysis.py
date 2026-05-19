@@ -3,10 +3,12 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from storage_adapter import store
 from rate_limiter import check_api_limit
 from pdf_report import generate_pdf_report
+from correlation_tracker import CorrelationTracker
 from shared_state import (
     _get_analysis_or_404,
     _get_video_or_404,
@@ -19,7 +21,18 @@ from shared_state import (
 )
 
 
+class FeedbackRequest(BaseModel):
+    video_id: str
+    actual_views: int
+    actual_engagement: float
+    would_publish: bool = True
+
+
 router = APIRouter(tags=["analysis"])
+
+_tracker = CorrelationTracker()
+
+_tracker = CorrelationTracker()
 
 
 @router.get("/analyses/{video_id}")
@@ -82,3 +95,30 @@ async def get_simulation(video_id: str):
 async def get_brain_response(video_id: str):
     analysis = await _get_analysis_or_404(video_id)
     return analysis.get("tribev2_brain_response", {})
+
+
+@router.post("/api/feedback")
+async def submit_feedback(req: FeedbackRequest, user_id: str = Depends(require_auth_user)):
+    """Submit actual video performance data for correlation tracking."""
+    analysis = await _get_analysis_or_404(req.video_id)
+    predicted_scores = {
+        "hook_score": analysis.get("hook_score", 0),
+        "viral_potential": analysis.get("viral_potential", 0),
+        "success_probability": analysis.get("success_probability", 0),
+    }
+    _tracker.add_entry(
+        video_id=req.video_id,
+        predicted_scores=predicted_scores,
+        actual_views=req.actual_views,
+        actual_engagement=req.actual_engagement,
+    )
+    return {
+        "status": "received",
+        "total_entries": _tracker.entry_count(),
+    }
+
+
+@router.get("/api/feedback/correlations")
+async def get_correlations():
+    """Return current prediction accuracy correlations."""
+    return _tracker.get_correlations()

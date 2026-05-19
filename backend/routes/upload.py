@@ -72,6 +72,7 @@ class WhatIfRequest(BaseModel):
 
 class SingleSimRequest(BaseModel):
     content_url: str
+    variant: str = "a"  # "a" or "b"
 
 
 async def _broadcast_progress(video_id: str, data: dict):
@@ -411,7 +412,7 @@ async def get_video(video_id: str):
 
 @router.post("/simulate/single")
 async def simulate_single(req: SingleSimRequest):
-    is_strong = "version_a" in req.content_url.lower() or "a" in req.content_url.lower()
+    is_strong = req.variant.lower() in ("a", "strong", "version_a")
 
     if is_strong:
         roi = ROI(
