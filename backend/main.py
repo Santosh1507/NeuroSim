@@ -34,10 +34,11 @@ from storage_adapter import store, _supabase
 from heuristic_scorer import score_transcript
 from mirofish_engine import mirofish_engine
 from pdf_report import generate_pdf_report
-from rate_limiter import upload_limiter
+from rate_limiter import upload_limiter, check_api_limit
 from roi_extractor import roi_extractor
 from transcriber import transcriber
 from tribe_engine import tribe_engine
+from monitoring import metrics
 
 
 _BACKGROUND_SWEEP_INTERVAL = 60  # seconds between automatic housekeeping sweeps
@@ -109,6 +110,12 @@ async def log_requests(request: Request, call_next):
     client_ip = request.client.host if request.client else "unknown"
     print(
         f"[{datetime.now().isoformat()}] {request.method} {request.url.path} {response.status_code} {duration}ms — {client_ip}"
+    )
+    metrics.record_request(
+        method=request.method,
+        path=request.url.path,
+        status=response.status_code,
+        duration_ms=duration,
     )
     return response
 
@@ -430,6 +437,12 @@ async def health():
     }
 
 
+@app.get("/api/metrics")
+async def get_metrics():
+    """Return API metrics summary."""
+    return metrics.get_summary()
+
+
 @app.post("/upload")
 async def upload_video(
     request: Request,
@@ -747,7 +760,7 @@ async def process_video(
 
 
 @app.get("/videos")
-async def list_videos():
+async def list_videos(_=Depends(check_api_limit)):
     videos = await store.list_videos()
     return {"videos": videos}
 
@@ -759,7 +772,7 @@ async def get_video(video_id: str):
 
 
 @app.get("/analyses/{video_id}")
-async def get_analysis(video_id: str):
+async def get_analysis(video_id: str, _=Depends(check_api_limit)):
     return await _get_analysis_or_404(video_id)
 
 
@@ -1001,7 +1014,7 @@ async def join_waitlist(req: WaitlistRequest):
 
 
 @app.get("/api/analytics")
-async def get_analytics():
+async def get_analytics(_=Depends(check_api_limit)):
     return await store.get_analytics_snapshot()
 
 
