@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import sentry_sdk
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -70,6 +71,22 @@ def _user_error(message: str, detail: str = "", status_code: int = 500):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize Sentry
+    if settings.sentry_dsn:
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.sentry_environment,
+            traces_sample_rate=0.1,
+        )
+        print(f"Sentry initialized — environment: {settings.sentry_environment}")
+
+    # Initialize PostHog
+    if settings.posthog_api_key:
+        import posthog
+        posthog.api_key = settings.posthog_api_key
+        posthog.host = settings.posthog_host
+        print("PostHog initialized")
+
     os.makedirs(settings.upload_dir, exist_ok=True)
     whisper_status = "ready" if transcriber.available else "unavailable (install faster-whisper)"
     print(
