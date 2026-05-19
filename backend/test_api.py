@@ -16,6 +16,11 @@ random.seed(42)
 os.environ["NEUROSIM_SYNC_MODE"] = "1"
 
 
+def _mp4_header() -> bytes:
+    """Return a valid MP4 ftyp header for MIME validation."""
+    return bytes.fromhex("000000186674797069736f6d00000001")
+
+
 @pytest.fixture(autouse=True)
 def seed_rng():
     """Re-seed RNGs before each test so results are independent of test order."""
@@ -76,7 +81,7 @@ class TestAPIEndpoints:
         assert data["social"] is None
 
     def test_upload_video(self, client):
-        file_content = b"fake mp4 content" * 1000
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
         response = client.post(
             "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
@@ -85,7 +90,14 @@ class TestAPIEndpoints:
         assert data["status"] == "processing"
         assert "video_id" in data
 
-    def test_upload_unsupported_format(self, client):
+    def test_upload_invalid_content(self, client):
+        """Upload with non-video content should be rejected by MIME validation."""
+        response = client.post(
+            "/upload", files={"file": ("test.mp4", io.BytesIO(b"not a video"), "video/mp4")}
+        )
+        assert response.status_code == 400
+
+    def test_upload_unsupported_extension(self, client):
         response = client.post(
             "/upload", files={"file": ("test.txt", io.BytesIO(b"not a video"), "text/plain")}
         )
@@ -116,7 +128,7 @@ class TestAPIEndpoints:
         return False
 
     def test_upload_and_retrieve(self, client):
-        file_content = b"fake mp4 content" * 1000
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
             "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
@@ -137,7 +149,7 @@ class TestAPIEndpoints:
         assert "stage_gate" in analysis
 
     def test_report_generation(self, client):
-        file_content = b"fake mp4 content" * 1000
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
             "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
@@ -152,7 +164,7 @@ class TestAPIEndpoints:
         assert "video" in report
 
     def test_simulation_endpoint(self, client):
-        file_content = b"fake mp4 content" * 1000
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
             "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
@@ -166,7 +178,7 @@ class TestAPIEndpoints:
         assert "persona_distribution" in sim
 
     def test_brain_response_endpoint(self, client):
-        file_content = b"fake mp4 content" * 1000
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
             "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
@@ -180,7 +192,7 @@ class TestAPIEndpoints:
         assert "emotional_impact" in brain
 
     def test_what_if_simulation(self, client):
-        file_content = b"fake mp4 content" * 1000
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
             "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
@@ -196,3 +208,37 @@ class TestAPIEndpoints:
         assert "modifications" in result
         assert "predicted_outcome" in result
         assert "comparison" in result
+
+    def test_upload_content_bad_magic_bytes(self, client):
+        """Upload with .mp4 extension but garbage content should be rejected."""
+        file_content = b"garbage data that doesn't look like a video at all" * 100
+        response = client.post(
+            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+        )
+        assert response.status_code == 400
+        assert "content" in response.json()["detail"].lower()
+
+    def test_upload_and_delete_analysis(self, client):
+        """Upload an analysis, then delete it, then verify it's gone."""
+        file_content = _mp4_header() + b"fake mp4 content" * 1000
+        upload_response = client.post(
+            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+        )
+        assert upload_response.status_code == 200
+        video_id = upload_response.json()["video_id"]
+        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
+
+        # Delete the analysis
+        delete_response = client.delete(f"/analyses/{video_id}")
+        assert delete_response.status_code == 200
+        data = delete_response.json()
+        assert data["status"] == "deleted"
+        assert data["video_id"] == video_id
+
+        # Verify it's gone
+        get_response = client.get(f"/analyses/{video_id}")
+        assert get_response.status_code == 404
+
+        # Delete again should 404
+        delete_response2 = client.delete(f"/analyses/{video_id}")
+        assert delete_response2.status_code == 404

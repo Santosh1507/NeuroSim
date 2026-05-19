@@ -36,6 +36,8 @@ from tribe_engine import tribe_engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure upload directory exists
+    os.makedirs(settings.upload_dir, exist_ok=True)
     whisper_status = "ready" if transcriber.available else "unavailable (install faster-whisper)"
     print(
         f"NeuroSim API starting — TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}, Whisper: {whisper_status}"
@@ -46,7 +48,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="NeuroSim API",
-    version="2.2.0",
+    version="2.3.0",
     lifespan=lifespan,
 )
 
@@ -81,6 +83,7 @@ _VIDEO_TTL = 3600  # 1 hour
 _ANALYSIS_TTL = 1800  # 30 minutes
 _task_status: Dict[str, dict] = {}
 _share_links: Dict[str, str] = {}
+_video_share_links: Dict[str, list[str]] = {}  # reverse map for deletion cleanup
 _share_link_timestamps: Dict[str, float] = {}
 _SHARE_LINK_TTL = 604800  # 7 days
 _waitlist: List[Dict[str, Any]] = []
@@ -137,8 +140,30 @@ def _evict_stale():
         if now - ts > _SHARE_LINK_TTL
     ]
     for sid in stale_shares:
-        _share_links.pop(sid, None)
+        vid = _share_links.pop(sid, None)
         _share_link_timestamps.pop(sid, None)
+        if vid:
+            _video_share_links.get(vid, []).remove(sid) if sid in _video_share_links.get(vid, []) else None
+
+
+def _is_video_magic(header: bytes) -> bool:
+    """Check if the first bytes of a file match known video format signatures.
+
+    Zero-dependency magic byte check for MP4/MOV, AVI, and WebM/Matroska.
+    """
+    if len(header) < 12:
+        return False
+    # MP4 / MOV — starts with an ftyp box (ISO Base Media File Format)
+    # ftyp box starts at byte 4, contains 'ftyp' at offset 4-7
+    if header[4:8] == b"ftyp" or header[0:4] == b"ftyp":
+        return True
+    # AVI — RIFF header with AVI subtype at byte 8
+    if header[0:4] == b"RIFF" and header[8:12] == b"AVI ":
+        return True
+    # WebM / Matroska — starts with 0x1A45DFA3 (EBML header)
+    if len(header) >= 4 and header[0:4] == b"\x1a\x45\xdf\xa3":
+        return True
+    return False
 
 
 async def _get_analysis_or_404(video_id: str) -> Dict[str, Any]:
@@ -209,7 +234,7 @@ class DigestPreview(BaseModel):
 async def root():
     return {
         "status": "ok",
-        "message": "NeuroSim API v2.2 — Simulated Analysis (Heuristic + Swarm)",
+        "message": "NeuroSim API v2.3 — Simulated Analysis (Heuristic + Swarm)",
         "tribe_mode": "real" if tribe_engine.is_real else "simulated",
         "mirofish_mode": "real" if mirofish_engine.is_real else "simulated",
         "whisper_available": transcriber.available,
@@ -221,7 +246,7 @@ async def health():
     """Health check for Render keep-alive and monitoring."""
     return {
         "status": "healthy",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "whisper": "ready" if transcriber.available else "unavailable",
         "supabase": "connected" if db.enabled else "fallback",
         "uptime": "ok",
@@ -249,6 +274,15 @@ async def upload_video(request: Request, file: UploadFile = File(...), user_id: 
     if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=400, detail=f"Unsupported format. Use: {allowed_extensions}"
+        )
+
+    # Magic-byte validation (zero-dependency, covers all allowed formats)
+    header = await file.read(32)
+    await file.seek(0)  # rewind for later write
+    if not _is_video_magic(header):
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match a supported video format (mp4, mov, avi, webm).",
         )
 
     video_id = str(uuid.uuid4())
@@ -558,6 +592,44 @@ async def get_analysis(video_id: str):
     return await _get_analysis_or_404(video_id)
 
 
+@app.delete("/analyses/{video_id}")
+async def delete_analysis(video_id: str):
+    """Delete an analysis and its associated data from cache and Supabase.
+
+    Cleans up: analyses cache, videos cache, share links, task status,
+    WebSocket connections, and cache timestamps.
+    """
+    # Check it exists first
+    try:
+        await _get_analysis_or_404(video_id)
+    except HTTPException:
+        raise HTTPException(status_code=404, detail="Analysis not found") from None
+
+    # Remove from in-memory caches
+    _analyses_cache.pop(video_id, None)
+    _videos_cache.pop(video_id, None)
+    _cache_timestamps.pop(f"a:{video_id}", None)
+    _cache_timestamps.pop(f"v:{video_id}", None)
+    _task_status.pop(video_id, None)
+    _ws_connections.pop(video_id, None)
+
+    # Clean up any share links pointing to this video
+    share_ids = _video_share_links.pop(video_id, [])
+    for sid in share_ids:
+        _share_links.pop(sid, None)
+        _share_link_timestamps.pop(sid, None)
+
+    # Delete from Supabase if enabled
+    if db.enabled:
+        try:
+            db.client.table("analyses").delete().eq("video_id", video_id).execute()
+            db.client.table("videos").delete().eq("id", video_id).execute()
+        except Exception as e:
+            print(f"[WARN] Failed to delete {video_id} from Supabase: {e}")
+
+    return {"status": "deleted", "video_id": video_id}
+
+
 @app.get("/reports/{video_id}")
 async def get_report(video_id: str):
     video = await _get_video_or_404(video_id)
@@ -726,6 +798,8 @@ async def create_share_link(req: ShareRequest):
     share_id = str(uuid.uuid4())
     _share_links[share_id] = req.video_id
     _share_link_timestamps[share_id] = datetime.now().timestamp()
+    # Track reverse mapping for deletion cleanup
+    _video_share_links.setdefault(req.video_id, []).append(share_id)
     return {"share_id": share_id, "url": f"/r/{share_id}"}
 
 
