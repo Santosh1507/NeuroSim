@@ -11,6 +11,7 @@ from rate_limiter import check_api_limit, upload_limiter
 from pdf_report import generate_pdf_report
 from correlation_tracker import CorrelationTracker
 from validation_study import ValidationStudy
+from youtube_client import extract_video_id, fetch_video_metadata, fetch_youtube_transcript
 from bridge_logic import ROI, NeuroSocialBridge
 from config import settings
 from heuristic_scorer import score_transcript
@@ -48,6 +49,10 @@ class ValidationSubmitRequest(BaseModel):
 class ScriptAnalysisRequest(BaseModel):
     script: str
     title: Optional[str] = None
+
+
+class YouTubeAnalysisRequest(BaseModel):
+    url: str
 
 
 router = APIRouter(tags=["analysis"])
@@ -112,6 +117,75 @@ async def analyze_script(
     await store.insert_analysis(script_id, analysis, user_id=user_id)
     await store.insert_video(
         script_id, req.title or "Script Analysis", "analyzed", user_id=user_id
+    )
+
+    _increment_usage(user_id)
+
+    return analysis
+
+
+@router.post("/api/analyze/youtube")
+async def analyze_youtube(
+    request: Request,
+    req: YouTubeAnalysisRequest,
+    user_id: str = Depends(get_verified_user_id),
+):
+    """Analyze a YouTube video by URL.
+
+    Extracts transcript via youtube-transcript-api, fetches metadata
+    via YouTube Data API v3, then runs the full heuristic pipeline.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if not upload_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Max 5 analyses per 5 minutes.",
+        )
+
+    if user_id != "anonymous" and not _is_premium(user_id):
+        from shared_state import _usage_tracker
+        current_usage = _usage_tracker.get(user_id, 0)
+        if current_usage >= settings.premium_max_analyses_free:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Free tier limit reached ({settings.premium_max_analyses_free}/month). Upgrade to Pro for unlimited analyses.",
+            )
+
+    video_id = extract_video_id(req.url)
+    if not video_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid YouTube URL. Provide a youtube.com or youtu.be link.",
+        )
+
+    metadata = await fetch_video_metadata(video_id)
+    transcript = await fetch_youtube_transcript(video_id)
+
+    if not transcript:
+        raise HTTPException(
+            status_code=400,
+            detail="No transcript/captions available for this video.",
+        )
+
+    roi_scores = score_transcript(transcript)
+    roi = ROI(
+        A5=roi_scores["A5"],
+        LO=roi_scores["LO"],
+        Area45=roi_scores["Area45"],
+        TPJ=roi_scores["TPJ"],
+    )
+
+    analysis_id = f"yt_{video_id}"
+    analysis = await process_video(analysis_id, "", transcript, roi)
+
+    analysis["youtube_metadata"] = metadata
+    analysis["analysis_type"] = "youtube"
+    analysis["source"] = "youtube_url"
+    analysis["script_title"] = metadata.get("title")
+
+    await store.insert_analysis(analysis_id, analysis, user_id=user_id)
+    await store.insert_video(
+        analysis_id, metadata.get("title", video_id), "analyzed", user_id=user_id
     )
 
     _increment_usage(user_id)

@@ -53,6 +53,42 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_key: str = ""
 
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
+    # YouTube Data API v3
+    youtube_api_key: str = ""
+
     model_config = ConfigDict(env_file=".env")
 
 

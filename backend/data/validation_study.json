@@ -43,5 +43,20 @@
     "would_publish": true,
     "days_after_publish": 7,
     "submitted_at": "2026-05-19T19:22:22.017286"
+  },
+  {
+    "video_id": "fb9c699f-7b42-4213-b1ec-f89a74cfbc2c",
+    "user_id": "anonymous",
+    "analysis_type": "video",
+    "predicted_scores": {
+      "hook_score": 25.2,
+      "viral_potential": 0.0,
+      "success_probability": 12.6
+    },
+    "actual_views": 5000,
+    "actual_engagement": 4.5,
+    "would_publish": true,
+    "days_after_publish": 7,
+    "submitted_at": "2026-05-19T20:01:07.914456"
   }
 ]
