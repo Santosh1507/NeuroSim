@@ -35,6 +35,9 @@ class RateLimiter:
         self._cleanup(ip)
         return max(0, self.max_requests - len(self._requests[ip]))
 
+    def reset(self, ip: str) -> None:
+        self._requests[ip] = []
+
 
 def rate_limit(limiter: RateLimiter):
     """Decorator that applies rate limiting to a FastAPI route."""
@@ -57,4 +60,13 @@ def rate_limit(limiter: RateLimiter):
 
 # Default limiters
 upload_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 uploads per 5 min
-api_limiter = RateLimiter(max_requests=30, window_seconds=60)  # 30 API calls per min
+api_limiter = RateLimiter(max_requests=60, window_seconds=60)  # 60 API calls per min
+
+
+def check_api_limit(request: Request):
+    ip = request.client.host if request.client else "unknown"
+    if not api_limiter.is_allowed(ip):
+        raise HTTPException(
+            status_code=429,
+            detail={"error": "Rate limit exceeded", "message": "Too many requests. Please slow down."},
+        )

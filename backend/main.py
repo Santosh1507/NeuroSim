@@ -1272,7 +1272,7 @@ async def digest_preview():
 
 
 @app.get("/api/premium/status")
-async def premium_status():
+async def premium_status(_=Depends(check_api_limit)):
     return {
         "enabled": settings.premium_enabled,
         "price_monthly": settings.premium_price_monthly,
