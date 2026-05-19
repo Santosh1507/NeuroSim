@@ -9,7 +9,7 @@ services:
     autoDeploy: true
     envVars:
       - key: CORS_ORIGINS
-        value: '["http://localhost:3000"]'
+        value: '["http://localhost:3000", "https://neurosim.netlify.app"]'
       - key: TRIBE_USE_REAL
         value: "false"
       - key: MIROFISH_USE_REAL
@@ -25,6 +25,12 @@ services:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
         sync: false
 
   - type: cron
