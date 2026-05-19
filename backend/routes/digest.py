@@ -112,7 +112,7 @@ def _format_digest_html(analyses: list, frequency: str, dashboard_url: str = "",
         </tr>
         <tr>
           <td style="padding:16px 32px 32px;">
-            <a href="{DASHBOARD}" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#4deeeb,#7c3aed);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
+            <a href="{{DASHBOARD}}" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#4deeeb,#7c3aed);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
               View Full Dashboard
             </a>
           </td>
@@ -121,7 +121,7 @@ def _format_digest_html(analyses: list, frequency: str, dashboard_url: str = "",
           <td style="padding:16px 32px;background-color:#f9fafb;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#9ca3af;">
               You're receiving this because you subscribed to the NeuroSim {frequency} digest.
-              <a href="{UNSUBSCRIBE}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>
+              <a href="{{UNSUBSCRIBE}}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>
             </p>
           </td>
         </tr>

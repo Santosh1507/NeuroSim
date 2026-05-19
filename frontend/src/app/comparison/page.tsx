@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useAuth } from '../../lib/auth-context'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { fadeIn } from '../../lib/easing'
 import { BarChart3, TrendingUp, ArrowUp, ArrowDown, Minus, Brain, Target, Zap, Activity, type LucideIcon } from 'lucide-react'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import axios from 'axios'
@@ -88,7 +89,7 @@ function ComparisonContent() {
     <div className="min-h-screen bg-neural neural-grid">
       <div className="relative z-10">
         <section className="max-w-6xl mx-auto px-6 py-12">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={fadeIn}>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neural/10 border border-neural/20 mb-6">
               <BarChart3 className="w-3 h-3 text-neural" />
               <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Comparison</span>

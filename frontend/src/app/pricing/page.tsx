@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../lib/auth-context'
 import { supabase } from '../../lib/supabase'
 import { motion } from 'framer-motion'
-import { Check, Sparkles, Brain, Cpu, ArrowRight } from 'lucide-react'
+import { heroReveal, staggerItem, easeOutExpo } from '../../lib/easing'
+import { Check, Sparkles, Brain, Cpu, ArrowRight, Loader2 } from 'lucide-react'
 
-const tiers = [
+const TIERS = [
   {
     name: 'Free',
     monthly: 0,
@@ -40,19 +41,36 @@ const tiers = [
       'API access',
       'Team collaboration',
     ],
-    cta: 'Join Waitlist',
+    cta: 'Upgrade to Pro',
+    ctaWaitlist: 'Join Waitlist',
     popular: true,
     comingSoon: true,
-    stripePriceId: null,
   },
 ]
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 export default function PricingPage() {
   const [yearly, setYearly] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
+  const [stripePriceIdMonthly, setStripePriceIdMonthly] = useState<string | null>(null)
+  const [stripePriceIdYearly, setStripePriceIdYearly] = useState<string | null>(null)
+  const [stripeConfigured, setStripeConfigured] = useState(false)
   const router = useRouter()
-  const { isSignedIn } = useAuth()
+  const { isSignedIn, user, isDemoMode } = useAuth()
 
-  const handleCTA = (tier: typeof tiers[0]) => {
+  useEffect(() => {
+    fetch(`${API_URL}/api/premium/status`)
+      .then(r => r.json())
+      .then(data => {
+        setStripePriceIdMonthly(data.stripe_price_id_monthly)
+        setStripePriceIdYearly(data.stripe_price_id_yearly)
+        setStripeConfigured(data.stripe_configured)
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleCTA = async (tier: typeof TIERS[0]) => {
     if (tier.name === 'Free') {
       if (isSignedIn) {
         router.push('/dashboard')
@@ -64,8 +82,49 @@ export default function PricingPage() {
       } else {
         router.push('/dashboard')
       }
-    } else {
+      return
+    }
+
+    // Pro tier
+    if (!stripeConfigured) {
       router.push('/waitlist')
+      return
+    }
+
+    const priceId = yearly ? stripePriceIdYearly : stripePriceIdMonthly
+    if (!priceId) {
+      router.push('/waitlist')
+      return
+    }
+
+    setCheckoutLoading(tier.name)
+    try {
+      const userId = user?.id || (isDemoMode ? 'demo-user' : undefined)
+      const res = await fetch(`${API_URL}/api/stripe/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          price_id: priceId,
+          success_url: window.location.origin + '/dashboard',
+          cancel_url: window.location.origin + '/pricing',
+          user_id: userId,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        console.error('Checkout error:', err)
+        router.push('/waitlist')
+        return
+      }
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (e) {
+      console.error('Checkout error:', e)
+      router.push('/waitlist')
+    } finally {
+      setCheckoutLoading(null)
     }
   }
 
@@ -76,7 +135,7 @@ export default function PricingPage() {
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            transition={heroReveal}
             className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neural/10 border border-neural/20 mb-6">
@@ -88,32 +147,52 @@ export default function PricingPage() {
             </h1>
             <p className="text-lg text-gray-400 max-w-md mx-auto">Start free. Upgrade when you need real GPU processing.</p>
 
-            <div className="inline-flex items-center gap-2 mt-10 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <div
+              className="inline-flex items-center gap-2 mt-10 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]"
+              role="radiogroup"
+              aria-label="Billing period"
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                  e.preventDefault()
+                  setYearly(yearly => !yearly)
+                }
+              }}
+            >
               <button
                 onClick={() => setYearly(false)}
+                tabIndex={!yearly ? 0 : -1}
                 className={`px-5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${!yearly ? 'bg-white/[0.08] text-white' : 'text-text-tertiary hover:text-white'}`}
+                role="radio"
+                aria-checked={!yearly}
+                aria-label="Monthly billing"
               >
                 Monthly
               </button>
               <button
                 onClick={() => setYearly(true)}
+                tabIndex={yearly ? 0 : -1}
                 className={`px-5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${yearly ? 'bg-white/[0.08] text-white' : 'text-text-tertiary hover:text-white'}`}
+                role="radio"
+                aria-checked={yearly}
+                aria-label="Yearly billing — save 17 percent"
               >
                 Yearly
-                <span className="ml-2 text-[10px] mono text-green-400">-17%</span>
+                <span className="ml-2 text-[10px] mono text-signal-green">-17%</span>
               </button>
             </div>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-            {tiers.map((tier, i) => {
+            {TIERS.map((tier, i) => {
               const price = yearly ? tier.yearly : tier.monthly
+              const ctaText = tier.name === 'Pro' && !stripeConfigured ? tier.ctaWaitlist : tier.cta
+              const isLoading = checkoutLoading === tier.name
               return (
                 <motion.div
                   key={tier.name}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  transition={staggerItem(i, 0.1)}
                   className={`relative rounded-2xl p-8 flex flex-col ${
                     tier.popular
                       ? 'bg-gradient-to-b from-neural/8 to-swarm/5 border border-neural/20 shadow-[0_0_40px_-8px_rgba(77,238,234,0.08)]'
@@ -128,7 +207,7 @@ export default function PricingPage() {
                   )}
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-white">{tier.name}</h3>
-                    {tier.comingSoon && (
+                    {tier.comingSoon && !stripeConfigured && (
                       <span className="badge badge-ghost text-[10px]">Coming soon</span>
                     )}
                   </div>
@@ -154,10 +233,26 @@ export default function PricingPage() {
 
                   <button
                     onClick={() => handleCTA(tier)}
-                    className="group w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer bg-neural/10 border border-neural/25 text-neural hover:bg-neural/20"
+                    disabled={isLoading}
+                    className={`group w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      isLoading
+                        ? 'bg-neural/5 border border-neural/15 text-neural/60 cursor-not-allowed'
+                        : 'bg-neural/10 border border-neural/25 text-neural hover:bg-neural/20'
+                    }`}
+                    aria-label={`${tier.name} plan: ${ctaText}`}
+                    aria-busy={isLoading}
                   >
-                    {tier.cta}
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        Redirecting...
+                      </>
+                    ) : (
+                      <>
+                        {ctaText}
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                      </>
+                    )}
                   </button>
                 </motion.div>
               )

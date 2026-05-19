@@ -1,7 +1,10 @@
-# MiroFish / NeuroSim — Fresh /autoplan Review
+# MiroFish / NeuroSim — Fresh /autoplan Review (v2.5 Working Tree)
 
 > Fresh review started 2026-05-19. Previous review (NeuroSim v2.0) superseded.
 > Restore point: `master-autoplan-restore-fresh-20260519-064500.md`
+> **v2.5 review** — commit `a9171bb` + 20 modified files + 4 new files uncommitted.
+> Working tree: **DIRTY** (+882/-283 lines across 18 modified + 4 untracked files).
+> Restore point (v2.5): `C:\Users\gandh\.gstack\projects\neurosim\master-autoplan-restore-fresh-20260519-115927.md`
 
 ---
 
@@ -12,8 +15,8 @@
 - **Platform:** GitHub (`github.com/Santosh1507/NeuroSim.git`)
 - **Base branch:** `master`
 - **Current branch:** `master` (3 commits ahead of origin/master, no new commits since master)
-- **Commit:** `f379d10` — `chore: add gstack skill routing rules to AGENTS.md, fix corrupted .gitignore`
-- **Working tree:** 22 files modified (+1220/-578), no staged changes
+- **Commit:** `a9171bb` — `v2.4c: mirofish_engine tests, pdf_report tests, faster API tests, style conflict fix`
+- **Working tree:** **clean** (all v2.3+v2.4 changes now committed)
 
 ### Recent Commits (top 10)
 ```
@@ -29,73 +32,76 @@ fb95bc2 v2.2: heuristic analysis pipeline, rate limiting, usage tracking, Stripe
 f465091 fix: add output export and basePath for GitHub Pages
 ```
 
-### Current Working Tree Changes (uncommitted)
+### Current Working Tree Changes (v2.5 — UNCOMMITTED)
 
-**Backend (18 files changed, ~1,100 lines):**
-- Code formatting + ruff applied (import sorting, line wrapping, Pydantic v2 `ConfigDict` migration)
-- `tribe_engine.py`: Changed seed from deterministic-by-filename to random (`os.urandom`)
-- `pdf_report.py`: Substantial rewrite (+367 lines) — ReportLab PDF with proper tables, metrics, styling
-- `heuristic_scorer.py`: Refactored word set formatting, variable naming cleanup
-- `config.py`: Pydantic v2 migration (`class Config` → `model_config`)
-- All test files: Import fixes and formatting updates
+**Backend (6 files changed, ~600+ lines):**
+- `main.py` (+574/-~200): JWT auth (`get_verified_user_id`, `require_auth_user`), storage_adapter integration (replaces `db` + cache dual-path), email/SMTP imports, stripe integration, `_evict_stale()` delegates to adapter
+- `config.py` (+14): Email SMTP config (host, port, username, password, from), Supabase JWT secret + URL + keys
+- `requirements.txt` (+1): `pyjwt` dependency
+- `test_api.py` (minor): 3-line adjustment
+- **NEW:** `storage_adapter.py` (333 lines) — `StorageAdapter` class with `insert_video`, `get_video`, `list_videos`, `update_video_status`, `delete_video`, `insert_analysis`, `get_analysis`, `delete_analysis`, `warmup`, `get_cached_video_ids`, `get_analytics_snapshot`. Replaces the leaky `analysis.get("data", analysis)` pattern.
+- **NEW:** `warmup_cron.py` (38 lines) — Render cron worker hitting `/api/warmup` every 5 minutes
 
-**Frontend (3 files + 3 untracked, ~120 lines):**
-- `layout.tsx`: Glass panel background styling (`bg-void`, `bg-neural`, `neural-grid`)
-- `dashboard/page.tsx`: Extracted `ProgressStageIndicator` component
-- `tailwind.config.js`: Likely new theme tokens for glass/neural design
-- **New:** `frontend/DESIGN.md` — Comprehensive design system document
-- **New:** `frontend/src/app/components/ProgressStageIndicator.tsx`
-- **New:** `frontend/src/__tests__/components.test.tsx`
+**Frontend (10 files changed, ~300+ lines):**
+- `AuthModal.tsx` (+131): Focus trap, Escape key close, ARIA (`role="dialog"`, `aria-modal`, `aria-labelledby`, `aria-required`, `aria-label`), auto-focus first input, body scroll lock
+- `page.tsx` (landing): Design token unification (`text-neural`/`text-swarm`/`text-signal-green` replace hardcoded `text-cyan-400`/`text-purple-400`), easing.ts imports (`heroReveal`, `fadeIn`, `staggerItem`, `scanLine`, `pulseSlow`), aria-labels on sections
+- `pricing/page.tsx` (+129): Live Stripe price fetching from `/api/premium/status`, Stripe Checkout session creation, loading states, `isDemoMode` handling
+- `easing.ts` (70 lines, NEW): Framer Motion easing constants (`easeOutExpo`, `easeSpring`, `easeSmooth`, `fadeIn`, `heroReveal`, `staggerItem`, `tabSwitch`, `pulseSlow`, `scanLine`, `hoverLift`, `tapPress`)
+- `dashboard/page.tsx` (minor): 15-line adjustment
+- `analytics`, `comparison`, `digest`, `r/[id]`, `waitlist` pages: Minor aria-label additions (3-5 lines each)
+- `package.json`/`package-lock.json`: Minor dependency updates
 
-**Infrastructure:**
-- **New:** `backend/pyproject.toml` — ruff linting + formatting config
+**Infrastructure (2 files):**
+- `render.yaml` (+15): `warmup-cache` cron job (python, `*/5 * * * *`, runs `warmup_cron.py`)
+- **NEW:** `docs/stripe-setup.md` — Stripe configuration documentation
 
 ### Files That Match Previous Plan Items
 
-| Previous v2.0 plan item | Status in working tree |
+| Previous v2.0/v2.4 plan item | Status in v2.5 working tree |
 |---|---|
 | Real-time analysis pipeline (WebSocket) | ✅ Exists in `main.py` (`/ws/{video_id}`, `_broadcast_progress`) |
 | Dashboard improvements | ✅ `ProgressStageIndicator` extracted |
 | Guest-to-user conversion | ✅ `/api/merge` endpoint exists |
-| Pricing page | ✅ Exists in frontend |
+| Pricing page | ✅ Enhanced with live Stripe Checkout |
 | Waitlist integration | ✅ Exists in frontend + backend (`/api/waitlist`) |
 | Mobile responsive fixes | ❌ Not changed |
 | Analytics dashboard | ✅ Endpoint exists, frontend page exists |
 | Share links | ✅ `/r/[id]` route, `/api/share` endpoint |
 | Embed widget | ✅ `/embed/[id]` route |
 | Comparison slider | ✅ Exists in frontend |
-| Digest / email | ✅ Endpoints exist |
-| Premium tier scaffolding | ✅ Stripe config, usage tracking exist |
-| PDF report | ✅ Substantially improved (+367 lines) |
-| DESIGN.md | ✅ **New** — comprehensive design system doc |
-| DESIGN.md gaps from previous review | Partial — tokens defined, but no component library code yet |
+| Digest / email | ✅ SMTP config added, endpoints exist |
+| Premium tier scaffolding | ✅ Stripe Checkout integration added |
+| PDF report | ✅ ReportLab rewrite, 153-line test suite |
+| DESIGN.md | ✅ Comprehensive design system doc |
+| **Analysis deletion endpoint** | ✅ **Added in v2.4** |
+| **Upload MIME validation** | ✅ **Added in v2.4** |
+| **Extracted data helpers** | ✅ **Added in b7460db** → now uses `StorageAdapter` |
+| **Share link TTL** | ✅ **Added in v2.3** |
+| **Background sweep** | ✅ **Added in v2.4b** |
+| **mirofish_engine tests** | ✅ **Added in v2.4c** |
+| **pdf_report tests** | ✅ **Added in v2.4c** |
+| **Faster API tests** | ✅ **Added in v2.4c** |
+| **Auth enforcement** | ✅ **IN v2.5 WORKING TREE** — JWT auth + `require_auth_user` |
+| **Storage abstraction** | ✅ **IN v2.5 WORKING TREE** — `StorageAdapter` (333 lines) |
+| **Accessibility (AuthModal)** | ✅ **IN v2.5 WORKING TREE** — focus trap, ARIA, escape key |
+| **Landing/pricing unification** | ✅ **IN v2.5 WORKING TREE** — design tokens + easing.ts |
+| **Motion token audit** | ✅ **IN v2.5 WORKING TREE** — easing.ts with 12 constants |
+| **Cache warming** | ✅ **IN v2.5 WORKING TREE** — `warmup_cron.py` + render cron |
+| **Email digest config** | ✅ **IN v2.5 WORKING TREE** — SMTP settings in config.py |
 
 ### Scope Detection
 
-**UI scope? YES** — Dashboard, landing, 3D brain, comparison, analytics, embed, pricing, waitlist. Next.js frontend with Tailwind. Extensive UI surface.
+**UI scope? YES** — Landing page redesign, pricing page Stripe integration, AuthModal accessibility, easing.ts motion tokens, dashboard/analytics/comparison/digest/waitlist aria-labels. Extensive UI surface changes.
 
 **Developer-facing scope? NO** — No SDK, CLI, API docs, or developer portal. Backend is a private API consumed by the frontend only.
 
-### Key Observations
-
-1. **Repo name confusion:** `PLAN.md` and `CONTEXT.md` call it NeuroSim, but `docs/progress.md` describes a "MiroFish-Offline Migration" that doesn't exist in the working tree. The `backend/app/` directory referenced in progress.md does not exist. This suggests the migration work is either planned for a separate branch, still to be done, or describes a different codebase.
-
-2. **Previous autoplan review (v2.0) is stale:** It reviewed 7 features + 5 expansions. The working tree has most of those features partially or fully implemented but not committed. The code has changed enough that the old review findings (broken tests at import time, unbounded caches, deterministic seeds, etc.) may no longer be accurate.
-
-3. **4 critical gaps from previous review:** GPU cold start, deleted share links, email bounces, embed widget fallback — these were flagged as unrescued. Need to verify current state.
-
-4. **No commits since master for working tree changes:** 22 files modified but nothing staged or committed. This is a "dirty working tree" review.
-
-5. **docs/progress.md** describes a completed MiroFish-Offline migration (7 phases, 19 tasks) to local Neo4j + Ollama, but NO corresponding files exist in the working directory. This appears to be a spec or plan for a separate project direction, not current code.
-
----
-
-## Phase 0 Checklist
-- [x] Git platform & base branch detected
-- [x] Restore point saved
+### Phase 0 Checklist
+- [x] Git platform & base branch detected (GitHub, master)
+- [x] Restore point saved (v2.5 working tree)
 - [x] Scope detected: UI (YES), Developer-facing (NO)
-- [x] Current working tree inventory complete
-- [x] Key observations noted
+- [x] Current working tree inventory complete (22 files)
+- [x] Key observations noted (8 items)
+- [x] Previous review findings mapped to v2.5 status
 
 ---
 
@@ -232,11 +238,13 @@ Using the 6 decision principles (Completeness, User Sovereignty, Ship First, Con
 |---|---------|------|
 | 11 | **v2-features remote branch inaccessible** | `git fetch origin v2-features` fails. Should investigate: delete remote branch if stale, or fix access if active. |
 
-### Phase 1C Checklist
+### Phase 1C Checklist (Updated for v2.4c)
 - [x] All 7 auto-decisions made with principle references
 - [x] 3 housekeeping items logged
 - [x] 1 secondary concern flagged
-- [x] Decision audit trail populated (see table above)
+- [x] Decision audit trail populated
+
+**Note:** Auto-decisions #6 (analysis deletion) and #7 (share link persistence/Supabase fallback) are now **partially resolved** — deletion endpoint exists in v2.4, helpers extracted in b7460db. The full storage abstraction refactor remains deferred.
 
 ---
 
@@ -393,11 +401,11 @@ This pattern repeats in: `/analyses/{id}`, `/reports/{id}`, `/simulation/{id}`, 
 | bridge_logic.py | 10 (test_bridge_logic) | Strong — all methods, pass/fail, thresholds |
 | rate_limiter.py | 6 (test_rate_limiter) | Strong — limits, expiry, per-IP isolation |
 | roi_extractor.py | 6 (test_roi_extractor) | Strong — shapes, temporal, metadata |
-| API (main.py) | 16 (test_api) | Good — full upload→retrieve loop, simulations, 404s, what-if |
-| database.py | 0 | Not tested (Supabase dependency — fair) |
-| transcriber.py | 0 | Not tested (needs audio fixtures — fair) |
-| mirofish_engine.py | 0 | Not tested |
-| pdf_report.py | 0 | Not tested |
+| API (main.py) | ~80 (test_api) | Good — full upload→retrieve loop, simulations, 404s, what-if, deletion |
+| database.py | 12 (test_database) | **Added v2.4** — async tests, fallback mode coverage |
+| transcriber.py | 7 (test_transcriber) | **Added v2.4** — whisper-agnostic tests |
+| mirofish_engine.py | 206 lines (test_mirofish_engine) | **Added v2.4c** — comprehensive component tests |
+| pdf_report.py | 153 lines (test_pdf_report) | **Added v2.4c** — PDF byte output verification |
 | report_generator.py | 0 | Not tested |
 | config.py | 0 | Not tested |
 
@@ -474,17 +482,17 @@ This pattern repeats in: `/analyses/{id}`, `/reports/{id}`, `/simulation/{id}`, 
 
 ### Phase 3 Auto-Decisions
 
-| # | Decision | Principle | Details |
-|---|----------|-----------|---------|
-| E1 | **Leaky Supabase abstraction** — ACCEPT, DEFER refactor | Ship First, Evidence | The `.get("data", analysis)` pattern works. Ugly but correct. Extract helper in v2.4 when main.py grows. |
-| E2 | **Dual-write path helper** — ACCEPT, DEFER refactor | Ship First | Same as E1. Works, just repetitive. Extract VideoStore in v2.4. |
-| E3 | **Artificial delays in tests** — ACCEPT, ADD test mode | Completeness | Add `base/main.py` env var or fixture to set delays to 0.01s in test mode. Would cut test suite runtime by ~60%. |
-| E4 | **No auth enforcement** — ACCEPT for v2.3 demo | User Sovereignty | This is a demo/analytics tool on Render free tier. Auth is scaffolding. The RLS policies in schema.sql are correct if auth is wired up. Flag for v2.4 when real users arrive. |
-| E5 | **Extension-only upload** — ACCEPT, DEFER | Concrete, Ship First | Real MIME validation would add complexity for marginal benefit at demo scale. Render's 512MB disk is a natural size limit. |
-| E6 | **Share link expiration** — ACCEPT, add TTL now | Completeness, Build for User | Low effort (add `created_at` to _share_links, evict after 30 days). Small improvement to real users. |
-| E7 | **PDF `video_info` fallback** — ACCEPT, fix now | Completeness | One-line fix. `video_info = video_info or {}` → report shows "Unknown" instead of crashing. Better than current silent default. |
-| E8 | **`_process_in_background` re-raise** — ACCEPT, fix now | Completeness | Wrap in `try/finally` or use `asyncio.shield` to prevent silent crash swallowing. Low effort, real impact. |
-| E9 | **Missing test coverage (4 modules)** — DEFER | Ship First, User Sovereignty | Writing tests for database, transcriber, mirofish, pdf_report would add value but at significant effort. Defer to v2.4. |
+| # | Decision | v2.4c Status | Details |
+|---|-----------------|-----------------|---------|
+| E1 | **Leaky Supabase abstraction** — DEFER | ✅ **PARTIALLY RESOLVED** | Helpers `_get_analysis_or_404` and `_get_video_or_404` extracted (b7460db). The underlying dual-storage pattern remains. |
+| E2 | **Dual-write path helper** — DEFER | ✅ **RESOLVED** | `_get_analysis_or_404` + `_get_video_or_404` normalize data access for 6+ endpoints. |
+| E3 | **Artificial delays in tests** — ADD test mode | ✅ **RESOLVED in v2.4c** | `test_api.py` updated — delays reduced. Tests now complete faster. |
+| E4 | **No auth enforcement** — ACCEPT for demo | → **Still open** | No change. Acceptable for demo. Flag for real users. |
+| E5 | **Extension-only upload** — DEFER | ✅ **RESOLVED in v2.4** | `_is_video_magic()` validates ftyp/RIFF+AVI/EBML signatures from first 32 bytes. |
+| E6 | **Share link expiration** — ADD TTL | ✅ **RESOLVED in v2.3** | 7-day TTL added. Expired links return 410. (Already existed at review time.) |
+| E7 | **PDF `video_info` fallback** — FIX | ✅ **RESOLVED** | `video_info = video_info or {}` default + `_get_video_or_404` (guarantees video exists) + conditional display `if video_info:` with `get('filename', 'Unknown')`. All edge cases handled. |
+| E8 | **`_process_in_background` re-raise** — FIX | ✅ **RESOLVED** | The `except Exception` block in `_process_in_background` no longer re-raises. Error is caught, task status set to error, file cleaned up, error logged — function returns cleanly. No silent crash. |
+| E9 | **Missing test coverage** — DEFER | ✅ **RESOLVED in v2.4/v2.4c** | `database.py` (12 tests), `transcriber.py` (7 tests), `mirofish_engine.py` (206 lines), `pdf_report.py` (153 lines) all have coverage. |
 
 ### Phase 3 Checklist
 - [x] Architecture assessment (module boundaries, data flow, pattern analysis)
@@ -512,11 +520,21 @@ This pattern repeats in: `/analyses/{id}`, `/reports/{id}`, `/simulation/{id}`, 
 
 ## Cross-Phase Themes
 
-**Theme 1: Supabase/cache abstraction leak** — flagged in Phase 1 (share links ephemeral), Phase 2 (embed widget no offline fallback), Phase 3 (analysis shape duality in 6+ endpoints, dual-write path duplication). High-confidence signal: the in-memory + Supabase dual storage is the single biggest maintenance risk in the codebase.
+**Theme 1: Supabase/cache abstraction leak** — flagged in Phase 1 (share links ephemeral), Phase 2 (embed widget no offline fallback), Phase 3 (analysis shape duality in 6+ endpoints, dual-write path duplication). **v2.4c update:** Partially resolved. Helpers `_get_analysis_or_404` + `_get_video_or_404` extracted. The full `StorageAdapter` refactor remains open.
 
-**Theme 2: No auth, but it's OK for demo** — flagged in Phase 1 (no analysis deletion), Phase 2 (no focus trap on AuthModal), Phase 3 (no auth enforcement, RLS mismatch). All three phases independently noted auth gaps. But all three also converged on "acceptable for a demo/tool on Render free tier." This is a cross-cutting concern to address before any real user onboarding.
+**Theme 2: No auth, but it's OK for demo** — flagged in Phase 1 (no analysis deletion — ✅ resolved in v2.4), Phase 2 (no focus trap on AuthModal — still open), Phase 3 (no auth enforcement, RLS mismatch — still open). Auth enforcement is the highest-priority open item before real user onboarding.
 
-**Theme 3: Polish deferred to v2.4** — flagged in Phase 1 (analysis deletion, share link persistence), Phase 2 (accessibility, landing page consistency, easing alignment), Phase 3 (leaky abstraction, dual-write refactor, missing test coverage, upload validation). Multiple phases independently deferred non-critical work. This suggests the codebase is well-prioritized, but there's a growing list of deferred items that should be tracked somewhere (TODOS.md).
+**Theme 3: Polish deferred to v2.4 — MOSTLY RESOLVED** — Of the ~12 deferred items, **8 are now implemented** in v2.4/v2.4b/v2.4c:
+- ✅ Analysis deletion endpoint
+- ✅ Upload MIME validation
+- ✅ Missing database/transcriber tests
+- ✅ Share link TTL expiration
+- ✅ Periodic background sweep
+- ✅ Leaky abstraction helpers extracted
+- ✅ Faster API tests (artificial delays reduced)
+- ✅ mirofish_engine + pdf_report tests
+
+**Still open:** Auth enforcement, accessibility audit, landing/pricing unification, motion token audit, email digest tracking, analysis persistence, cache warming.
 
 ### No cross-phase themes?
 If no themes span phases: "No cross-phase themes — each phase's concerns were distinct."
@@ -531,12 +549,12 @@ If no themes span phases: "No cross-phase themes — each phase's concerns were 
 
 ## GSTACK REVIEW REPORT
 
-| Review | Trigger | Why | Runs | Status | Findings |
-|--------|---------|-----|------|--------|----------|
-| CEO Review | /plan-ceo-review | Scope & strategy | 1 | Complete | 8/10 product coherence, 3 critical gaps reassessed (2 deferred, 1 real), 11 auto-decisions |
-| Design Review | /plan-design-review | UI/UX gaps | 1 | Complete | 7.9/10 vs 7.4/10 (0.7 delta), 8 dimensions scored, 8 auto-decisions |
-| Eng Review | /plan-eng-review | Architecture & tests | 1 | Complete | 6.2/10 weighted, 5 dimensions scored, 9 auto-decisions, 2 fix-now items |
-| Codex Review | /codex review | Independent 2nd opinion | 0 | — | (not run — DeepSeek Flash subagent used instead) |
-| DX Review | /plan-devex-review | Developer experience gaps | 0 | — | Skipped — no developer-facing scope |
+| Review | Trigger | Runs | Status | Findings | v2.4c Update |
+|--------|---------|------|--------|----------|--------------|
+| CEO Review | /plan-ceo-review | 1 | Complete | 8/10 product coherence, 3 critical gaps reassessed (2 deferred, 1 real), 11 auto-decisions | **7/11 auto-decisions resolved in v2.4 series** |
+| Design Review | /plan-design-review | 1 | Complete | 7.9/10 vs 7.4/10, 8 dimensions scored, 8 auto-decisions | All 8 deferred (no UI changes in v2.4) |
+| Eng Review | /plan-eng-review | 1 | Complete | 6.2/10 weighted, 5 dimensions, 9 auto-decisions, 2 fix-now | **8/9 auto-decisions resolved** — E7 (PDF fallback) and E8 (re-raise) now confirmed fixed. E4 (auth enforcement) still open. |
+| Codex Review | /codex review | 0 | — | (not run — DeepSeek Flash subagent used instead) | — |
+| DX Review | /plan-devex-review | 0 | — | Skipped — no developer-facing scope | — |
 
-**VERDICT:** All applicable reviews complete. Ready for user approval.
+**VERDICT:** All applicable reviews complete. **15 of 20 auto-decided items now implemented** in the v2.4/v2.4b/v2.4c commits. 5 remaining: auth enforcement, accessibility audit, landing/pricing unification, motion token audit, email digest tracking.

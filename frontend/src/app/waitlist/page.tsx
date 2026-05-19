@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { heroReveal, fadeIn } from '../../lib/easing'
 import { Mail, CheckCircle, ArrowRight, Brain, Sparkles } from 'lucide-react'
 import axios from 'axios'
 
@@ -41,7 +42,7 @@ export default function WaitlistPage() {
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            transition={heroReveal}
             className="text-center"
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neural/10 border border-neural/20 mb-6">
@@ -53,7 +54,7 @@ export default function WaitlistPage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                transition={fadeIn}
               >
                 <div className="w-16 h-16 rounded-2xl bg-neural/10 border border-neural/20 flex items-center justify-center mx-auto mb-6">
                   <CheckCircle className="w-8 h-8 text-neural" />

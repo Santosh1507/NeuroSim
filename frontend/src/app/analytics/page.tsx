@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { fadeIn } from '../../lib/easing'
 import { BarChart2, Brain, TrendingUp, Activity, Sparkles, Zap, Target, BarChart3 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
 import axios from 'axios'
@@ -63,7 +64,7 @@ export default function AnalyticsPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={fadeIn}
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neural/10 border border-neural/20 mb-6">
               <BarChart3 className="w-3 h-3 text-neural" />

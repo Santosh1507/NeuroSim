@@ -39,6 +39,20 @@ class Settings(BaseSettings):
     stripe_price_id_monthly: str = ""
     stripe_price_id_yearly: str = ""
 
+    # Email (SMTP) — used by digest delivery
+    email_host: str = ""
+    email_port: int = 587
+    email_username: str = ""
+    email_password: str = ""
+    email_from: str = "NeuroSim <digest@neurosim.ai>"
+    email_from_address: str = "digest@neurosim.ai"
+
+    # Supabase
+    supabase_jwt_secret: str = ""
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_service_key: str = ""
+
     model_config = ConfigDict(env_file=".env")
 
 

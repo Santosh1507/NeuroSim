@@ -19,6 +19,7 @@ _digest_subs: Dict[str, dict] = {}
 _usage_tracker: Dict[str, int] = {}
 _premium_users: set = set()
 _ws_connections: Dict[str, list] = {}
+_share_permissions: Dict[str, dict] = {}
 
 _last_eviction: float = 0
 _EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps

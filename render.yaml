@@ -26,3 +26,18 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
+
+  - type: cron
+    name: warmup-cache
+    runtime: python
+    rootDir: backend
+    schedule: "*/5 * * * *"
+    buildCommand: ""
+    startCommand: python warmup_cron.py
+    envVars:
+      - key: API_BASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

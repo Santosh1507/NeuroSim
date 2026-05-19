@@ -68,5 +68,5 @@ def check_api_limit(request: Request):
     if not api_limiter.is_allowed(ip):
         raise HTTPException(
             status_code=429,
-            detail={"error": "Rate limit exceeded", "message": "Too many requests. Please slow down."},
+            detail="Rate limit exceeded. Too many requests, please slow down.",
         )

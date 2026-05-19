@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { easeOutExpo } from '../../../lib/easing'
 import { Brain, AlertTriangle, ArrowRight, BarChart3, MessageSquare, Target, Sparkles } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts'
 import axios from 'axios'
@@ -46,7 +47,7 @@ export default function SharedAnalysisPage() {
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.7, ease: easeOutExpo }}
           >
             <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-8 h-8 text-amber-400" />
@@ -80,7 +81,7 @@ export default function SharedAnalysisPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.5, ease: easeOutExpo }}
           >
             <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-3">

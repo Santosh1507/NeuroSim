@@ -198,3 +198,20 @@ async def join_waitlist(req: WaitlistRequest):
 @app.get("/api/analytics")
 async def get_analytics(_=Depends(check_api_limit)):
     return await store.get_analytics_snapshot()
+
+
+class ErrorReportRequest(BaseModel):
+    message: str
+    stack: Optional[str] = None
+    url: str
+    timestamp: str
+    userAgent: str
+
+
+@app.post("/api/error-report")
+async def report_error(req: ErrorReportRequest):
+    """Receive frontend error reports for monitoring."""
+    print(f"[FRONTEND-ERROR] {req.message} at {req.url}")
+    if req.stack:
+        print(f"[FRONTEND-ERROR] Stack: {req.stack[:500]}")
+    return {"status": "received"}
