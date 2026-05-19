@@ -27,6 +27,7 @@ interface AuthContextType {
   signInAnonymously: () => Promise<void>
   signOut: () => Promise<void>
   mergeGuestSession: () => Promise<void>
+  recoverGuestSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -40,6 +41,7 @@ const AuthContext = createContext<AuthContextType>({
   signInAnonymously: async () => {},
   signOut: async () => {},
   mergeGuestSession: async () => {},
+  recoverGuestSession: async () => {},
 })
 
 const DEMO_USER = {
@@ -96,6 +98,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const recoverGuestSession = async () => {
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('neurosim_guest_id') : null
+    if (!guestId || !user) return
+
+    try {
+      const response = await fetch(`${API_URL}/api/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guest_session_id: guestId, user_id: user.id }),
+      })
+      if (response.ok) {
+        localStorage.removeItem('neurosim_guest_id')
+        window.location.reload()
+      }
+    } catch (error) {
+      console.error('Guest session recovery failed:', error)
+    }
+  }
+
   const signIn = async (email: string, password: string) => {
     if (!supabase) return { error: 'Supabase not configured' }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -134,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isSignedIn: !!user, isLoaded, isDemoMode, guestSessionId, signIn, signUp, signInAnonymously, signOut, mergeGuestSession }}>
+    <AuthContext.Provider value={{ user, isSignedIn: !!user, isLoaded, isDemoMode, guestSessionId, signIn, signUp, signInAnonymously, signOut, mergeGuestSession, recoverGuestSession }}>
       {children}
     </AuthContext.Provider>
   )
