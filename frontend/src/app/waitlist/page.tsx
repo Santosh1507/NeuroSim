@@ -21,7 +21,7 @@ export default function WaitlistPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await axios.post(`${API_URL}/api/waitlist`, { email, name: name || undefined })
+      const res = await axios.post(`${API_URL}/api/v1/waitlist`, { email, name: name || undefined })
       setQueuePos(res.data.queue_position)
       setSuccess(true)
     } catch (err: any) {

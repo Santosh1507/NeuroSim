@@ -232,7 +232,7 @@ export default function Dashboard() {
 
     try {
       const res = await axios.post(
-        `${API_URL}/api/analyze/script`,
+        `${API_URL}/api/v1/analyze/script`,
         { script: scriptText.trim(), title: scriptTitle || undefined },
         { timeout: 30000 },
       )
@@ -296,7 +296,7 @@ export default function Dashboard() {
 
     try {
       const res = await axios.post(
-        `${API_URL}/api/analyze/youtube`,
+        `${API_URL}/api/v1/analyze/youtube`,
         { url: youtubeUrl.trim() },
         { timeout: 60000 },
       )
@@ -381,7 +381,7 @@ export default function Dashboard() {
   const submitValidation = async () => {
     if (!selectedVideo) return
     try {
-      await axios.post(`${API_URL}/api/validation/submit`, {
+      await axios.post(`${API_URL}/api/v1/validation/submit`, {
         video_id: selectedVideo,
         actual_views: parseInt(validationData.views) || 0,
         actual_engagement: parseFloat(validationData.engagement) || 0,
@@ -398,7 +398,7 @@ export default function Dashboard() {
   const loadBenchmark = async () => {
     if (!selectedVideo) return
     try {
-      const res = await axios.post(`${API_URL}/api/benchmarks/compare`, {
+      const res = await axios.post(`${API_URL}/api/v1/benchmarks/compare`, {
         video_id: selectedVideo,
         cohort: benchmarkCohort,
       })
@@ -468,7 +468,7 @@ export default function Dashboard() {
     if (!selectedVideo) return
     setSharing(true)
     try {
-      const res = await axios.post(`${API_URL}/api/share`, { video_id: selectedVideo })
+      const res = await axios.post(`${API_URL}/api/v1/share`, { video_id: selectedVideo })
       setShareUrl(`${window.location.origin}/r/${res.data.share_id}`)
       setShowShareModal(true)
     } catch (err) {
@@ -1516,7 +1516,7 @@ export default function Dashboard() {
                 onClick={async () => {
                   if (!selectedVideo) return
                   try {
-                    await fetch(`${API_URL}/api/feedback`, {
+                    await fetch(`${API_URL}/api/v1/feedback`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({

@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mergeGuestSession = async () => {
     if (!guestSessionId || !user) return
     try {
-      await fetch(`${API_URL}/api/merge`, {
+      await fetch(`${API_URL}/api/v1/merge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_session_id: guestSessionId, user_id: user.id }),
@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!guestId || !user) return
 
     try {
-      const response = await fetch(`${API_URL}/api/merge`, {
+      const response = await fetch(`${API_URL}/api/v1/merge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_session_id: guestId, user_id: user.id }),

@@ -18,7 +18,7 @@ export default function EmbedPage() {
     const fetchAnalysis = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`${API_URL}/api/share/${shareId}`, {
+        const response = await fetch(`${API_URL}/api/v1/share/${shareId}`, {
           signal: AbortSignal.timeout(5000),
         })
         if (!response.ok) throw new Error('Failed to fetch')

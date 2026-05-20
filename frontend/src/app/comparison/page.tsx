@@ -27,7 +27,7 @@ function ComparisonContent() {
   }, [isLoaded, isSignedIn, router])
 
   useEffect(() => {
-    axios.get(`${API_URL}/api/benchmarks`).then(r => setCohorts(r.data.cohorts))
+    axios.get(`${API_URL}/api/v1/benchmarks`).then(r => setCohorts(r.data.cohorts))
   }, [])
 
   useEffect(() => {
@@ -43,7 +43,7 @@ function ComparisonContent() {
     try {
       const [analysisRes, compareRes] = await Promise.all([
         axios.get(`${API_URL}/analyses/${id}`),
-        axios.post(`${API_URL}/api/benchmarks/compare`, { video_id: id, cohort: selectedCohort }),
+        axios.post(`${API_URL}/api/v1/benchmarks/compare`, { video_id: id, cohort: selectedCohort }),
       ])
       setVideo(analysisRes.data)
       setComparison(compareRes.data)

@@ -21,7 +21,7 @@ export function reportError(error: Error | string, context?: Record<string, unkn
   }
 
   if (process.env.NODE_ENV === "production") {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/error-report`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/error-report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(report),

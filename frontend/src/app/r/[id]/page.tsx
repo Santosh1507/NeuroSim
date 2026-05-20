@@ -21,7 +21,7 @@ export default function SharedAnalysisPage() {
     if (!params.id) return
     const fetchShare = async () => {
       try {
-        const res = await axios.get(`${API_URL}/api/share/${params.id}`)
+        const res = await axios.get(`${API_URL}/api/v1/share/${params.id}`)
         setAnalysis(res.data.analysis)
       } catch {
         setNotFound(true)

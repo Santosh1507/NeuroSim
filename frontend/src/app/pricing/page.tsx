@@ -60,7 +60,7 @@ export default function PricingPage() {
   const { isSignedIn, user, isDemoMode } = useAuth()
 
   useEffect(() => {
-    fetch(`${API_URL}/api/premium/status`)
+    fetch(`${API_URL}/api/v1/premium/status`)
       .then(r => r.json())
       .then(data => {
         setStripePriceIdMonthly(data.stripe_price_id_monthly)
@@ -100,7 +100,7 @@ export default function PricingPage() {
     setCheckoutLoading(tier.name)
     try {
       const userId = user?.id || (isDemoMode ? 'demo-user' : undefined)
-      const res = await fetch(`${API_URL}/api/stripe/create-checkout-session`, {
+      const res = await fetch(`${API_URL}/api/v1/stripe/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

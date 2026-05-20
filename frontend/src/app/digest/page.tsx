@@ -27,7 +27,7 @@ export default function DigestPage() {
     }
     const fetch = async () => {
       try {
-        const res = await axios.get(`${API_URL}/api/digest/preview`)
+        const res = await axios.get(`${API_URL}/api/v1/digest/preview`)
         setPreview(res.data)
       } catch {
         // use defaults
@@ -42,7 +42,7 @@ export default function DigestPage() {
     if (!email) return
     setSubscribing(true)
     try {
-      await axios.post(`${API_URL}/api/digest/subscribe`, { email })
+      await axios.post(`${API_URL}/api/v1/digest/subscribe`, { email })
       setSubscribedSuccess(true)
       setSubscribed(true)
     } catch {
@@ -56,7 +56,7 @@ export default function DigestPage() {
 
   const handleUnsubscribe = async () => {
     try {
-      await axios.post(`${API_URL}/api/digest/unsubscribe`, { email })
+      await axios.post(`${API_URL}/api/v1/digest/unsubscribe`, { email })
       setSubscribed(false)
       setSubscribedSuccess(false)
     } catch {

@@ -32,7 +32,7 @@ export default function AnalyticsPage() {
     }
     const fetch = async () => {
       try {
-        const res = await axios.get(`${API_URL}/api/analytics`)
+        const res = await axios.get(`${API_URL}/api/v1/analytics`)
         setData(res.data)
       } catch {
         // use defaults
