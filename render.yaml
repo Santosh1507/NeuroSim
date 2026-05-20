@@ -9,7 +9,7 @@ services:
     autoDeploy: true
     envVars:
       - key: CORS_ORIGINS
-        value: '["http://localhost:3000", "https://neurosimai-skg200257.vercel.app"]'
+        value: '["http://localhost:3000", "https://neurosimv11.vercel.app"]'
       - key: API_VERSION
         value: "v1"
       - key: TRIBE_USE_REAL
