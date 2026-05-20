@@ -12,7 +12,7 @@ class TestSharePermissions:
         _share_permissions.clear()
         client = TestClient(app)
         with patch("routes.share.store.get_analysis", new=AsyncMock(return_value={"id": "vid_test"})):
-            resp = client.post("/api/share", json={"video_id": "vid_test"}, headers={"authorization": "Bearer dummy"})
+            resp = client.post("/api/v1/share", json={"video_id": "vid_test"}, headers={"authorization": "Bearer dummy"})
         assert resp.status_code == 200
         data = resp.json()
         assert "share_id" in data
@@ -26,7 +26,7 @@ class TestSharePermissions:
         _share_permissions.clear()
         client = TestClient(app)
         with patch("routes.share.store.get_analysis", new=AsyncMock(return_value={"id": "vid_test"})):
-            resp = client.post("/api/share", json={
+            resp = client.post("/api/v1/share", json={
                 "video_id": "vid_test",
                 "allow_download": False,
                 "allow_embed": True,
@@ -44,7 +44,7 @@ class TestSharePermissions:
         _share_permissions.clear()
         client = TestClient(app)
         with patch("routes.share.store.get_analysis", new=AsyncMock(return_value={"id": "vid_test"})):
-            resp = client.post("/api/share", json={
+            resp = client.post("/api/v1/share", json={
                 "video_id": "vid_test",
                 "allow_download": False,
             }, headers={"authorization": "Bearer dummy"})
@@ -62,5 +62,5 @@ class TestSharePermissions:
         _share_permissions.clear()
         client = TestClient(app)
         with patch("routes.share.store.get_analysis", new=AsyncMock(return_value=None)):
-            resp = client.post("/api/share", json={"video_id": "vid_missing"}, headers={"authorization": "Bearer dummy"})
+            resp = client.post("/api/v1/share", json={"video_id": "vid_missing"}, headers={"authorization": "Bearer dummy"})
         assert resp.status_code == 404

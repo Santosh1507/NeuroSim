@@ -57,7 +57,7 @@ class TestAPIEndpoints:
         assert "Simulated Analysis" in data["message"]
 
     def test_models_status(self, client):
-        response = client.get("/models/status")
+        response = client.get("/api/v1/models/status")
         assert response.status_code == 200
         data = response.json()
         assert "tribev2" in data
@@ -65,14 +65,14 @@ class TestAPIEndpoints:
         assert data["tribev2"]["status"] == "ready"
 
     def test_roi_metadata(self, client):
-        response = client.get("/roi/metadata")
+        response = client.get("/api/v1/roi/metadata")
         assert response.status_code == 200
         data = response.json()
         assert "A5" in data
         assert "LO" in data
 
     def test_simulate_single_strong(self, client):
-        response = client.post("/simulate/single", json={"content_url": "https://example.com/video.mp4", "variant": "a"})
+        response = client.post("/api/v1/simulate/single", json={"content_url": "https://example.com/video.mp4", "variant": "a"})
         assert response.status_code == 200
         data = response.json()
         assert "roi" in data
@@ -80,7 +80,7 @@ class TestAPIEndpoints:
         assert "stage_gate_passed" in data
 
     def test_simulate_single_weak(self, client):
-        response = client.post("/simulate/single", json={"content_url": "https://example.com/video.mp4", "variant": "b"})
+        response = client.post("/api/v1/simulate/single", json={"content_url": "https://example.com/video.mp4", "variant": "b"})
         assert response.status_code == 200
         data = response.json()
         assert data["stage_gate_passed"] is False
@@ -89,7 +89,7 @@ class TestAPIEndpoints:
     def test_upload_video(self, client):
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         assert response.status_code == 200
         data = response.json()
@@ -99,33 +99,33 @@ class TestAPIEndpoints:
     def test_upload_invalid_content(self, client):
         """Upload with non-video content should be rejected by MIME validation."""
         response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(b"not a video"), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(b"not a video"), "video/mp4")}
         )
         assert response.status_code == 400
 
     def test_upload_unsupported_extension(self, client):
         response = client.post(
-            "/upload", files={"file": ("test.txt", io.BytesIO(b"not a video"), "text/plain")}
+            "/api/v1/upload", files={"file": ("test.txt", io.BytesIO(b"not a video"), "text/plain")}
         )
         assert response.status_code == 400
 
     def test_get_video_not_found(self, client):
-        response = client.get("/videos/nonexistent-id")
+        response = client.get("/api/v1/videos/nonexistent-id")
         assert response.status_code == 404
 
     def test_get_analysis_not_found(self, client):
-        response = client.get("/analyses/nonexistent-id")
+        response = client.get("/api/v1/analyses/nonexistent-id")
         assert response.status_code == 404
 
     def test_list_videos_empty(self, client):
-        response = client.get("/videos")
+        response = client.get("/api/v1/videos")
         assert response.status_code == 200
         data = response.json()
         assert data["videos"] == []
 
     def _wait_for_analysis(self, client, video_id, max_retries=30):
         for _ in range(max_retries):
-            resp = client.get(f"/status/{video_id}")
+            resp = client.get(f"/api/v1/status/{video_id}")
             if resp.status_code == 200 and resp.json().get("status") == "completed":
                 return True
             import time
@@ -136,17 +136,17 @@ class TestAPIEndpoints:
     def test_upload_and_retrieve(self, client):
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         assert upload_response.status_code == 200
         video_id = upload_response.json()["video_id"]
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
-        video_response = client.get(f"/videos/{video_id}")
+        video_response = client.get(f"/api/v1/videos/{video_id}")
         assert video_response.status_code == 200
         assert video_response.json()["video"]["id"] == video_id
 
-        analysis_response = client.get(f"/analyses/{video_id}")
+        analysis_response = client.get(f"/api/v1/analyses/{video_id}")
         assert analysis_response.status_code == 200
         analysis = analysis_response.json()
         assert "hook_score" in analysis
@@ -157,12 +157,12 @@ class TestAPIEndpoints:
     def test_report_generation(self, client):
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
-        report_response = client.get(f"/reports/{video_id}")
+        report_response = client.get(f"/api/v1/reports/{video_id}")
         assert report_response.status_code == 200
         report = report_response.json()
         assert "report_id" in report
@@ -172,12 +172,12 @@ class TestAPIEndpoints:
     def test_simulation_endpoint(self, client):
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
-        sim_response = client.get(f"/simulation/{video_id}")
+        sim_response = client.get(f"/api/v1/simulation/{video_id}")
         assert sim_response.status_code == 200
         sim = sim_response.json()
         assert "final_sentiment" in sim
@@ -186,12 +186,12 @@ class TestAPIEndpoints:
     def test_brain_response_endpoint(self, client):
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
-        brain_response = client.get(f"/brain-response/{video_id}")
+        brain_response = client.get(f"/api/v1/brain-response/{video_id}")
         assert brain_response.status_code == 200
         brain = brain_response.json()
         assert "cortical_response" in brain
@@ -200,13 +200,13 @@ class TestAPIEndpoints:
     def test_what_if_simulation(self, client):
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         video_id = upload_response.json()["video_id"]
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
         whatif_response = client.post(
-            f"/simulation/what-if/{video_id}",
+            f"/api/v1/simulation/what-if/{video_id}",
             json={"modifications": {"emotional_tone": True, "price_decrease": 10}},
         )
         assert whatif_response.status_code == 200
@@ -219,7 +219,7 @@ class TestAPIEndpoints:
         """Upload with .mp4 extension but garbage content should be rejected."""
         file_content = b"garbage data that doesn't look like a video at all" * 100
         response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         assert response.status_code == 400
         assert "content" in response.json()["detail"].lower()
@@ -228,39 +228,39 @@ class TestAPIEndpoints:
         """Upload an analysis, then delete it, then verify it's gone."""
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_response = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         assert upload_response.status_code == 200
         video_id = upload_response.json()["video_id"]
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
         # Delete the analysis
-        delete_response = client.delete(f"/analyses/{video_id}")
+        delete_response = client.delete(f"/api/v1/analyses/{video_id}")
         assert delete_response.status_code == 200
         data = delete_response.json()
         assert data["status"] == "deleted"
         assert data["video_id"] == video_id
 
         # Verify it's gone
-        get_response = client.get(f"/analyses/{video_id}")
+        get_response = client.get(f"/api/v1/analyses/{video_id}")
         assert get_response.status_code == 404
 
         # Delete again should 404
-        delete_response2 = client.delete(f"/analyses/{video_id}")
+        delete_response2 = client.delete(f"/api/v1/analyses/{video_id}")
         assert delete_response2.status_code == 404
 
     def test_pdf_report_download(self, client):
         """PDF report endpoint returns valid PDF bytes."""
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_resp = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         assert upload_resp.status_code == 200
         video_id = upload_resp.json()["video_id"]
 
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
-        pdf_resp = client.get(f"/reports/{video_id}/pdf")
+        pdf_resp = client.get(f"/api/v1/reports/{video_id}/pdf")
         assert pdf_resp.status_code == 200
         assert pdf_resp.headers["content-type"] == "application/pdf"
         assert pdf_resp.content[:4] == b"%PDF"
@@ -283,7 +283,7 @@ me know in the comments which tip you're going to try first.
 class TestScriptAnalysis:
     def test_analyze_script_success(self, client):
         """Script analysis returns full analysis structure instantly."""
-        response = client.post("/api/analyze/script", json={"script": _SAMPLE_SCRIPT})
+        response = client.post("/api/v1/analyze/script", json={"script": _SAMPLE_SCRIPT})
         assert response.status_code == 200
         data = response.json()
         assert "hook_score" in data
@@ -300,7 +300,7 @@ class TestScriptAnalysis:
 
     def test_analyze_script_roi_scores(self, client):
         """Script analysis returns valid ROI scores in 0-1 range."""
-        response = client.post("/api/analyze/script", json={"script": _SAMPLE_SCRIPT})
+        response = client.post("/api/v1/analyze/script", json={"script": _SAMPLE_SCRIPT})
         brain = response.json()["tribev2_brain_response"]["cortical_response"]
         assert 0 <= brain["auditory_cortex"] <= 100
         assert 0 <= brain["visual_cortex"] <= 100
@@ -312,7 +312,7 @@ class TestScriptAnalysis:
     def test_analyze_script_with_title(self, client):
         """Script analysis accepts optional title field."""
         response = client.post(
-            "/api/analyze/script",
+            "/api/v1/analyze/script",
             json={"script": _SAMPLE_SCRIPT, "title": "My Viral Video Script"},
         )
         assert response.status_code == 200
@@ -321,37 +321,37 @@ class TestScriptAnalysis:
 
     def test_analyze_script_empty_rejected(self, client):
         """Empty script text returns 400."""
-        response = client.post("/api/analyze/script", json={"script": ""})
+        response = client.post("/api/v1/analyze/script", json={"script": ""})
         assert response.status_code == 400
 
     def test_analyze_script_whitespace_only_rejected(self, client):
         """Whitespace-only script returns 400."""
-        response = client.post("/api/analyze/script", json={"script": "   \n\n  "})
+        response = client.post("/api/v1/analyze/script", json={"script": "   \n\n  "})
         assert response.status_code == 400
 
     def test_analyze_script_too_short_rejected(self, client):
         """Script under 50 characters returns 400."""
-        response = client.post("/api/analyze/script", json={"script": "Too short!"})
+        response = client.post("/api/v1/analyze/script", json={"script": "Too short!"})
         assert response.status_code == 400
 
     def test_analyze_script_stored_in_cache(self, client):
         """Script analysis is stored in the analysis cache."""
-        response = client.post("/api/analyze/script", json={"script": _SAMPLE_SCRIPT})
+        response = client.post("/api/v1/analyze/script", json={"script": _SAMPLE_SCRIPT})
         video_id = response.json()["video_id"]
 
-        fetch = client.get(f"/analyses/{video_id}")
+        fetch = client.get(f"/api/v1/analyses/{video_id}")
         assert fetch.status_code == 200
         assert fetch.json()["video_id"] == video_id
 
     def test_analyze_script_listed_in_videos(self, client):
         """Script analysis appears in video listing."""
         response = client.post(
-            "/api/analyze/script",
+            "/api/v1/analyze/script",
             json={"script": _SAMPLE_SCRIPT, "title": "Test Script"},
         )
         video_id = response.json()["video_id"]
 
-        videos_resp = client.get("/videos")
+        videos_resp = client.get("/api/v1/videos")
         assert videos_resp.status_code == 200
         video_ids = [v["id"] for v in videos_resp.json()["videos"]]
         assert video_id in video_ids
@@ -362,7 +362,7 @@ class TestValidationStudyAPI:
         """Submit validation data returns progress and correlations."""
         file_content = _mp4_header() + b"fake mp4 content" * 1000
         upload_resp = client.post(
-            "/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
         )
         assert upload_resp.status_code == 200
         video_id = upload_resp.json()["video_id"]
@@ -371,7 +371,7 @@ class TestValidationStudyAPI:
         assert tester._wait_for_analysis(client, video_id), "Analysis did not complete"
 
         response = client.post(
-            "/api/validation/submit",
+            "/api/v1/validation/submit",
             json={
                 "video_id": video_id,
                 "actual_views": 5000,
@@ -389,7 +389,7 @@ class TestValidationStudyAPI:
 
     def test_get_validation_study(self, client):
         """Validation study endpoint returns progress, correlations, and benchmarks."""
-        response = client.get("/api/validation/study")
+        response = client.get("/api/v1/validation/study")
         assert response.status_code == 200
         data = response.json()
         assert "progress" in data

@@ -60,7 +60,7 @@ router = APIRouter(tags=["analysis"])
 _study = ValidationStudy()
 
 
-@router.post("/api/analyze/script")
+@router.post("/analyze/script")
 async def analyze_script(
     request: Request,
     req: ScriptAnalysisRequest,
@@ -123,7 +123,7 @@ async def analyze_script(
     return analysis
 
 
-@router.post("/api/analyze/youtube")
+@router.post("/analyze/youtube")
 async def analyze_youtube(
     request: Request,
     req: YouTubeAnalysisRequest,
@@ -254,7 +254,7 @@ async def get_brain_response(video_id: str):
     return analysis.get("tribev2_brain_response", {})
 
 
-@router.post("/api/feedback")
+@router.post("/feedback")
 async def submit_feedback(req: FeedbackRequest, user_id: str = Depends(require_auth_user)):
     """Submit actual video performance data for correlation tracking."""
     analysis = await _get_analysis_or_404(req.video_id)
@@ -281,13 +281,13 @@ async def submit_feedback(req: FeedbackRequest, user_id: str = Depends(require_a
     }
 
 
-@router.get("/api/feedback/correlations")
+@router.get("/feedback/correlations")
 async def get_correlations():
     """Return current prediction accuracy correlations."""
     return _study.compute_correlations()
 
 
-@router.post("/api/validation/submit")
+@router.post("/validation/submit")
 async def submit_validation_data(
     req: ValidationSubmitRequest,
     user_id: str = Depends(require_auth_user),
@@ -330,7 +330,7 @@ async def submit_validation_data(
     }
 
 
-@router.get("/api/validation/study")
+@router.get("/validation/study")
 async def get_validation_study():
     """Return validation study progress and correlation results."""
     progress = _study.get_study_progress()
@@ -344,20 +344,20 @@ async def get_validation_study():
     }
 
 
-@router.get("/api/validation/my-data")
+@router.get("/validation/my-data")
 async def get_my_validation_data(user_id: str = Depends(require_auth_user)):
     """Return the authenticated user's validation submissions."""
     entries = _study.get_user_entries(user_id)
     return {"user_id": user_id, "entries": entries, "count": len(entries)}
 
 
-@router.get("/api/benchmarks")
+@router.get("/benchmarks")
 async def get_benchmarks():
     """Return all available benchmark cohorts."""
     return {"cohorts": get_all_cohorts()}
 
 
-@router.post("/api/benchmarks/compare")
+@router.post("/benchmarks/compare")
 async def compare_with_benchmark(req: dict):
     """Compare analysis scores against a benchmark cohort.
 

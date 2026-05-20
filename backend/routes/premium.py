@@ -29,7 +29,7 @@ class CreateCheckoutSessionRequest(BaseModel):
 router = APIRouter(tags=["premium"])
 
 
-@router.post("/api/stripe/create-checkout-session")
+@router.post("/stripe/create-checkout-session")
 async def create_checkout_session(
     req: CreateCheckoutSessionRequest,
     verified_user_id: str = Depends(get_verified_user_id),
@@ -54,7 +54,7 @@ async def create_checkout_session(
         raise HTTPException(status_code=400, detail=f"Stripe error: {e}")
 
 
-@router.post("/api/stripe/webhook")
+@router.post("/stripe/webhook")
 async def stripe_webhook(request: Request):
     """Receive Stripe webhook events for subscription lifecycle."""
     if not settings.stripe_webhook_secret:
@@ -92,7 +92,7 @@ async def stripe_webhook(request: Request):
     return {"status": "ok"}
 
 
-@router.get("/api/premium/status")
+@router.get("/premium/status")
 async def premium_status(_=Depends(check_api_limit)):
     return {
         "enabled": settings.premium_enabled,
@@ -106,7 +106,7 @@ async def premium_status(_=Depends(check_api_limit)):
     }
 
 
-@router.get("/api/premium/usage/{user_id}")
+@router.get("/premium/usage/{user_id}")
 async def premium_usage(user_id: str):
     count = _usage_tracker.get(user_id, 0)
     is_premium_user = _is_premium(user_id)

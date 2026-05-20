@@ -141,7 +141,7 @@ def _format_digest_html(analyses: list, frequency: str, dashboard_url: str = "",
 router = APIRouter(tags=["digest"])
 
 
-@router.post("/api/digest/subscribe")
+@router.post("/digest/subscribe")
 async def digest_subscribe(req: DigestRequest, user_id: str = Depends(require_auth_user)):
     if req.frequency not in ("weekly", "monthly"):
         raise HTTPException(status_code=400, detail="Frequency must be 'weekly' or 'monthly'")
@@ -158,7 +158,7 @@ async def digest_subscribe(req: DigestRequest, user_id: str = Depends(require_au
     return {"message": "Subscribed to digest", "email": req.email, "frequency": req.frequency}
 
 
-@router.get("/api/digest/subscriptions")
+@router.get("/digest/subscriptions")
 async def digest_subscriptions(user_id: str = Depends(require_auth_user)):
     """List all active digest subscriptions with delivery status."""
     return {
@@ -176,7 +176,7 @@ async def digest_subscriptions(user_id: str = Depends(require_auth_user)):
     }
 
 
-@router.post("/api/digest/send")
+@router.post("/digest/send")
 async def trigger_digest_send(frequency: str = "weekly", user_id: str = Depends(require_auth_user)):
     """Trigger a digest send for all subscribers of the given frequency."""
     if frequency not in ("weekly", "monthly"):
@@ -246,7 +246,7 @@ async def trigger_digest_send(frequency: str = "weekly", user_id: str = Depends(
     }
 
 
-@router.get("/api/digest/preview")
+@router.get("/digest/preview")
 async def digest_preview():
     _evict_stale()
     analyses = list(_analyses_cache.values())
@@ -275,7 +275,7 @@ async def digest_preview():
     )
 
 
-@router.get("/api/digest/unsubscribe")
+@router.get("/digest/unsubscribe")
 async def digest_unsubscribe(email: str):
     """Unsubscribe an email from digest deliveries."""
     if email in _digest_subs:

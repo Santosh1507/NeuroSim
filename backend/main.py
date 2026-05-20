@@ -152,11 +152,14 @@ async def log_requests(request: Request, call_next):
 
 
 # ─── Include route modules ─────────────────────────────────
-app.include_router(upload_router)
-app.include_router(analysis_router)
-app.include_router(share_router)
-app.include_router(premium_router)
-app.include_router(digest_router)
+# All routes are versioned under /api/v1/
+API_PREFIX = f"/api/{settings.api_version}"
+
+app.include_router(upload_router, prefix=API_PREFIX)
+app.include_router(analysis_router, prefix=API_PREFIX)
+app.include_router(share_router, prefix=API_PREFIX)
+app.include_router(premium_router, prefix=API_PREFIX)
+app.include_router(digest_router, prefix=API_PREFIX)
 
 
 # ─── Pydantic models for remaining routes ──────────────────
@@ -177,7 +180,7 @@ async def root():
     }
 
 
-@app.get("/api/warmup")
+@app.get("/warmup")
 async def warmup_cache():
     """Warm up the in-memory cache from Supabase."""
     count = await store.warmup(limit=20)
@@ -196,13 +199,13 @@ async def health():
     }
 
 
-@app.get("/api/metrics")
+@app.get("/metrics")
 async def get_metrics():
     """Return API metrics summary."""
     return metrics.get_summary()
 
 
-@app.post("/api/waitlist")
+@app.post("/waitlist")
 async def join_waitlist(req: WaitlistRequest):
     for entry in _waitlist:
         if entry["email"] == req.email:
@@ -217,7 +220,7 @@ async def join_waitlist(req: WaitlistRequest):
     return {"message": "Joined waitlist!", "queue_position": len(_waitlist)}
 
 
-@app.get("/api/analytics")
+@app.get("/analytics")
 async def get_analytics(_=Depends(check_api_limit)):
     return await store.get_analytics_snapshot()
 
@@ -230,7 +233,7 @@ class ErrorReportRequest(BaseModel):
     userAgent: str
 
 
-@app.post("/api/error-report")
+@app.post("/error-report")
 async def report_error(req: ErrorReportRequest):
     """Receive frontend error reports for monitoring."""
     logger.info(f"[FRONTEND-ERROR] {req.message} at {req.url}")

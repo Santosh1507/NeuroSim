@@ -36,7 +36,7 @@ class MergeRequest(BaseModel):
 router = APIRouter(tags=["share"])
 
 
-@router.post("/api/share")
+@router.post("/share")
 async def create_share_link(req: ShareRequest, user_id: str = Depends(require_auth_user)):
     _evict_stale()
     analysis = await store.get_analysis(req.video_id)
@@ -59,7 +59,7 @@ async def create_share_link(req: ShareRequest, user_id: str = Depends(require_au
     }
 
 
-@router.get("/api/share/{share_id}")
+@router.get("/share/{share_id}")
 async def get_shared_analysis(share_id: str):
     video_id = _share_links.get(share_id)
     if not video_id:
@@ -85,7 +85,7 @@ async def get_shared_analysis(share_id: str):
     }
 
 
-@router.post("/api/merge")
+@router.post("/merge")
 async def merge_guest_session(
     req: MergeRequest,
     user_id: str = Depends(require_auth_user),

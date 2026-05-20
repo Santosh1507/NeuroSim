@@ -12,7 +12,7 @@ class TestDigestSubscribe:
 
         client = TestClient(app)
         response = client.post(
-            "/api/digest/subscribe",
+            "/api/v1/digest/subscribe",
             json={"email": "test@example.com", "frequency": "weekly"},
             headers={"authorization": "Bearer dummy"},
         )
@@ -27,7 +27,7 @@ class TestDigestSubscribe:
 
         client = TestClient(app)
         response = client.post(
-            "/api/digest/subscribe",
+            "/api/v1/digest/subscribe",
             json={"email": "dup@example.com", "frequency": "weekly"},
             headers={"authorization": "Bearer dummy"},
         )
@@ -39,7 +39,7 @@ class TestDigestPreview:
         """Preview returns aggregated stats."""
         from main import app
         client = TestClient(app)
-        response = client.get("/api/digest/preview")
+        response = client.get("/api/v1/digest/preview")
         assert response.status_code == 200
         data = response.json()
         assert "total_analyses" in data
