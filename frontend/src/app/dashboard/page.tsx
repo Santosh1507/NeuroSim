@@ -514,67 +514,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-neural neural-grid">
       <OnboardingTour onComplete={() => setOnboardingComplete(true)} />
-      {/* Header - minimal, precise */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.04] bg-black/60 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-neural/10 border border-neural/20 flex items-center justify-center">
-              <Brain className="w-4 h-4 text-neural" />
-            </div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold text-white tracking-tight">NeuroSim</h1>
-              <span className="text-[10px] mono text-text-tertiary">v3.0</span>
-              <span className="text-[9px] mono text-amber-400/70 border border-amber-400/20 px-1.5 py-0.5 rounded">SIM</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className={`status-dot ${backendReachable === null ? 'bg-white/20' : backendReachable ? 'status-neural' : 'status-red'}`}></span>
-                <span className="text-[11px] mono text-text-tertiary">API</span>
-              </div>
-              <div className="w-px h-3 bg-white/10"></div>
-              <div className="flex items-center gap-1.5">
-                <span className="status-dot status-neural"></span>
-                <span className="text-[11px] mono text-text-tertiary">TRIBE</span>
-              </div>
-              <div className="w-px h-3 bg-white/10"></div>
-              <div className="flex items-center gap-1.5">
-                <span className="status-dot status-swarm"></span>
-                <span className="text-[11px] mono text-text-tertiary">MIROFISH</span>
-              </div>
-            </div>
-            {demoMode && (
-              <span className="badge badge-ghost">DEMO</span>
-            )}
-            <button 
-              onClick={loadDemoData}
-              className="btn-ghost text-xs py-1.5 px-3"
-            >
-              Load Demo
-            </button>
-            {analysis && (
-              <>
-                <button
-                  onClick={handleShare}
-                  disabled={sharing}
-                  className="btn-swarm text-xs py-1.5 px-3 flex items-center gap-1.5"
-                >
-                  <Share2 className="w-3.5 h-3.5" /> {sharing ? '...' : 'Share'}
-                </button>
-                <button 
-                  onClick={downloadPDF}
-                  className="btn-neural text-xs py-1.5 px-3 flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5" /> PDF
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-6 py-8 relative z-10">
         {/* Hero - asymmetric composition */}
         <div className="mb-10">
