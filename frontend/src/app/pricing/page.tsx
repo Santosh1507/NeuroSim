@@ -70,7 +70,7 @@ export default function PricingPage() {
       .catch(() => {})
   }, [])
 
-  const handleCTA = (tier: typeof TIERS[0]) => {
+  const handleCTA = async (tier: typeof TIERS[0]) => {
     if (tier.name === 'Free') {
       router.push('/dashboard')
       return
