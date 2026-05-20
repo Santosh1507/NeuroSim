@@ -70,18 +70,9 @@ export default function PricingPage() {
       .catch(() => {})
   }, [])
 
-  const handleCTA = async (tier: typeof TIERS[0]) => {
+  const handleCTA = (tier: typeof TIERS[0]) => {
     if (tier.name === 'Free') {
-      if (isSignedIn) {
-        router.push('/dashboard')
-      } else if (supabase) {
-        supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo: window.location.origin + '/dashboard' }
-        })
-      } else {
-        router.push('/dashboard')
-      }
+      router.push('/dashboard')
       return
     }
 

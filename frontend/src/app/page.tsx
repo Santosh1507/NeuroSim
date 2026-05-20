@@ -61,15 +61,8 @@ export default function LandingPage() {
   const router = useRouter()
   const { isSignedIn } = useAuth()
 
-  const handleAuth = async () => {
-    if (!supabase) {
-      router.push('/dashboard')
-      return
-    }
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin + '/dashboard' }
-    })
+  const handleAuth = () => {
+    router.push('/dashboard')
   }
 
   return (
