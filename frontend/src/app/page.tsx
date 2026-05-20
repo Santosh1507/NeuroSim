@@ -59,11 +59,6 @@ const plans = [
 
 export default function LandingPage() {
   const router = useRouter()
-  const { isSignedIn } = useAuth()
-
-  const handleAuth = () => {
-    router.push('/dashboard')
-  }
 
   return (
     <div className="bg-neural neural-grid min-h-screen">
@@ -97,17 +92,10 @@ export default function LandingPage() {
                 </p>
 
                 <div className="flex items-center gap-4 flex-wrap">
-                  {isSignedIn ? (
-                    <button onClick={() => router.push('/dashboard')} className="btn-neural inline-flex items-center gap-2" aria-label="Go to dashboard">
-                      <span>Go to Dashboard</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                  ) : (
-                    <button onClick={handleAuth} className="btn-neural inline-flex items-center gap-2" aria-label="Start analyzing for free">
-                      <span>Start Analyzing Free</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                  )}
+                  <button onClick={() => router.push('/dashboard')} className="btn-neural inline-flex items-center gap-2" aria-label="Go to dashboard">
+                    <span>Go to Dashboard</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
                   <a href="#features" className="btn-ghost" aria-label="See all features">
                     See Features
                   </a>
