@@ -37,7 +37,7 @@ export function Navbar() {
             <Brain className="w-4 h-4 text-neural" />
           </div>
           <span className="text-sm font-semibold text-white tracking-tight">NeuroSim</span>
-          <span className="text-[10px] mono text-text-tertiary hidden sm:inline">v2.0</span>
+          <span className="text-[10px] mono text-text-tertiary hidden sm:inline">v3.0</span>
         </button>
 
         <div className="hidden md:flex items-center gap-6">

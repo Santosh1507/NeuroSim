@@ -425,7 +425,7 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Brain className="w-4 h-4 text-neural" />
-              <span className="text-xs text-gray-500">NeuroSim v2.0</span>
+              <span className="text-xs text-gray-500">NeuroSim v3.0</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-[10px] text-gray-600 font-mono">TRIBE v2</span>

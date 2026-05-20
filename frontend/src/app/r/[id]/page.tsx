@@ -89,7 +89,7 @@ export default function SharedAnalysisPage() {
                   <Brain className="w-4 h-4 text-neural" />
                 </div>
                 <span className="text-sm font-semibold text-white">NeuroSim</span>
-                <span className="text-[10px] mono text-text-tertiary">v2.0</span>
+                <span className="text-[10px] mono text-text-tertiary">v3.0</span>
               </div>
               <div className="flex items-center gap-2 text-[10px] mono text-text-tertiary">
                 <span className="status-dot status-neural" />
