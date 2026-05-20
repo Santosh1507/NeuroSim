@@ -12,6 +12,11 @@ import {
 
 const features = [
   {
+    icon: Target, title: 'Script Analysis',
+    desc: 'Paste your video script and get instant predictions. Hook strength, emotional arc, viral potential, and CTA effectiveness in seconds, no video needed.',
+    color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
+  },
+  {
     icon: Brain, title: 'TRIBE v2 Brain Encoding',
     desc: 'Upload a video and get fMRI-level brain activation maps across 4 regions. Meta\u2019s neural response model predicts visual, auditory, and emotional engagement.',
     color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
@@ -32,14 +37,9 @@ const features = [
     color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
   },
   {
-    icon: Target, title: 'Predictive A/B Testing',
-    desc: 'Two versions, one report. The system tells you which has higher neural engagement and social spread. No guesswork, no gut feelings.',
+    icon: BarChart3, title: 'Benchmark Comparison',
+    desc: 'Compare your scores against 43K+ videos across education, entertainment, gaming, and music cohorts. Know where you stand.',
     color: 'text-swarm', border: 'border-swarm/20', bg: 'bg-swarm/5',
-  },
-  {
-    icon: BarChart3, title: 'Live Dashboard',
-    desc: 'Neural heatmaps, sentiment breakdowns, CTA optimization scores, and stage-gate pass/fail. All in one glass-panel interface.',
-    color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
   },
 ]
 
@@ -93,14 +93,14 @@ export default function LandingPage() {
                 </div>
 
                 <h1 className="text-[clamp(2.5rem,6vw,4.5rem)] font-bold text-white leading-[1.02] tracking-[-0.03em] mb-6">
-                  Measure neural response{' '}
+                  Analyze your content{' '}
                   <span className="text-gradient">before</span>
-                  {' '}you publish
+                  {' '}you create
                 </h1>
 
                 <p className="text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed mb-10">
-                  TRIBE v2 encodes brain responses. MiroFish simulates social swarms.
-                  Together they predict how your content performs before you spend a dollar.
+                  Paste a script for instant predictions, or upload a video for full neural analysis.
+                  Know how your content performs before you film, edit, or publish.
                 </p>
 
                 <div className="flex items-center gap-4 flex-wrap">

@@ -10,7 +10,7 @@ import {
   AlertTriangle, CheckCircle, Sparkles, BarChart2,
   Activity, Target, Eye, MessageSquare, ChevronRight,
   Scan, Waves, Network, Cpu, Radio, Shield, Download,
-  Share2, Copy, Check, X
+  Share2, Copy, Check, X, Sliders, Youtube, FileText
 } from 'lucide-react'
 import ProgressStageIndicator from '../components/ProgressStageIndicator'
 import { 
@@ -65,11 +65,27 @@ export default function Dashboard() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
   const [feedbackData, setFeedbackData] = useState({ views: '', engagement: '', wouldPublish: true })
 
-  const [inputMode, setInputMode] = useState<'upload' | 'script'>('upload')
+  const [inputMode, setInputMode] = useState<'upload' | 'script' | 'youtube'>('upload')
   const [scriptText, setScriptText] = useState('')
   const [scriptTitle, setScriptTitle] = useState('')
   const [scriptError, setScriptError] = useState<string | null>(null)
   const [analyzingScript, setAnalyzingScript] = useState(false)
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [youtubeError, setYoutubeError] = useState<string | null>(null)
+  const [analyzingYoutube, setAnalyzingYoutube] = useState(false)
+
+  const [whatIfMods, setWhatIfMods] = useState({
+    emotional_tone: false,
+    earlier_product_mention: false,
+    aggressive_cta: false,
+    price_decrease: 0,
+  })
+  const [whatIfResult, setWhatIfResult] = useState<any>(null)
+  const [whatIfRunning, setWhatIfRunning] = useState(false)
+  const [validationSubmitted, setValidationSubmitted] = useState(false)
+  const [validationData, setValidationData] = useState({ views: '', engagement: '', days: '7' })
+  const [benchmarkData, setBenchmarkData] = useState<any>(null)
+  const [benchmarkCohort, setBenchmarkCohort] = useState('all')
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -264,6 +280,45 @@ export default function Dashboard() {
     }
   }
 
+  const handleYoutubeAnalyze = async () => {
+    if (!youtubeUrl.trim()) {
+      setYoutubeError('Please enter a YouTube URL.')
+      return
+    }
+    const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)/
+    if (!ytRegex.test(youtubeUrl.trim())) {
+      setYoutubeError('Invalid YouTube URL. Use youtube.com or youtu.be links.')
+      return
+    }
+    setYoutubeError(null)
+    setAnalyzingYoutube(true)
+    setApiError(null)
+
+    try {
+      const res = await axios.post(
+        `${API_URL}/api/analyze/youtube`,
+        { url: youtubeUrl.trim() },
+        { timeout: 60000 },
+      )
+      const ytId = res.data.video_id || `yt_${Date.now()}`
+      setAnalysis({ filename: res.data.script_title || 'YouTube Analysis', ...res.data })
+      setSelectedVideo(ytId)
+      setVideos(prev => [...prev, {
+        id: ytId,
+        filename: res.data.script_title || 'YouTube Analysis',
+        upload_time: new Date().toISOString(),
+        status: 'analyzed',
+      }])
+      setYoutubeUrl('')
+    } catch (err: any) {
+      console.error('YouTube analysis failed:', err)
+      const errorMsg = err.response?.data?.detail || 'Analysis failed. Video may not have captions.'
+      setYoutubeError(errorMsg)
+    } finally {
+      setAnalyzingYoutube(false)
+    }
+  }
+
   const runABTest = async () => {
     setAbTestRunning(true)
     setApiError(null)
@@ -294,6 +349,63 @@ export default function Dashboard() {
       setApiError('A/B test failed. Backend may be unavailable.')
     } finally {
       setAbTestRunning(false)
+    }
+  }
+
+  const runWhatIf = async () => {
+    if (!selectedVideo) return
+    setWhatIfRunning(true)
+    setApiError(null)
+
+    const mods: Record<string, any> = {}
+    if (whatIfMods.emotional_tone) mods.emotional_tone = true
+    if (whatIfMods.earlier_product_mention) mods.earlier_product_mention = true
+    if (whatIfMods.aggressive_cta) mods.aggressive_cta = true
+    if (whatIfMods.price_decrease > 0) mods.price_decrease = whatIfMods.price_decrease
+
+    try {
+      const res = await axios.post(
+        `${API_URL}/simulation/what-if/${selectedVideo}`,
+        { modifications: mods },
+        { timeout: 10000 },
+      )
+      setWhatIfResult(res.data)
+    } catch (err: any) {
+      console.error('What-if failed:', err)
+      setApiError('What-if simulation failed. Ensure you have an analysis first.')
+    } finally {
+      setWhatIfRunning(false)
+    }
+  }
+
+  const submitValidation = async () => {
+    if (!selectedVideo) return
+    try {
+      await axios.post(`${API_URL}/api/validation/submit`, {
+        video_id: selectedVideo,
+        actual_views: parseInt(validationData.views) || 0,
+        actual_engagement: parseFloat(validationData.engagement) || 0,
+        would_publish: true,
+        days_after_publish: parseInt(validationData.days) || 7,
+      })
+      setValidationSubmitted(true)
+    } catch (err: any) {
+      console.error('Validation submit failed:', err)
+      setApiError('Failed to submit validation data.')
+    }
+  }
+
+  const loadBenchmark = async () => {
+    if (!selectedVideo) return
+    try {
+      const res = await axios.post(`${API_URL}/api/benchmarks/compare`, {
+        video_id: selectedVideo,
+        cohort: benchmarkCohort,
+      })
+      setBenchmarkData(res.data)
+    } catch (err: any) {
+      console.error('Benchmark load failed:', err)
+      setApiError('Failed to load benchmark data.')
     }
   }
 
@@ -411,7 +523,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-semibold text-white tracking-tight">NeuroSim</h1>
-              <span className="text-[10px] mono text-text-tertiary">v2.2</span>
+              <span className="text-[10px] mono text-text-tertiary">v3.0</span>
               <span className="text-[9px] mono text-amber-400/70 border border-amber-400/20 px-1.5 py-0.5 rounded">SIM</span>
             </div>
           </div>
@@ -502,7 +614,17 @@ export default function Dashboard() {
                     : 'text-text-tertiary hover:text-white'
                 }`}
               >
-                <Scan className="w-3.5 h-3.5" /> Paste Script
+                <FileText className="w-3.5 h-3.5" /> Paste Script
+              </button>
+              <button
+                onClick={() => setInputMode('youtube')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  inputMode === 'youtube'
+                    ? 'bg-neural/15 text-neural border border-neural/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
+              >
+                <Youtube className="w-3.5 h-3.5" /> YouTube URL
               </button>
             </div>
 
@@ -559,7 +681,7 @@ export default function Dashboard() {
                   </div>
                 </label>
               </div>
-            ) : (
+            ) : inputMode === 'script' ? (
               /* Script input mode */
               <div className="space-y-4">
                 <input
@@ -619,7 +741,51 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-            )}
+            ) : inputMode === 'youtube' ? (
+              /* YouTube URL input mode */
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                  value={youtubeUrl}
+                  onChange={(e) => {
+                    setYoutubeUrl(e.target.value)
+                    if (youtubeError) setYoutubeError(null)
+                  }}
+                  className="w-full p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/30 transition-colors font-mono"
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text-tertiary">
+                    Extracts transcript and runs full neural analysis
+                  </p>
+                  <motion.button
+                    onClick={handleYoutubeAnalyze}
+                    disabled={analyzingYoutube || !youtubeUrl.trim()}
+                    className="btn-neural flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                    whileHover={!analyzingYoutube && youtubeUrl.trim() ? { scale: 1.02 } : {}}
+                    whileTap={!analyzingYoutube && youtubeUrl.trim() ? { scale: 0.98 } : {}}
+                  >
+                    {analyzingYoutube ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-neural border-t-transparent rounded-full animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Youtube className="w-4 h-4" />
+                        Analyze Video
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+                {youtubeError && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-400/10 border border-orange-400/20">
+                    <AlertTriangle className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <p className="text-xs text-orange-400">{youtubeError}</p>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -669,91 +835,55 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Main Content - asymmetric layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left column - main content (8 cols) */}
-          <div className="lg:col-span-8 space-y-6">
-            
-            {/* Tab Bar */}
-            <div className="flex items-center gap-1 p-1 glass-panel w-fit overflow-x-auto">
-              {[
-                { id: 'overview', label: 'Overview', icon: BarChart2 },
-                { id: 'analysis', label: 'Neural Analysis', icon: Brain },
-                { id: 'abtesting', label: 'A/B Testing', icon: Target },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`tab-segment flex items-center gap-2 ${activeTab === tab.id ? 'active' : ''}`}
-                >
-                  <tab.icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                </button>
-              ))}
+        {/* Main Content - tabbed layout */}
+        {analysis && (
+          <div>
+            {/* Tab switcher */}
+            <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-lg w-fit mb-6">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'overview'
+                    ? 'bg-neural/15 text-neural border border-neural/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
+              >
+                <BarChart2 className="w-3.5 h-3.5" /> Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('analysis')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'analysis'
+                    ? 'bg-neural/15 text-neural border border-neural/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
+              >
+                <Brain className="w-3.5 h-3.5" /> Analysis
+              </button>
+              <button
+                onClick={() => setActiveTab('abtesting')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'abtesting'
+                    ? 'bg-neural/15 text-neural border border-neural/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" /> A/B Testing
+              </button>
             </div>
 
             <AnimatePresence mode="wait">
-              {activeTab === 'overview' && (
-                <motion.div 
-                  key="overview"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={tabSwitch}
-                  className="space-y-6"
-                >
-                  {analysis ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 stagger">
-                      {[
-                        { label: 'Success', value: analysis.success_probability, accent: 'neural' },
-                        { label: 'Risk', value: analysis.risk_score, accent: 'orange' },
-                        { label: 'Viral', value: analysis.viral_potential, accent: 'swarm' },
-                        { label: 'Hook', value: analysis.hook_score, accent: 'neural' },
-                      ].map((metric, i) => (
-                        <div key={metric.label} className="glass-panel p-4">
-                          <p className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-2">{metric.label}</p>
-                          <p className={`text-2xl font-bold mono ${
-                            metric.accent === 'neural' ? 'text-neural' :
-                            metric.accent === 'swarm' ? 'text-swarm' :
-                            metric.accent === 'orange' ? 'text-orange-400' :
-                            'text-white'
-                          }`}>
-                            {metric.value}%
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="glass-panel p-16 flex flex-col items-center justify-center text-center">
-                      <motion.div 
-                        className="w-16 h-16 rounded-xl bg-neural/5 border border-neural/10 flex items-center justify-center mb-5"
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={pulseSlow}
-                      >
-                        <Activity className="w-7 h-7 text-neural/60" />
-                      </motion.div>
-                      <h3 className="text-lg font-semibold text-white mb-2">Ready for Analysis</h3>
-                      <p className="text-text-tertiary text-sm max-w-sm mb-6">
-                        Upload a video to receive neural response predictions and social simulation results.
-                      </p>
-                      <button className="btn-neural flex items-center gap-2 text-sm">
-                        <Upload className="w-4 h-4" />
-                        Get Started
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {activeTab === 'analysis' && analysis && (
-                <motion.div 
+              {(activeTab === 'overview' || activeTab === 'analysis') && (
+                <motion.div
                   key="analysis"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={tabSwitch}
-                  className="space-y-6"
+                  className="grid grid-cols-1 lg:grid-cols-8 gap-6"
                 >
+                  {/* Left column - main content (8 cols on lg) */}
+                  <div className="lg:col-span-5 space-y-6">
                   {/* 3D Brain Heatmap (desktop) / 2D Scorecard (mobile) */}
                   {isMobile ? (
                     <div className="glass-panel p-5">
@@ -880,6 +1010,246 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
+
+                  {/* What-If Simulation */}
+                  <div className="glass-panel p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-swarm" />
+                        <h4 className="text-sm font-semibold text-white">What-If Simulation</h4>
+                      </div>
+                      <span className="text-[10px] mono text-text-tertiary">SIM</span>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                        <input type="checkbox" checked={whatIfMods.emotional_tone} onChange={(e) => setWhatIfMods({ ...whatIfMods, emotional_tone: e.target.checked })} className="rounded bg-white/[0.04] border-white/[0.08] text-neural focus:ring-0" />
+                        More emotional tone
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                        <input type="checkbox" checked={whatIfMods.earlier_product_mention} onChange={(e) => setWhatIfMods({ ...whatIfMods, earlier_product_mention: e.target.checked })} className="rounded bg-white/[0.04] border-white/[0.08] text-neural focus:ring-0" />
+                        Earlier product mention
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                        <input type="checkbox" checked={whatIfMods.aggressive_cta} onChange={(e) => setWhatIfMods({ ...whatIfMods, aggressive_cta: e.target.checked })} className="rounded bg-white/[0.04] border-white/[0.08] text-neural focus:ring-0" />
+                        More aggressive CTA
+                      </label>
+                      <div className="flex items-center gap-3 pt-1">
+                        <span className="text-xs text-text-tertiary">Price decrease:</span>
+                        <input type="range" min="0" max="50" value={whatIfMods.price_decrease} onChange={(e) => setWhatIfMods({ ...whatIfMods, price_decrease: parseInt(e.target.value) })} className="flex-1" />
+                        <span className="text-xs mono text-white w-8">{whatIfMods.price_decrease}%</span>
+                      </div>
+                      <motion.button onClick={runWhatIf} disabled={whatIfRunning || !selectedVideo} className="btn-swarm text-xs py-2 px-4 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2" whileHover={!whatIfRunning ? { scale: 1.02 } : {}} whileTap={!whatIfRunning ? { scale: 0.98 } : {}}>
+                        {whatIfRunning ? (<><div className="w-3 h-3 border-2 border-swarm border-t-transparent rounded-full animate-spin" />Running...</>) : (<><Sliders className="w-3.5 h-3.5" />Run What-If</>)}
+                      </motion.button>
+                    </div>
+                    {whatIfResult && (
+                      <div className="mt-4 p-4 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                        <p className="text-xs mono text-text-tertiary mb-2">Results</p>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div><p className="text-text-tertiary">Sentiment</p><p className="text-white mono text-lg">{whatIfResult.final_sentiment?.toFixed(1) || '--'}</p></div>
+                          <div><p className="text-text-tertiary">Viral</p><p className="text-swarm mono text-sm">{whatIfResult.viral_prediction || '--'}</p></div>
+                          <div><p className="text-text-tertiary">Share</p><p className="text-white mono text-lg">{whatIfResult.share_prediction || '--'}</p></div>
+                          <div><p className="text-text-tertiary">Backlash</p><p className="text-white mono text-sm">{whatIfResult.backlash_prediction || '--'}</p></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Validation Study */}
+                  {!validationSubmitted && (
+                    <div className="glass-panel p-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Target className="w-4 h-4 text-neural" />
+                        <h4 className="text-sm font-semibold text-white">Validate Prediction</h4>
+                      </div>
+                      <p className="text-xs text-text-tertiary mb-4">Submit actual performance data to improve accuracy.</p>
+                      <div className="space-y-3">
+                        <input type="number" value={validationData.views} onChange={(e) => setValidationData({ ...validationData, views: e.target.value })} placeholder="Actual views" className="w-full p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/30" />
+                        <input type="number" step="0.1" value={validationData.engagement} onChange={(e) => setValidationData({ ...validationData, engagement: e.target.value })} placeholder="Engagement %" className="w-full p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/30" />
+                        <button onClick={submitValidation} className="w-full btn-neural text-xs py-2.5 flex items-center justify-center gap-2"><Target className="w-3.5 h-3.5" />Submit Validation</button>
+                      </div>
+                    </div>
+                  )}
+                  {validationSubmitted && (
+                    <div className="glass-panel p-5 border-neural/20">
+                      <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-neural" /><p className="text-sm text-text-secondary">Validation data submitted!</p></div>
+                    </div>
+                  )}
+
+                  {/* Benchmark Comparison */}
+                  <div className="glass-panel p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <TrendingUp className="w-4 h-4 text-swarm" />
+                      <h4 className="text-sm font-semibold text-white">Benchmark</h4>
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <select value={benchmarkCohort} onChange={(e) => setBenchmarkCohort(e.target.value)} className="flex-1 p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-neural/30">
+                        <option value="all">All Videos</option>
+                        <option value="education">Education</option>
+                        <option value="entertainment">Entertainment</option>
+                        <option value="gaming">Gaming</option>
+                        <option value="music">Music</option>
+                      </select>
+                      <button onClick={loadBenchmark} disabled={!selectedVideo} className="btn-swarm text-xs py-2 px-4 disabled:opacity-40 disabled:cursor-not-allowed">Compare</button>
+                    </div>
+                    {benchmarkData && (
+                      <div className="space-y-2">
+                        <p className="text-xs mono text-text-tertiary">vs {benchmarkData.cohort} (n={benchmarkData.cohort_n})</p>
+                        {Object.entries(benchmarkData.comparison || {}).map(([key, val]: [string, any]) => (
+                          <div key={key} className="flex items-center justify-between text-xs">
+                            <span className="text-text-tertiary">{key.replace(/_/g, ' ')}</span>
+                            <span className={`mono ${val.percentile >= 50 ? 'text-neural' : 'text-orange-400'}`}>P{val.percentile}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  </div>
+
+                  {/* Right column - sidebar */}
+                  <div className="lg:col-span-3 space-y-4">
+                    {/* Active Models */}
+                    <div className="glass-panel p-4">
+                      <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Systems</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02]">
+                          <div className="flex items-center gap-2">
+                            <span className="status-dot status-neural"></span>
+                            <div>
+                              <span className="text-xs text-white font-medium">TRIBE v2</span>
+                              <p className="text-[10px] text-text-tertiary">Brain Encoding</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] mono text-neural">ONLINE</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02]">
+                          <div className="flex items-center gap-2">
+                            <span className="status-dot status-swarm"></span>
+                            <div>
+                              <span className="text-xs text-white font-medium">MiroFish</span>
+                              <p className="text-[10px] text-text-tertiary">Swarm Sim</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] mono text-swarm">ONLINE</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {analysis && (
+                      <>
+                        {/* Risk Assessment */}
+                        <div className="glass-panel p-4">
+                          <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Risk</h4>
+                          <div className="space-y-3">
+                            <div>
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className="text-text-tertiary">Backlash</span>
+                                <span className={analysis.sentiment_forecast?.backlash_risk === 'Low' ? 'text-green-400' : 'text-orange-400'}>
+                                  {analysis.sentiment_forecast?.backlash_risk || 'N/A'}
+                                </span>
+                              </div>
+                              <div className="progress-track">
+                                <div className="progress-fill progress-orange" style={{ width: `${analysis.risk_score || 0}%` }} />
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className="text-text-tertiary">Sellout</span>
+                                <span className="text-orange-400 mono">{analysis.sentiment_forecast?.sellout_probability || 0}%</span>
+                              </div>
+                              <div className="progress-track">
+                                <div className="progress-fill progress-swarm" style={{ width: `${analysis.sentiment_forecast?.sellout_probability || 0}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* CTA Optimization */}
+                        {analysis.cta_analysis && (
+                          <div className="glass-panel p-4">
+                            <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">CTA</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-text-tertiary text-xs">Activation</span>
+                                <span className="mono text-neural text-xs">{analysis.cta_analysis.cta_activation_score}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-text-tertiary text-xs">Load</span>
+                                <span className="text-white text-xs">{analysis.cta_analysis.cognitive_load}</span>
+                              </div>
+                              <p className="text-[10px] text-text-tertiary pt-2 border-t border-white/[0.04]">
+                                {analysis.cta_analysis.timing_recommendation}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stage-Gate */}
+                        {analysis.stage_gate && (
+                          <div className="glass-panel p-4">
+                            <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Stage-Gate</h4>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-xl font-bold text-white mono">{analysis.stage_gate.W_attn.toFixed(3)}</p>
+                                <p className="text-[10px] text-text-tertiary">W_attn</p>
+                              </div>
+                              <div className={`px-3 py-1.5 rounded-lg ${analysis.stage_gate.passed ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}`}>
+                                <span className="text-xs mono font-medium">
+                                  {analysis.stage_gate.passed ? 'PASS' : 'FAIL'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Recent Uploads */}
+                    {videos.length > 0 && (
+                      <div className="glass-panel p-4 max-h-[300px] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider">Recent</h4>
+                          {compareIds.length === 2 && (
+                            <button onClick={goToComparison} className="text-[10px] mono text-neural hover:underline cursor-pointer">
+                              Compare →
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          {videos.slice(-5).reverse().map(video => (
+                            <div 
+                              key={video.id}
+                              className="p-2.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-2"
+                              onClick={() => setSelectedVideo(video.id)}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={compareIds.includes(video.id)}
+                                onChange={e => { e.stopPropagation(); toggleCompare(video.id) }}
+                                onClick={e => e.stopPropagation()}
+                                className="w-3 h-3 rounded bg-white/[0.04] border border-white/[0.08] text-neural focus:ring-0 cursor-pointer"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-xs text-white truncate max-w-[140px]">{video.filename}</span>
+                                  <span className={`text-[10px] mono px-1.5 py-0.5 rounded ${
+                                    video.status === 'analyzed' ? 'bg-green-400/10 text-green-400' :
+                                    video.status === 'processing' ? 'bg-orange-400/10 text-orange-400' :
+                                    'bg-white/5 text-text-tertiary'
+                                  }`}>
+                                    {video.status}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-text-tertiary mono">
+                                  {new Date(video.upload_time).toLocaleTimeString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )}
 
@@ -1047,152 +1417,7 @@ export default function Dashboard() {
               )}
             </AnimatePresence>
           </div>
-
-          {/* Right column - sidebar (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
-            {/* Active Models */}
-            <div className="glass-panel p-4">
-              <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Systems</h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02]">
-                  <div className="flex items-center gap-2">
-                    <span className="status-dot status-neural"></span>
-                    <div>
-                      <span className="text-xs text-white font-medium">TRIBE v2</span>
-                      <p className="text-[10px] text-text-tertiary">Brain Encoding</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] mono text-neural">ONLINE</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02]">
-                  <div className="flex items-center gap-2">
-                    <span className="status-dot status-swarm"></span>
-                    <div>
-                      <span className="text-xs text-white font-medium">MiroFish</span>
-                      <p className="text-[10px] text-text-tertiary">Swarm Sim</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] mono text-swarm">ONLINE</span>
-                </div>
-              </div>
-            </div>
-
-            {analysis && (
-              <>
-                {/* Risk Assessment */}
-                <div className="glass-panel p-4">
-                  <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Risk</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-text-tertiary">Backlash</span>
-                        <span className={analysis.sentiment_forecast?.backlash_risk === 'Low' ? 'text-green-400' : 'text-orange-400'}>
-                          {analysis.sentiment_forecast?.backlash_risk || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="progress-track">
-                        <div className="progress-fill progress-orange" style={{ width: `${analysis.risk_score || 0}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-text-tertiary">Sellout</span>
-                        <span className="text-orange-400 mono">{analysis.sentiment_forecast?.sellout_probability || 0}%</span>
-                      </div>
-                      <div className="progress-track">
-                        <div className="progress-fill progress-swarm" style={{ width: `${analysis.sentiment_forecast?.sellout_probability || 0}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA Optimization */}
-                {analysis.cta_analysis && (
-                  <div className="glass-panel p-4">
-                    <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">CTA</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-text-tertiary text-xs">Activation</span>
-                        <span className="mono text-neural text-xs">{analysis.cta_analysis.cta_activation_score}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-tertiary text-xs">Load</span>
-                        <span className="text-white text-xs">{analysis.cta_analysis.cognitive_load}</span>
-                      </div>
-                      <p className="text-[10px] text-text-tertiary pt-2 border-t border-white/[0.04]">
-                        {analysis.cta_analysis.timing_recommendation}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Stage-Gate */}
-                {analysis.stage_gate && (
-                  <div className="glass-panel p-4">
-                    <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider mb-3">Stage-Gate</h4>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xl font-bold text-white mono">{analysis.stage_gate.W_attn.toFixed(3)}</p>
-                        <p className="text-[10px] text-text-tertiary">W_attn</p>
-                      </div>
-                      <div className={`px-3 py-1.5 rounded-lg ${analysis.stage_gate.passed ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}`}>
-                        <span className="text-xs mono font-medium">
-                          {analysis.stage_gate.passed ? 'PASS' : 'FAIL'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Recent Uploads */}
-            {videos.length > 0 && (
-              <div className="glass-panel p-4 max-h-[300px] overflow-y-auto">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] mono text-text-tertiary uppercase tracking-wider">Recent</h4>
-                  {compareIds.length === 2 && (
-                    <button onClick={goToComparison} className="text-[10px] mono text-neural hover:underline cursor-pointer">
-                      Compare →
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  {videos.slice(-5).reverse().map(video => (
-                    <div 
-                      key={video.id}
-                      className="p-2.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-2"
-                      onClick={() => setSelectedVideo(video.id)}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={compareIds.includes(video.id)}
-                        onChange={e => { e.stopPropagation(); toggleCompare(video.id) }}
-                        onClick={e => e.stopPropagation()}
-                        className="w-3 h-3 rounded bg-white/[0.04] border border-white/[0.08] text-neural focus:ring-0 cursor-pointer"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-xs text-white truncate max-w-[140px]">{video.filename}</span>
-                          <span className={`text-[10px] mono px-1.5 py-0.5 rounded ${
-                            video.status === 'analyzed' ? 'bg-green-400/10 text-green-400' :
-                            video.status === 'processing' ? 'bg-orange-400/10 text-orange-400' :
-                            'bg-white/5 text-text-tertiary'
-                          }`}>
-                            {video.status}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-text-tertiary mono">
-                          {new Date(video.upload_time).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </main>
 
       {showShareModal && (
