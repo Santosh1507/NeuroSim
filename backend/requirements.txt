@@ -12,6 +12,8 @@ supabase>=2.10.0
 reportlab>=4.0.0
 sentry-sdk>=2.0.0
 posthog>=3.0.0
+stripe>=10.0.0
+youtube-transcript-api>=0.6.0
 pytest>=7.4.4
 pytest-asyncio>=0.23.3
 
