@@ -51,6 +51,7 @@ from shared_state import (
 from routes.digest import _send_email_smtp
 
 # ─── Route modules ─────────────────────────────────────────
+from routes.auth import router as auth_router
 from routes.upload import router as upload_router
 from routes.analysis import router as analysis_router
 from routes.share import router as share_router
@@ -155,6 +156,7 @@ async def log_requests(request: Request, call_next):
 # All routes are versioned under /api/v1/
 API_PREFIX = f"/api/{settings.api_version}"
 
+app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(upload_router, prefix=API_PREFIX)
 app.include_router(analysis_router, prefix=API_PREFIX)
 app.include_router(share_router, prefix=API_PREFIX)
