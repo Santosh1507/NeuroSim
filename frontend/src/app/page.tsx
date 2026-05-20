@@ -1,8 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useAuth } from '../lib/auth-context'
-import { supabase } from '../lib/supabase'
 import { motion } from 'framer-motion'
 import { heroReveal, heroRevealDelayed, fadeIn, staggerItem, easeOutExpo, scanLine, pulseSlow, pulseSlowDelayed, pulseFast } from '../lib/easing'
 import { 
@@ -345,7 +343,7 @@ export default function LandingPage() {
                 </ul>
                 <button
                   disabled={p.disabled}
-                  onClick={p.disabled ? undefined : (isSignedIn ? () => router.push('/dashboard') : handleAuth)}
+                  onClick={p.disabled ? undefined : () => router.push('/dashboard')}
                   className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
                     p.popular
                       ? 'bg-gradient-to-r from-neural/15 to-swarm/15 border border-neural/25 text-neural hover:from-neural/25 hover:to-swarm/25'
@@ -388,15 +386,9 @@ export default function LandingPage() {
               <p className="text-gray-400 max-w-md mx-auto mb-10">
                 Upload a video, get neural and social predictions. Free to start, no credit card.
               </p>
-              {isSignedIn ? (
-                <button onClick={() => router.push('/dashboard')} className="btn-neural inline-flex items-center gap-2" aria-label="Open dashboard">
-                  Open Dashboard <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              ) : (
-                <button onClick={handleAuth} className="btn-neural inline-flex items-center gap-2" aria-label="Start for free">
-                  Start Free <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              )}
+              <button onClick={() => router.push('/dashboard')} className="btn-neural inline-flex items-center gap-2" aria-label="Open dashboard">
+                Open Dashboard <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </button>
             </div>
           </motion.div>
         </section>
