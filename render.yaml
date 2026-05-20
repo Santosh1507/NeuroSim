@@ -10,6 +10,8 @@ services:
     envVars:
       - key: CORS_ORIGINS
         value: '["http://localhost:3000", "https://neurosim.vercel.app"]'
+      - key: API_VERSION
+        value: "v1"
       - key: TRIBE_USE_REAL
         value: "false"
       - key: MIROFISH_USE_REAL
@@ -22,15 +24,33 @@ services:
         value: "false"
       - key: PREMIUM_MAX_ANALYSES_FREE
         value: "10"
+      - key: SENTRY_ENVIRONMENT
+        value: "production"
+      - key: POSTHOG_HOST
+        value: "https://us.i.posthog.com"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: POSTHOG_API_KEY
+        sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_ID_MONTHLY
+        sync: false
+      - key: STRIPE_PRICE_ID_YEARLY
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
         sync: false
 
   - type: cron

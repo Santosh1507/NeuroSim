@@ -1,8 +1,11 @@
 """Supabase database layer for persistent storage."""
 
+import logging
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 try:
     from supabase import Client, create_client
@@ -24,18 +27,18 @@ class Database:
             try:
                 self.client = create_client(url, key)
                 self.enabled = True
-                print("Supabase connected.")
+                logger.info("Supabase connected.")
             except Exception as e:
-                print(f"Supabase connection failed: {e}")
+                logger.error(f"Supabase connection failed: {e}")
                 self.client = None
                 self.enabled = False
         else:
             self.client = None
             self.enabled = False
             if not SUPABASE_AVAILABLE:
-                print("Supabase package not available. Using in-memory storage.")
+                logger.warning("Supabase package not available. Using in-memory storage.")
             else:
-                print("Supabase not configured. Using in-memory storage.")
+                logger.warning("Supabase not configured. Using in-memory storage.")
 
     async def insert_video(
         self, video_id: str, filename: str, status: str = "uploaded", user_id: str = "anonymous"

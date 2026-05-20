@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import random
 from datetime import datetime
@@ -7,6 +8,8 @@ from typing import Any, Dict, Optional
 import httpx
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class MiroFishEngine:
@@ -107,7 +110,7 @@ class MiroFishEngine:
 
                 raise Exception(f"MiroFish API returned {response.status_code}")
         except Exception as e:
-            print(f"MiroFish real API failed: {e}. Falling back to simulated mode.")
+            logger.warning(f"MiroFish real API failed: {e}. Falling back to simulated mode.")
             return await self._simulated_simulation(content, roi_scores)
 
     async def _simulated_simulation(

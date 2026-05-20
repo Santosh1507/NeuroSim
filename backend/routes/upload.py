@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -38,6 +39,8 @@ from shared_state import (
     _get_analysis_or_404,
     get_verified_user_id,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _is_video_magic(header: bytes) -> bool:
@@ -306,7 +309,7 @@ async def _process_in_background(
             os.remove(file_path)
         except OSError:
             pass
-        print(f"[ERROR] Analysis failed for {video_id}: {e}")
+        logger.error(f"Analysis failed for {video_id}: {e}")
 
 
 router = APIRouter(tags=["upload"])

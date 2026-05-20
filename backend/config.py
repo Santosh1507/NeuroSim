@@ -56,39 +56,6 @@ class Settings(BaseSettings):
     # YouTube Data API v3
     youtube_api_key: str = ""
 
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
-    # YouTube Data API v3
-    youtube_api_key: str = ""
-
     # Sentry (error tracking)
     sentry_dsn: str = ""
     sentry_environment: str = "development"
@@ -96,6 +63,9 @@ class Settings(BaseSettings):
     # PostHog (product analytics)
     posthog_api_key: str = ""
     posthog_host: str = "https://us.i.posthog.com"
+
+    # API versioning
+    api_version: str = "v1"
 
     model_config = ConfigDict(env_file=".env")
 

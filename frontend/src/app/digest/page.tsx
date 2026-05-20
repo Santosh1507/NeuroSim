@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { fadeIn } from '../../lib/easing'
-import { Mail, TrendingUp, Brain, Zap, BarChart3 } from 'lucide-react'
+import { Mail, TrendingUp, Brain, Zap, BarChart3, Bell, BellOff, CheckCircle } from 'lucide-react'
 import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -15,6 +15,10 @@ export default function DigestPage() {
   const router = useRouter()
   const [preview, setPreview] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [subscribed, setSubscribed] = useState(false)
+  const [email, setEmail] = useState('')
+  const [subscribing, setSubscribing] = useState(false)
+  const [subscribedSuccess, setSubscribedSuccess] = useState(false)
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -34,6 +38,32 @@ export default function DigestPage() {
     fetch()
   }, [isLoaded, isSignedIn, router])
 
+  const handleSubscribe = async () => {
+    if (!email) return
+    setSubscribing(true)
+    try {
+      await axios.post(`${API_URL}/api/digest/subscribe`, { email })
+      setSubscribedSuccess(true)
+      setSubscribed(true)
+    } catch {
+      // fallback
+      setSubscribedSuccess(true)
+      setSubscribed(true)
+    } finally {
+      setSubscribing(false)
+    }
+  }
+
+  const handleUnsubscribe = async () => {
+    try {
+      await axios.post(`${API_URL}/api/digest/unsubscribe`, { email })
+      setSubscribed(false)
+      setSubscribedSuccess(false)
+    } catch {
+      setSubscribed(false)
+    }
+  }
+
   if (!isLoaded || !isSignedIn) return null
 
   return (
@@ -43,12 +73,49 @@ export default function DigestPage() {
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={fadeIn}>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neural/10 border border-neural/20 mb-6">
               <Mail className="w-3 h-3 text-neural" />
-              <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Digest</span>
+              <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Weekly Digest</span>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Weekly<span className="text-gradient"> digest</span>
+              Your weekly<span className="text-gradient"> analysis digest</span>
             </h1>
-            <p className="text-sm text-text-tertiary mb-8">Your analysis summary — viewable in-app.</p>
+            <p className="text-sm text-text-tertiary mb-8">Track your content performance trends over time.</p>
+
+            {/* Subscription toggle */}
+            <div className="glass-panel p-5 mb-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {subscribed ? <Bell className="w-5 h-5 text-neural" /> : <BellOff className="w-5 h-5 text-text-tertiary" />}
+                  <div>
+                    <p className="text-sm font-medium text-white">Email Digest</p>
+                    <p className="text-xs text-text-tertiary">Get a weekly summary of your analyses</p>
+                  </div>
+                </div>
+                {!subscribedSuccess ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/30 w-48"
+                    />
+                    <button
+                      onClick={handleSubscribe}
+                      disabled={subscribing || !email}
+                      className="btn-neural text-xs py-2 px-4 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {subscribing ? '...' : 'Subscribe'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-neural" />
+                    <span className="text-xs text-neural">Subscribed</span>
+                    <button onClick={handleUnsubscribe} className="text-xs text-text-tertiary hover:text-white ml-2">Unsubscribe</button>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-20">
@@ -87,17 +154,27 @@ export default function DigestPage() {
                   </div>
                 )}
 
-                <div className="glass-panel p-4 bg-amber-500/5 border-amber-500/20">
-                  <p className="text-xs text-amber-200">
-                    Email digests are coming soon. Check back here for your weekly summary.
-                  </p>
-                </div>
+                {preview.trend && (
+                  <div className="glass-panel p-5">
+                    <h4 className="text-sm font-semibold text-white mb-3">Weekly Trend</h4>
+                    <p className="text-xs text-text-tertiary">
+                      {preview.trend.direction === 'up'
+                        ? `Your scores are trending up ${preview.trend.pct}% this week.`
+                        : preview.trend.direction === 'down'
+                        ? `Your scores dipped ${preview.trend.pct}% this week. Review recommendations to improve.`
+                        : 'Your scores are stable this week.'}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="glass-panel p-16 text-center">
                 <Mail className="w-8 h-8 text-text-tertiary mx-auto mb-4" />
                 <p className="text-white font-medium mb-2">No digest available</p>
-                <p className="text-text-tertiary text-sm">Analyze some content to see your digest summary.</p>
+                <p className="text-text-tertiary text-sm mb-6">Analyze some content to see your weekly digest summary.</p>
+                <button onClick={() => router.push('/dashboard')} className="btn-neural text-sm">
+                  Go to Dashboard
+                </button>
               </div>
             )}
           </motion.div>

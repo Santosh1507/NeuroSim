@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from storage_adapter import store
 from rate_limiter import check_api_limit, upload_limiter
 from pdf_report import generate_pdf_report
-from correlation_tracker import CorrelationTracker
 from validation_study import ValidationStudy
 from youtube_client import extract_video_id, fetch_video_metadata, fetch_youtube_transcript
 from benchmark_data import get_benchmark, get_all_cohorts, compare_to_benchmark
@@ -58,7 +57,6 @@ class YouTubeAnalysisRequest(BaseModel):
 
 router = APIRouter(tags=["analysis"])
 
-_tracker = CorrelationTracker()
 _study = ValidationStudy()
 
 
@@ -265,22 +263,28 @@ async def submit_feedback(req: FeedbackRequest, user_id: str = Depends(require_a
         "viral_potential": analysis.get("viral_potential", 0),
         "success_probability": analysis.get("success_probability", 0),
     }
-    _tracker.add_entry(
+    analysis_type = analysis.get("analysis_type", "video")
+
+    _study.add_entry(
         video_id=req.video_id,
+        user_id=user_id,
+        analysis_type=analysis_type,
         predicted_scores=predicted_scores,
         actual_views=req.actual_views,
         actual_engagement=req.actual_engagement,
+        would_publish=req.would_publish,
+        days_after_publish=7,
     )
     return {
         "status": "received",
-        "total_entries": _tracker.entry_count(),
+        "total_entries": _study.get_study_progress()["total_entries"],
     }
 
 
 @router.get("/api/feedback/correlations")
 async def get_correlations():
     """Return current prediction accuracy correlations."""
-    return _tracker.get_correlations()
+    return _study.compute_correlations()
 
 
 @router.post("/api/validation/submit")

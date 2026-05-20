@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -16,6 +17,8 @@ from shared_state import (
     _SHARE_LINK_TTL,
     require_auth_user,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ShareRequest(BaseModel):
@@ -107,7 +110,7 @@ async def merge_guest_session(
                     .execute()
                 )
             except Exception as e:
-                print(f"[WARN] Supabase merge failed: {e}")
+                logger.warning(f"Supabase merge failed: {e}")
         for vid, v in _videos_cache.items():
             if v.get("user_id") == req.guest_session_id:
                 v["user_id"] = req.user_id

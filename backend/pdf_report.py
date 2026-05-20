@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import Any, Dict
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
@@ -21,14 +21,13 @@ from reportlab.platypus import (
 
 def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = None) -> bytes:
     """Generate PDF report from analysis data."""
-    video_info = video_info or {}  # Ensure we always have a dict
+    video_info = video_info or {}
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72
     )
 
     styles = getSampleStyleSheet()
-    # Add custom styles with unique names to avoid conflicts with built-ins
     custom_styles = [
         ParagraphStyle("ReportTitle", fontSize=24, leading=28, spaceAfter=6,
                        textColor=colors.HexColor("#0a0a0f"), fontName="Helvetica-Bold"),
@@ -45,22 +44,37 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
         ParagraphStyle("ReportBullet", fontSize=10, leading=14, leftIndent=20, spaceAfter=4,
                        textColor=colors.HexColor("#333333"), fontName="Helvetica",
                        bulletIndent=10),
+        ParagraphStyle("Badge", fontSize=9, leading=12, textColor=colors.white,
+                       fontName="Helvetica-Bold", alignment=TA_CENTER),
+        ParagraphStyle("Footer", fontSize=8, textColor=colors.HexColor("#999999"), alignment=TA_CENTER),
     ]
     for s in custom_styles:
         styles.add(s)
 
     story = []
 
-    # Header
+    # Header with version badge
     story.append(Paragraph("NeuroSim Analysis Report", styles["ReportTitle"]))
     story.append(
         Paragraph(
-            f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", styles["ReportSubtitle"]
+            f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')} | v3.0", styles["ReportSubtitle"]
         )
     )
     story.append(
         HRFlowable(width="100%", thickness=1, color=colors.HexColor("#4deeea"), spaceAfter=12)
     )
+
+    # Source indicator
+    analysis_type = analysis.get("analysis_type", "video")
+    source = analysis.get("source", "upload")
+    if analysis_type == "script":
+        story.append(Paragraph("Script Analysis", styles["ReportSection"]))
+        story.append(Paragraph("This report was generated from text input (no video upload).", styles["ReportBody"]))
+        story.append(Spacer(1, 6))
+    elif analysis_type == "youtube":
+        story.append(Paragraph("YouTube Analysis", styles["ReportSection"]))
+        story.append(Paragraph("This report was generated from a YouTube URL.", styles["ReportBody"]))
+        story.append(Spacer(1, 6))
 
     if video_info:
         story.append(
@@ -79,27 +93,25 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
         ("Risk Score", f"{analysis.get('risk_score', 0)}%"),
     ]
 
+    row_colors = [colors.HexColor("#f8f8f8"), colors.white]
     metric_data = []
-    for label, value in metrics:
-        metric_data.append(
-            [Paragraph(label, styles["MetricLabel"]), Paragraph(value, styles["MetricValue"])]
-        )
+    for i, (label, value) in enumerate(metrics):
+        bg = row_colors[i % 2]
+        metric_data.append([
+            Paragraph(label, styles["MetricLabel"]),
+            Paragraph(value, styles["MetricValue"]),
+        ])
 
-    metric_table = Table(
-        [
-            [Paragraph(label, styles["MetricLabel"]), Paragraph(value, styles["MetricValue"])]
-            for label, value in metrics
-        ],
-        colWidths=[2.5 * inch, 2 * inch],
-    )
+    metric_table = Table(metric_data, colWidths=[2.5 * inch, 2 * inch])
     metric_table.setStyle(
-        TableStyle(
-            [
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ]
-        )
+        TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BACKGROUND", (0, 0), (-1, -1), row_colors[0]),
+        ] + [
+            ("BACKGROUND", (0, i), (-1, i), row_colors[i % 2]) for i in range(len(metrics))
+        ])
     )
     story.append(metric_table)
 
@@ -110,38 +122,16 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     status_color = colors.HexColor("#34d399") if sg.get("passed") else colors.HexColor("#f87171")
 
     sg_data = [
-        [
-            Paragraph("W_attn", styles["MetricLabel"]),
-            Paragraph(f"{sg.get('W_attn', 0):.3f}", styles["MetricValue"]),
-        ],
-        [
-            Paragraph("Threshold", styles["MetricLabel"]),
-            Paragraph(f"{sg.get('threshold', 0):.1f}", styles["MetricValue"]),
-        ],
-        [
-            Paragraph("Status", styles["MetricLabel"]),
-            Paragraph(
-                status,
-                ParagraphStyle(
-                    "StatusStyle",
-                    fontSize=18,
-                    leading=22,
-                    textColor=status_color,
-                    fontName="Helvetica-Bold",
-                ),
-            ),
-        ],
+        [Paragraph("W_attn", styles["MetricLabel"]), Paragraph(f"{sg.get('W_attn', 0):.3f}", styles["MetricValue"])],
+        [Paragraph("Threshold", styles["MetricLabel"]), Paragraph(f"{sg.get('threshold', 0):.1f}", styles["MetricValue"])],
+        [Paragraph("Status", styles["MetricLabel"]), Paragraph(status, ParagraphStyle("StatusStyle", fontSize=18, leading=22, textColor=status_color, fontName="Helvetica-Bold"))],
     ]
     sg_table = Table(sg_data, colWidths=[2.5 * inch, 2 * inch])
-    sg_table.setStyle(
-        TableStyle(
-            [
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ]
-        )
-    )
+    sg_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+    ]))
     story.append(sg_table)
 
     # ROI Scores
@@ -150,23 +140,51 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     if cortical:
         story.append(Paragraph("Neural Response (TRIBE v2)", styles["ReportSection"]))
         roi_data = [
-            [
-                Paragraph(k.replace("_", " ").title(), styles["MetricLabel"]),
-                Paragraph(f"{v:.1f}%", styles["MetricValue"]),
-            ]
+            [Paragraph(k.replace("_", " ").title(), styles["MetricLabel"]), Paragraph(f"{v:.1f}%", styles["MetricValue"])]
             for k, v in cortical.items()
         ]
         roi_table = Table(roi_data, colWidths=[2.5 * inch, 2 * inch])
-        roi_table.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ]
-            )
-        )
+        roi_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ]))
         story.append(roi_table)
+
+    # MiroFish Swarm Simulation
+    swarm = analysis.get("mirofish_simulation", {})
+    if swarm:
+        story.append(Paragraph("MiroFish Swarm Simulation", styles["ReportSection"]))
+        swarm_data = [
+            [Paragraph("Final Sentiment", styles["MetricLabel"]), Paragraph(f"{swarm.get('final_sentiment', 0):.1f}", styles["MetricValue"])],
+            [Paragraph("Viral Prediction", styles["MetricLabel"]), Paragraph(str(swarm.get('viral_prediction', 'N/A')), styles["ReportBody"])],
+            [Paragraph("Backlash Risk", styles["MetricLabel"]), Paragraph(str(swarm.get('backlash_prediction', 'N/A')), styles["ReportBody"])],
+            [Paragraph("Share Prediction", styles["MetricLabel"]), Paragraph(f"{swarm.get('share_prediction', 0):.0f}", styles["MetricValue"])],
+        ]
+        swarm_table = Table(swarm_data, colWidths=[2.5 * inch, 2 * inch])
+        swarm_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(swarm_table)
+
+        # Persona distribution
+        personas = swarm.get("persona_distribution", {})
+        if personas:
+            story.append(Spacer(1, 8))
+            story.append(Paragraph("Audience Personas", styles["ReportSection"]))
+            persona_data = [
+                [Paragraph(k.replace("_", " ").title(), styles["MetricLabel"]), Paragraph(f"{v}%", styles["MetricValue"])]
+                for k, v in sorted(personas.items(), key=lambda x: x[1], reverse=True)
+            ]
+            persona_table = Table(persona_data, colWidths=[2.5 * inch, 2 * inch])
+            persona_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ]))
+            story.append(persona_table)
 
     # Recommendations
     recs = analysis.get("recommendations", [])
@@ -180,39 +198,17 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     if sentiment:
         story.append(Paragraph("Sentiment Forecast", styles["ReportSection"]))
         sent_data = [
-            [
-                Paragraph("Positive", styles["MetricLabel"]),
-                Paragraph(
-                    f"{sentiment.get('positive_sentiment_pct', 0):.1f}%", styles["MetricValue"]
-                ),
-            ],
-            [
-                Paragraph("Negative", styles["MetricLabel"]),
-                Paragraph(
-                    f"{sentiment.get('negative_sentiment_pct', 0):.1f}%", styles["MetricValue"]
-                ),
-            ],
-            [
-                Paragraph("Neutral", styles["MetricLabel"]),
-                Paragraph(
-                    f"{sentiment.get('neutral_sentiment_pct', 0):.1f}%", styles["MetricValue"]
-                ),
-            ],
-            [
-                Paragraph("Shareability", styles["MetricLabel"]),
-                Paragraph(f"{sentiment.get('shareability_index', 0):.1f}%", styles["MetricValue"]),
-            ],
+            [Paragraph("Positive", styles["MetricLabel"]), Paragraph(f"{sentiment.get('positive_sentiment_pct', 0):.1f}%", styles["MetricValue"])],
+            [Paragraph("Negative", styles["MetricLabel"]), Paragraph(f"{sentiment.get('negative_sentiment_pct', 0):.1f}%", styles["MetricValue"])],
+            [Paragraph("Neutral", styles["MetricLabel"]), Paragraph(f"{sentiment.get('neutral_sentiment_pct', 0):.1f}%", styles["MetricValue"])],
+            [Paragraph("Shareability", styles["MetricLabel"]), Paragraph(f"{sentiment.get('shareability_index', 0):.1f}%", styles["MetricValue"])],
         ]
         sent_table = Table(sent_data, colWidths=[2.5 * inch, 2 * inch])
-        sent_table.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ]
-            )
-        )
+        sent_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ]))
         story.append(sent_table)
 
     # Footer
@@ -222,10 +218,8 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     )
     story.append(
         Paragraph(
-            "NeuroSim v2.0 — TRIBE v2 + MiroFish | Confidential",
-            ParagraphStyle(
-                "Footer", fontSize=8, textColor=colors.HexColor("#999999"), alignment=TA_CENTER
-            ),
+            "NeuroSim v3.0 — TRIBE v2 + MiroFish Swarm | Confidential",
+            styles["Footer"],
         )
     )
 

@@ -6,11 +6,14 @@ and the in-memory cache (flat dicts). Always writes to Supabase when available
 and uses in-memory cache as a fast read-through layer.
 """
 
+import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # ─── In-memory storage ────────────────────────────────────
@@ -79,12 +82,12 @@ class SupabaseClient:
             try:
                 self.client = create_client(url, key)
                 self.enabled = True
-                print("StorageAdapter: Supabase connected.")
+                logger.info("StorageAdapter: Supabase connected.")
             except Exception as e:
-                print(f"StorageAdapter: Supabase connection failed: {e}")
+                logger.error(f"StorageAdapter: Supabase connection failed: {e}")
         else:
             reason = "package unavailable" if not SUPABASE_AVAILABLE else "not configured"
-            print(f"StorageAdapter: Supabase {reason}. Using in-memory only.")
+            logger.warning(f"StorageAdapter: Supabase {reason}. Using in-memory only.")
 
 
 # Singleton
@@ -119,7 +122,7 @@ class StorageAdapter:
                 result = _supabase.client.table("videos").insert(record).execute()
                 record = result.data[0] if result.data else record
             except Exception as e:
-                print(f"[WARN] Supabase insert_video failed: {e}")
+                logger.warning(f"Supabase insert_video failed: {e}")
 
         _videos_cache[video_id] = record
         _touch_cache(f"v:{video_id}")
@@ -142,7 +145,7 @@ class StorageAdapter:
                     _touch_cache(f"v:{video_id}")
                     return rec
             except Exception as e:
-                print(f"[WARN] Supabase get_video failed: {e}")
+                logger.warning(f"Supabase get_video failed: {e}")
 
         return None
 
@@ -165,7 +168,7 @@ class StorageAdapter:
                     _touch_cache(f"v:{rec['id']}")
                 return result.data
             except Exception as e:
-                print(f"[WARN] Supabase list_videos failed: {e}")
+                logger.warning(f"Supabase list_videos failed: {e}")
 
         return sorted(
             list(_videos_cache.values()),
@@ -183,7 +186,7 @@ class StorageAdapter:
             try:
                 _supabase.client.table("videos").update({"status": status}).eq("id", video_id).execute()
             except Exception as e:
-                print(f"[WARN] Supabase update_video_status failed: {e}")
+                logger.warning(f"Supabase update_video_status failed: {e}")
 
     async def delete_video(self, video_id: str) -> None:
         """Delete a video record from both stores."""
@@ -194,7 +197,7 @@ class StorageAdapter:
             try:
                 _supabase.client.table("videos").delete().eq("id", video_id).execute()
             except Exception as e:
-                print(f"[WARN] Supabase delete_video failed: {e}")
+                logger.warning(f"Supabase delete_video failed: {e}")
 
     # ─── Analyses ─────────────────────────────────────────
 
@@ -217,7 +220,7 @@ class StorageAdapter:
                 }
                 result = _supabase.client.table("analyses").insert(record).execute()
             except Exception as e:
-                print(f"[WARN] Supabase insert_analysis failed: {e}")
+                logger.warning(f"Supabase insert_analysis failed: {e}")
 
         # Cache stores the flat analysis object
         _analyses_cache[video_id] = analysis
@@ -248,7 +251,7 @@ class StorageAdapter:
                         _touch_cache(f"a:{video_id}")
                         return analysis
             except Exception as e:
-                print(f"[WARN] Supabase get_analysis failed: {e}")
+                logger.warning(f"Supabase get_analysis failed: {e}")
 
         return None
 
@@ -261,7 +264,7 @@ class StorageAdapter:
             try:
                 _supabase.client.table("analyses").delete().eq("video_id", video_id).execute()
             except Exception as e:
-                print(f"[WARN] Supabase delete_analysis failed: {e}")
+                logger.warning(f"Supabase delete_analysis failed: {e}")
 
     # ─── Bulk / Warmup ────────────────────────────────────
 
@@ -290,10 +293,10 @@ class StorageAdapter:
                     _analyses_cache[video_id] = analysis
                     _touch_cache(f"a:{video_id}")
                     count += 1
-            print(f"StorageAdapter: Warmed {count} analyses into cache")
+            logger.info(f"StorageAdapter: Warmed {count} analyses into cache")
             return count
         except Exception as e:
-            print(f"[WARN] StorageAdapter warmup failed: {e}")
+            logger.warning(f"StorageAdapter warmup failed: {e}")
             return 0
 
     async def get_cached_video_ids(self) -> List[str]:

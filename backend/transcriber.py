@@ -5,7 +5,10 @@ Fits within Render's 512MB free tier:
   - Leaves ~350MB for FastAPI + numpy + heuristic scorer
 """
 
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 try:
     from faster_whisper import WhisperModel
@@ -56,7 +59,7 @@ class Transcriber:
             )
             return " ".join(seg.text for seg in segments).strip()
         except Exception as e:
-            print(f"Transcription failed: {e}")
+            logger.error(f"Transcription failed: {e}")
             return ""
 
     def unload(self):

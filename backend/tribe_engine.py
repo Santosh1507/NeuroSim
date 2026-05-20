@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import time
 from typing import Any, Dict, Optional
@@ -6,6 +7,8 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class TribeEngine:
@@ -28,9 +31,9 @@ class TribeEngine:
                 self.model = TribeModel.from_pretrained(
                     settings.tribe_model_name, cache_folder=settings.tribe_cache_folder
                 )
-                print("TRIBE v2 loaded from HuggingFace (GPU mode)")
+                logger.info("TRIBE v2 loaded from HuggingFace (GPU mode)")
             except Exception as e:
-                print(f"TRIBE v2 load failed: {e}. Falling back to simulated mode.")
+                logger.warning(f"TRIBE v2 load failed: {e}. Falling back to simulated mode.")
                 self.is_real = False
 
     async def predict_from_video(self, video_path: str) -> Dict[str, Any]:

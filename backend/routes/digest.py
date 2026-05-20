@@ -1,3 +1,4 @@
+import logging
 import smtplib
 import uuid
 from datetime import datetime
@@ -15,6 +16,8 @@ from shared_state import (
     _digest_subs,
     require_auth_user,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DigestRequest(BaseModel):
@@ -35,7 +38,7 @@ class DigestPreview(BaseModel):
 def _send_email_smtp(to_email: str, subject: str, html_body: str) -> bool:
     """Send an email via SMTP using the configured email settings."""
     if not settings.email_host or not settings.email_username:
-        print(f"[EMAIL] SMTP not configured — can't send to {to_email}")
+        logger.warning(f"[EMAIL] SMTP not configured — can't send to {to_email}")
         return False
     try:
         msg = MIMEMultipart("alternative")
@@ -50,10 +53,10 @@ def _send_email_smtp(to_email: str, subject: str, html_body: str) -> bool:
             server.sendmail(settings.email_from_address, [to_email], msg.as_string())
         return True
     except smtplib.SMTPException as e:
-        print(f"[EMAIL] SMTP error sending to {to_email}: {e}")
+        logger.error(f"[EMAIL] SMTP error sending to {to_email}: {e}")
         return False
     except Exception as e:
-        print(f"[EMAIL] Unexpected error sending to {to_email}: {e}")
+        logger.error(f"[EMAIL] Unexpected error sending to {to_email}: {e}")
         return False
 
 
@@ -206,16 +209,16 @@ async def trigger_digest_send(frequency: str = "weekly", user_id: str = Depends(
             if ok:
                 status = "delivered"
                 sent_count += 1
-                print(f"[DIGEST] Delivered {frequency} digest to {email} (delivery_id={delivery_id})")
+                logger.info(f"[DIGEST] Delivered {frequency} digest to {email} (delivery_id={delivery_id})")
             else:
                 status = "failed"
                 failed_count += 1
                 error_msg = "SMTP delivery failed"
-                print(f"[DIGEST] Failed to deliver {frequency} digest to {email} (delivery_id={delivery_id})")
+                logger.error(f"[DIGEST] Failed to deliver {frequency} digest to {email} (delivery_id={delivery_id})")
         else:
             status = "delivered"
             sent_count += 1
-            print(f"[DIGEST] [SIMULATED] Delivered {frequency} digest to {email} (delivery_id={delivery_id})")
+            logger.info(f"[DIGEST] [SIMULATED] Delivered {frequency} digest to {email} (delivery_id={delivery_id})")
 
         delivery = {
             "email": email,

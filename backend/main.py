@@ -1,9 +1,14 @@
 import asyncio
+import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(level=logging.INFO)
 
 import sentry_sdk
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -78,18 +83,18 @@ async def lifespan(app: FastAPI):
             environment=settings.sentry_environment,
             traces_sample_rate=0.1,
         )
-        print(f"Sentry initialized — environment: {settings.sentry_environment}")
+        logger.info(f"Sentry initialized — environment: {settings.sentry_environment}")
 
     # Initialize PostHog
     if settings.posthog_api_key:
         import posthog
         posthog.api_key = settings.posthog_api_key
         posthog.host = settings.posthog_host
-        print("PostHog initialized")
+        logger.info("PostHog initialized")
 
     os.makedirs(settings.upload_dir, exist_ok=True)
     whisper_status = "ready" if transcriber.available else "unavailable (install faster-whisper)"
-    print(
+    logger.info(
         f"NeuroSim API starting — TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}, Whisper: {whisper_status}"
     )
 
@@ -101,14 +106,14 @@ async def lifespan(app: FastAPI):
                 shared_state._last_eviction = 0
                 _evict_stale()
             except Exception as e:
-                print(f"[WARN] Background sweep failed: {e}")
+                logger.warning(f"Background sweep failed: {e}")
 
     sweep_task = asyncio.create_task(_background_sweep())
 
     yield
 
     sweep_task.cancel()
-    print("NeuroSim API shutting down")
+    logger.info("NeuroSim API shutting down")
 
 
 app = FastAPI(
@@ -134,7 +139,7 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     duration = round((time.time() - start) * 1000, 1)
     client_ip = request.client.host if request.client else "unknown"
-    print(
+    logger.info(
         f"[{datetime.now().isoformat()}] {request.method} {request.url.path} {response.status_code} {duration}ms — {client_ip}"
     )
     metrics.record_request(
@@ -228,7 +233,7 @@ class ErrorReportRequest(BaseModel):
 @app.post("/api/error-report")
 async def report_error(req: ErrorReportRequest):
     """Receive frontend error reports for monitoring."""
-    print(f"[FRONTEND-ERROR] {req.message} at {req.url}")
+    logger.info(f"[FRONTEND-ERROR] {req.message} at {req.url}")
     if req.stack:
-        print(f"[FRONTEND-ERROR] Stack: {req.stack[:500]}")
+        logger.info(f"[FRONTEND-ERROR] Stack: {req.stack[:500]}")
     return {"status": "received"}

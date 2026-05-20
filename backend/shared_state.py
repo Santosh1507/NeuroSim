@@ -1,4 +1,5 @@
 """Shared state for NeuroSim API — extracted from main.py to avoid circular imports."""
+import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -7,6 +8,8 @@ import jwt
 from fastapi import Depends, Header, HTTPException
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 # ─── In-memory state ───────────────────────────────────────
 _task_status: Dict[str, dict] = {}
@@ -47,9 +50,9 @@ async def get_verified_user_id(
                 )
                 return payload.get("sub", user_id)
             except jwt.ExpiredSignatureError:
-                print(f"[AUTH] Expired token for user_id={user_id}")
+                logger.warning(f"[AUTH] Expired token for user_id={user_id}")
             except jwt.InvalidTokenError as e:
-                print(f"[AUTH] Invalid token: {e}")
+                logger.warning(f"[AUTH] Invalid token: {e}")
         return user_id
     return user_id
 
