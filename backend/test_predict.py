@@ -115,26 +115,35 @@ class TestPredictEndpoint:
 
     def test_predict_rate_limited(self):
         """Predict endpoint rate limits after 10 requests per minute per IP."""
-        video = _make_video()
+        # Mock ffprobe (slow subprocess) and vision scorer (real Gemini API calls).
+        # The clean_state fixture already handles transcriber mocking.
+        # We only care about 200 vs 429 status codes, not response content.
+        with patch("routes.predict._get_video_duration", return_value=10.0), \
+             patch.object(vision_scorer, "analyze_video") as mock_vision:
+            mock_vision.return_value = {
+                "hook_score": 7.0, "authenticity_score": 6.5, "viral_potential": 8.0,
+                "hook_curve": [0.5]*10, "authenticity_curve": [0.5]*10, "viral_curve": [0.5]*10,
+            }
 
-        # Send 10 requests that should all be allowed
-        for i in range(10):
+            video = _make_video()
+
+            # Send 10 requests that should all be allowed
+            for i in range(10):
+                video.seek(0)
+                response = client.post(
+                    "/api/v1/predict",
+                    files={"file": ("clip.mp4", video, "video/mp4")},
+                )
+                assert response.status_code != 429, f"Request {i+1} was rate limited too early"
+
+            # The 11th should be rate limited
             video.seek(0)
             response = client.post(
                 "/api/v1/predict",
                 files={"file": ("clip.mp4", video, "video/mp4")},
             )
-            # Some may error on Gemini/no-ffprobe but should NOT be 429
-            assert response.status_code != 429, f"Request {i+1} was rate limited too early"
-
-        # The 11th should be rate limited
-        video.seek(0)
-        response = client.post(
-            "/api/v1/predict",
-            files={"file": ("clip.mp4", video, "video/mp4")},
-        )
-        assert response.status_code == 429
-        assert "rate limit" in response.json()["detail"].lower()
+            assert response.status_code == 429
+            assert "rate limit" in response.json()["detail"].lower()
 
     def test_predict_with_vision_scores(self):
         """Predict endpoint includes vision scores when Gemini returns them."""

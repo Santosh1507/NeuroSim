@@ -769,8 +769,8 @@ These should be removed (`git clean -fd`) before committing to avoid shipping de
 |---|------|----------|--------------------|
 | R1 | Rate limiter IP detection behind reverse proxy | Medium | Add X-Forwarded-For support before production deployment behind proxy |
 | R2 | Flat-file validation study data under concurrent access | Low | Migrate to Supabase-backed when scale warrants |
-| R3 | auth_limiter defined but not wired to any route | Low | Wire to auth endpoints or remove dead code |
-| R4 | Social feed route tag inconsistency (social-feed vs simulation) | Low | Rename tag to match existing simulation endpoints |
+| R3 | ~~auth_limiter defined but not wired to any route~~ | ~~Low~~ | **RESOLVED** — `auth_limiter` IS wired: `auth.py:44` (sign-up) and `auth.py:77` (sign-in) use `@rate_limit(auth_limiter)`. |
+| R4 | ~~Social feed route tag inconsistency (social-feed vs simulation)~~ | ~~Low~~ | **RESOLVED** — Tag `["social-feed"]` follows the same module-named tag pattern as every other route file (auth→`"auth"`, analysis→`"analysis"`, social_feed→`"social_feed"`). No other route uses a `"simulation"` tag, so there's nothing to match. |
 
 ## Pre-Commit Verification (Manual Steps)
 
