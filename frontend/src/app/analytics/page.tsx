@@ -6,10 +6,13 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { fadeIn } from '../../lib/easing'
 import { BarChart2, Brain, TrendingUp, Activity, Sparkles, Zap, Target, BarChart3 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
+import dynamic from 'next/dynamic'
+
+const AnalyticsBarChart = dynamic(() => import('../components/charts/AnalyticsCharts').then(m => ({ default: m.AnalyticsBarChart })), { ssr: false })
+const AnalyticsLineChart = dynamic(() => import('../components/charts/AnalyticsCharts').then(m => ({ default: m.AnalyticsLineChart })), { ssr: false })
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 const defaultData = {
   total_analyses: 0,
@@ -71,7 +74,7 @@ export default function AnalyticsPage() {
               <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Analytics</span>
             </div>
             <h1 className="text-3xl font-bold text-white mb-8">
-              Platform<span className="text-gradient"> analytics</span>
+              Platform <span className="text-gradient">analytics</span>
             </h1>
 
             {loading ? (
@@ -109,18 +112,7 @@ export default function AnalyticsPage() {
                       <BarChart2 className="w-4 h-4 text-neural" />
                       <h4 className="text-sm font-semibold text-white">Average Scores</h4>
                     </div>
-                    <ResponsiveContainer width="100%" height={240}>
-                      <BarChart data={scoreData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                        <XAxis dataKey="name" stroke="#444" fontSize={11} />
-                        <YAxis domain={[0, 100]} stroke="#444" fontSize={11} />
-                        <Tooltip
-                          contentStyle={{ background: '#0f0f16', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}
-                          labelStyle={{ color: '#fff' }}
-                        />
-                        <Bar dataKey="value" fill="#4deeea" radius={[4, 4, 0, 0]} fillOpacity={0.7} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <AnalyticsBarChart data={scoreData} />
                   </div>
 
                   <div className="glass-panel p-5">
@@ -128,19 +120,7 @@ export default function AnalyticsPage() {
                       <TrendingUp className="w-4 h-4 text-swarm" />
                       <h4 className="text-sm font-semibold text-white">Score Trends</h4>
                     </div>
-                    <ResponsiveContainer width="100%" height={240}>
-                      <LineChart data={trendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                        <XAxis dataKey="label" stroke="#444" fontSize={11} />
-                        <YAxis domain={[0, 100]} stroke="#444" fontSize={11} />
-                        <Tooltip
-                          contentStyle={{ background: '#0f0f16', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}
-                          labelStyle={{ color: '#fff' }}
-                        />
-                        <Line type="monotone" dataKey="current" stroke="#4deeea" strokeWidth={2} dot={{ fill: '#4deeea', r: 4 }} name="Current" />
-                        <Line type="monotone" dataKey="previous" stroke="#a78bfa" strokeWidth={2} strokeDasharray="4 4" dot={{ fill: '#a78bfa', r: 4 }} name="Previous" />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <AnalyticsLineChart data={trendData} />
                   </div>
                 </div>
 

@@ -49,6 +49,8 @@ from shared_state import (
     _set_jwt_secret_for_test,
 )
 from routes.digest import _send_email_smtp
+from routes.predict import router as predict_router
+from vision_scorer import vision_scorer
 
 # ─── Route modules ─────────────────────────────────────────
 from routes.auth import router as auth_router
@@ -57,6 +59,8 @@ from routes.analysis import router as analysis_router
 from routes.share import router as share_router
 from routes.premium import router as premium_router
 from routes.digest import router as digest_router
+from routes.ab_testing import router as ab_testing_router
+from routes.waitlist import router as waitlist_router
 
 
 _BACKGROUND_SWEEP_INTERVAL = 60  # seconds between automatic housekeeping sweeps
@@ -95,8 +99,11 @@ async def lifespan(app: FastAPI):
 
     os.makedirs(settings.upload_dir, exist_ok=True)
     whisper_status = "ready" if transcriber.available else "unavailable (install faster-whisper)"
+    vision_status = "enabled" if vision_scorer.enabled else "disabled (no GEMINI_API_KEY)"
     logger.info(
-        f"NeuroSim API starting — TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}, Whisper: {whisper_status}"
+        f"NeuroSim API starting — TRIBE: {'real' if tribe_engine.is_real else 'simulated'}, "
+        f"MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}, "
+        f"Whisper: {whisper_status}, Vision: {vision_status}"
     )
 
     async def _background_sweep():
@@ -162,23 +169,23 @@ app.include_router(analysis_router, prefix=API_PREFIX)
 app.include_router(share_router, prefix=API_PREFIX)
 app.include_router(premium_router, prefix=API_PREFIX)
 app.include_router(digest_router, prefix=API_PREFIX)
+app.include_router(predict_router, prefix=API_PREFIX)
+app.include_router(ab_testing_router)
+app.include_router(waitlist_router)
 
 
 # ─── Pydantic models for remaining routes ──────────────────
-class WaitlistRequest(BaseModel):
-    email: str
-    name: Optional[str] = None
-
 
 # ─── Remaining inline routes ───────────────────────────────
 @app.get("/")
 async def root():
     return {
         "status": "ok",
-        "message": "NeuroSim API v2.3 — Simulated Analysis (Heuristic + Swarm)",
+        "message": "NeuroSim API v3.0 — Heuristic + Vision Analysis (Simulated Analysis)",
         "tribe_mode": "real" if tribe_engine.is_real else "simulated",
         "mirofish_mode": "real" if mirofish_engine.is_real else "simulated",
         "whisper_available": transcriber.available,
+        "vision_enabled": vision_scorer.enabled,
     }
 
 
@@ -207,21 +214,6 @@ async def get_metrics():
     return metrics.get_summary()
 
 
-@app.post("/waitlist")
-async def join_waitlist(req: WaitlistRequest):
-    for entry in _waitlist:
-        if entry["email"] == req.email:
-            raise HTTPException(status_code=409, detail="You're already on the waitlist!")
-    entry = {
-        "id": str(uuid.uuid4()),
-        "email": req.email,
-        "name": req.name,
-        "created_at": datetime.now().isoformat(),
-    }
-    _waitlist.append(entry)
-    return {"message": "Joined waitlist!", "queue_position": len(_waitlist)}
-
-
 @app.get("/analytics")
 async def get_analytics(_=Depends(check_api_limit)):
     return await store.get_analytics_snapshot()
@@ -236,7 +228,7 @@ class ErrorReportRequest(BaseModel):
 
 
 @app.post("/error-report")
-async def report_error(req: ErrorReportRequest):
+async def report_error(req: ErrorReportRequest, _=Depends(check_api_limit)):
     """Receive frontend error reports for monitoring."""
     logger.info(f"[FRONTEND-ERROR] {req.message} at {req.url}")
     if req.stack:

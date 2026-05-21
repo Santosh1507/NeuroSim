@@ -48,7 +48,7 @@ const TIERS = [
   },
 ]
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 export default function PricingPage() {
   const [yearly, setYearly] = useState(false)
@@ -134,7 +134,7 @@ export default function PricingPage() {
               <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Pricing</span>
             </div>
             <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-bold text-white leading-[1.02] tracking-[-0.03em] mb-4">
-              Simple, transparent<span className="text-gradient"> pricing</span>
+              Simple, transparent <span className="text-gradient">pricing</span>
             </h1>
             <p className="text-lg text-gray-400 max-w-md mx-auto">Start free. Upgrade when you need real GPU processing.</p>
 

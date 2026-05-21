@@ -46,4 +46,8 @@ mirofish/
 
 # Whisper cache
 backend/.whisper_cache/
+
+# Python virtual env
+venv/
+backend/venv/
 frontend/nul

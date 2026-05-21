@@ -6,10 +6,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { fadeIn } from '../../lib/easing'
 import { BarChart3, TrendingUp, ArrowUp, ArrowDown, Minus, Brain, Target, Zap, Activity, type LucideIcon } from 'lucide-react'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts'
+import dynamic from 'next/dynamic'
+
+const ComparisonBarChart = dynamic(() => import('../components/charts/ComparisonCharts').then(m => ({ default: m.ComparisonBarChart })), { ssr: false })
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 function ComparisonContent() {
   const { isSignedIn, isLoaded } = useAuth()
@@ -82,7 +84,7 @@ function ComparisonContent() {
               <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Benchmark</span>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              How does your content<span className="text-gradient"> compare</span>?
+              How does your content <span className="text-gradient">compare</span>?
             </h1>
             <p className="text-text-secondary text-sm mb-8">
               Compare your analysis against {comparison?.cohort_n?.toLocaleString() || '43,751'} creators from the FineVideo dataset.
@@ -160,19 +162,7 @@ function ComparisonContent() {
 
                 <div className="glass-panel p-5 mb-8">
                   <h3 className="text-sm font-semibold text-white mb-4">Your Score vs Average</h3>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                      <XAxis dataKey="name" stroke="#444" fontSize={10} />
-                      <YAxis stroke="#444" fontSize={10} domain={[0, 100]} />
-                      <Tooltip
-                        contentStyle={{ background: '#0f0f16', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}
-                        labelStyle={{ color: '#fff' }}
-                      />
-                      <Bar dataKey="Yours" fill="#4deeea" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Average" fill="rgba(255,255,255,0.15)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <ComparisonBarChart data={chartData} />
                 </div>
 
                 <div className="glass-panel p-5 border-neural/20">

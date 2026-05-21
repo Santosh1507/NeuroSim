@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     upload_dir: str = "uploads"
     max_file_size: int = 2 * 1024 * 1024 * 1024
-    cors_origins: List[str] = ["http://localhost:3000", "https://neurosim.vercel.app"]
+    cors_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "https://neurosim.vercel.app"]
 
     # TRIBE v2 settings
     tribe_use_real: bool = False
@@ -64,10 +64,17 @@ class Settings(BaseSettings):
     posthog_api_key: str = ""
     posthog_host: str = "https://us.i.posthog.com"
 
+    # Gemini Vision Analysis (Virality Predictor)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+    vision_enabled: bool = True
+    vision_max_duration: int = 15  # max seconds for quick predict
+
     # API versioning
     api_version: str = "v1"
+    app_base_url: str = "https://neurosimai.vercel.app"
 
-    model_config = ConfigDict(env_file=".env")
+    model_config = ConfigDict(env_file=".env", extra="ignore")
 
 
 settings = Settings()

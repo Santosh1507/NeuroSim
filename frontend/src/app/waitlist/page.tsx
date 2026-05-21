@@ -6,7 +6,7 @@ import { heroReveal, fadeIn } from '../../lib/easing'
 import { Mail, CheckCircle, ArrowRight, Brain, Sparkles } from 'lucide-react'
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 export default function WaitlistPage() {
   const [email, setEmail] = useState('')
@@ -21,7 +21,7 @@ export default function WaitlistPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await axios.post(`${API_URL}/api/v1/waitlist`, { email, name: name || undefined })
+      const res = await axios.post(`${API_URL}/waitlist`, { email, name: name || undefined })
       setQueuePos(res.data.queue_position)
       setSuccess(true)
     } catch (err: any) {
@@ -76,7 +76,7 @@ export default function WaitlistPage() {
             ) : (
               <>
                 <h1 className="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-white leading-[1.02] tracking-[-0.03em] mb-3">
-                  Join the<span className="text-gradient"> waitlist</span>
+                  Join the <span className="text-gradient">waitlist</span>
                 </h1>
                 <p className="text-gray-400 mb-10">
                   Premium unlocks real GPU processing, unlimited analyses, and API access.

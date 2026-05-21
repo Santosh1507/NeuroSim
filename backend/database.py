@@ -106,5 +106,103 @@ class Database:
             return result.data[0] if result.data else None
         return None
 
+    async def insert_ab_test(
+        self,
+        ab_test_id: str,
+        name: str,
+        baseline_video_id: str,
+        variant_video_id: Optional[str],
+        variant_script: Optional[str],
+        results: Dict,
+        user_id: str = "anonymous",
+    ) -> Dict:
+        """Insert an A/B test record."""
+        record = {
+            "id": ab_test_id,
+            "user_id": user_id,
+            "name": name,
+            "baseline_video_id": baseline_video_id,
+            "variant_video_id": variant_video_id,
+            "variant_script": variant_script,
+            "results": results,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        if self.enabled:
+            result = self.client.table("ab_tests").insert(record).execute()
+            return result.data[0] if result.data else record
+        return record
+
+    async def get_ab_test(self, ab_test_id: str) -> Optional[Dict]:
+        """Get an A/B test record."""
+        if self.enabled:
+            result = self.client.table("ab_tests").select("*").eq("id", ab_test_id).execute()
+            return result.data[0] if result.data else None
+        return None
+
+    async def list_ab_tests(self, user_id: str = "anonymous", limit: int = 50) -> List[Dict]:
+        """List historical A/B tests for a user."""
+        if self.enabled:
+            result = (
+                self.client.table("ab_tests")
+                .select("*")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return result.data
+        return []
+
+    async def delete_ab_test(self, ab_test_id: str) -> None:
+        """Delete an A/B test record."""
+        if self.enabled:
+            self.client.table("ab_tests").delete().eq("id", ab_test_id).execute()
+
+    async def insert_waitlist(self, email: str) -> Dict:
+        """Insert email into waitlist and return the record with queue position."""
+        if self.enabled:
+            count = await self.get_waitlist_count()
+            queue_pos = count + 1
+            record = {
+                "email": email,
+                "queue_position": queue_pos,
+                "created_at": datetime.now().isoformat(),
+            }
+            result = self.client.table("waitlist").insert(record).execute()
+            return result.data[0] if result.data else record
+        else:
+            from shared_state import _waitlist
+            for entry in _waitlist:
+                if entry["email"] == email:
+                    raise ValueError("You're already on the waitlist!")
+            record = {
+                "id": len(_waitlist) + 1,
+                "email": email,
+                "queue_position": len(_waitlist) + 1,
+                "created_at": datetime.now().isoformat(),
+            }
+            _waitlist.append(record)
+            return record
+
+    async def get_waitlist_count(self) -> int:
+        """Get total waitlist count."""
+        if self.enabled:
+            result = self.client.table("waitlist").select("id", count="exact").execute()
+            return result.count if result.count is not None else 0
+        else:
+            from shared_state import _waitlist
+            return len(_waitlist)
+
+    async def is_waitlist_email_registered(self, email: str) -> bool:
+        """Check if email is already in the waitlist."""
+        if self.enabled:
+            result = self.client.table("waitlist").select("id").eq("email", email).execute()
+            return len(result.data) > 0
+        else:
+            from shared_state import _waitlist
+            return any(entry["email"] == email for entry in _waitlist)
+
 
 db = Database()
+

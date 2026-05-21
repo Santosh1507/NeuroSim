@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../lib/auth-context'
 import { X, Mail, Lock } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { fadeIn } from '../../lib/easing'
 
 export function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { signIn, signUp, signInAnonymously } = useAuth()
@@ -99,24 +101,32 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     onClose()
   }
 
-  if (!open) return null
-
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="auth-modal-title"
-    >
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        ref={dialogRef}
-        className="relative w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl p-6"
-      >
+    <AnimatePresence>
+      {open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-modal-title"
+        >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          <motion.div
+            ref={dialogRef}
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={fadeIn}
+            className="relative w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl p-6"
+          >
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-text-tertiary hover:text-white cursor-pointer"
@@ -221,7 +231,9 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
             )}
           </p>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   )
 }

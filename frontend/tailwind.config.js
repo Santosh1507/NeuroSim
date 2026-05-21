@@ -29,7 +29,11 @@ module.exports = {
           glow: 'rgba(167, 139, 250, 0.08)',
         },
         signal: {
-          green: '#34d399',
+          green: {
+            DEFAULT: '#4ade80',
+            dim: 'rgba(74, 222, 128, 0.15)',
+            glow: 'rgba(74, 222, 128, 0.08)',
+          },
           orange: '#fb923c',
           red: '#f87171',
         },
@@ -38,7 +42,7 @@ module.exports = {
         purple: '#a78bfa',
         pink: '#f87171',
         orange: '#fb923c',
-        green: '#34d399',
+        green: '#4ade80',
         glass: {
           bg: 'rgba(255, 255, 255, 0.03)',
           border: 'rgba(255, 255, 255, 0.06)',

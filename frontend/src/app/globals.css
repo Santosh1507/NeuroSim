@@ -24,7 +24,9 @@
   --swarm-glow: rgba(167, 139, 250, 0.08);
   
   /* Signal accents */
-  --signal-green: #34d399;
+  --signal-green: #4ade80;
+  --signal-green-dim: rgba(74, 222, 128, 0.15);
+  --signal-green-glow: rgba(74, 222, 128, 0.08);
   --signal-orange: #fb923c;
   --signal-red: #f87171;
   
@@ -72,7 +74,7 @@ body {
   background: 
     radial-gradient(ellipse 80% 50% at 20% 40%, var(--neural-glow) 0%, transparent 60%),
     radial-gradient(ellipse 60% 40% at 80% 20%, var(--swarm-glow) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 30% at 60% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 30% at 60% 80%, rgba(74, 222, 128, 0.03) 0%, transparent 50%),
     linear-gradient(180deg, var(--void) 0%, var(--depth-1) 50%, var(--depth-2) 100%);
   position: relative;
 }
@@ -204,6 +206,36 @@ body {
   pointer-events: none;
 }
 
+/* Signal Green accent panel */
+.glass-green {
+  background: linear-gradient(135deg, 
+    rgba(74, 222, 128, 0.06) 0%, 
+    rgba(74, 222, 128, 0.02) 100%
+  );
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(74, 222, 128, 0.12);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-green::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(74, 222, 128, 0.3) 50%, 
+    transparent 100%
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 /* === INTERACTIVE STATES === */
 
 .glass-interactive {
@@ -281,6 +313,30 @@ body {
   transform: translateY(0) scale(0.98);
 }
 
+.btn-green {
+  background: var(--signal-green-dim);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 10px;
+  padding: 10px 20px;
+  color: var(--signal-green);
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Instrument Sans', sans-serif;
+  transition: all 0.25s var(--ease-smooth);
+  cursor: pointer;
+}
+
+.btn-green:hover {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(74, 222, 128, 0.12);
+}
+
+.btn-green:active {
+  transform: translateY(0) scale(0.98);
+}
+
 .btn-ghost {
   background: transparent;
   border: 1px solid var(--glass-border);
@@ -355,7 +411,7 @@ body {
 }
 
 .progress-green {
-  background: linear-gradient(90deg, var(--signal-green), rgba(52, 211, 153, 0.6));
+  background: linear-gradient(90deg, var(--signal-green), rgba(74, 222, 128, 0.6));
 }
 
 .progress-orange {
@@ -436,7 +492,7 @@ h1, h2, h3, h4 {
 }
 
 .status-green::after {
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
 @keyframes pulse-ring {
@@ -468,6 +524,12 @@ h1, h2, h3, h4 {
   background: var(--swarm-dim);
   color: var(--swarm);
   border: 1px solid rgba(167, 139, 250, 0.15);
+}
+
+.badge-green {
+  background: var(--signal-green-dim);
+  color: var(--signal-green);
+  border: 1px solid rgba(74, 222, 128, 0.15);
 }
 
 .badge-ghost {

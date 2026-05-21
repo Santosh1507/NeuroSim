@@ -1,12 +1,35 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { heroReveal, heroRevealDelayed, fadeIn, staggerItem, easeOutExpo, scanLine, pulseSlow, pulseSlowDelayed, pulseFast } from '../lib/easing'
 import { 
   Brain, Users, Shield, TrendingUp, Target, BarChart3, 
-  ArrowRight, Check, Sparkles, Waves, Radio, Crosshair
+  ArrowRight, Check, Sparkles, Waves, Radio, Crosshair, Zap, Eye
 } from 'lucide-react'
+
+const pillars = [
+  {
+    icon: Brain, title: 'TRIBE v2 — Brain Encoding',
+    desc: 'fMRI-level neural response mapping across 6 brain regions. Meta\'s model predicts visual, auditory, and emotional engagement from your video content.',
+    color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
+    badge: 'NEURAL ENGINE',
+  },
+  {
+    icon: Users, title: 'MiroFish — Swarm Simulation',
+    desc: '1,000-agent social simulation across 8 persona types. Predict viral spread, sentiment drift, backlash risk, and shareability before you publish.',
+    color: 'text-swarm', border: 'border-swarm/20', bg: 'bg-swarm/5',
+    badge: 'SOCIAL ENGINE',
+  },
+  {
+    icon: Zap, title: 'Virality Predictor — Higgsfield AI',
+    desc: 'Upload a clip and get instant virality scoring powered by Gemini 2.5 Flash video understanding. Hook strength, hold rate, engagement curve, and 3D brain activation in seconds.',
+    color: 'text-signal-green', border: 'border-signal-green/20', bg: 'bg-signal-green/5',
+    badge: 'VISION ENGINE',
+    isNew: true,
+  },
+]
 
 const features = [
   {
@@ -15,18 +38,13 @@ const features = [
     color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
   },
   {
-    icon: Brain, title: 'TRIBE v2 Brain Encoding',
-    desc: 'Upload a video and get fMRI-level brain activation maps across 4 regions. Meta\u2019s neural response model predicts visual, auditory, and emotional engagement.',
-    color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
-  },
-  {
-    icon: Users, title: 'MiroFish Swarm Simulation',
-    desc: '1000-agent social simulation across 8 persona types. Predict viral spread, sentiment drift, backlash risk, and shareability before you publish.',
-    color: 'text-swarm', border: 'border-swarm/20', bg: 'bg-swarm/5',
+    icon: Eye, title: 'Vision-Powered Scoring',
+    desc: 'Gemini 2.5 Flash watches your clip and scores hook strength, hold rate, and per-second engagement. Vision scores dominate the merge at 55-65% weight.',
+    color: 'text-signal-green', border: 'border-signal-green/20', bg: 'bg-signal-green/5',
   },
   {
     icon: Shield, title: 'Stage-Gate Guardrail',
-    desc: 'If W_attn < 0.4, the system warns you before running expensive simulations. No wasted GPU credits on content that won\u2019t engage.',
+    desc: 'If W_attn < 0.4, the system warns you before running expensive simulations. No wasted GPU credits on content that won\'t engage.',
     color: 'text-signal-green', border: 'border-signal-green/20', bg: 'bg-signal-green/5',
   },
   {
@@ -46,12 +64,15 @@ const plans = [
     name: 'Free', price: '0', popular: false,
     items: ['10 analyses/month', 'TRIBE v2 brain encoding', 'MiroFish swarm simulation', 'Stage-Gate guardrail', 'A/B comparison'],
     cta: 'Get Started Free',
+    disabled: false,
+    href: '/dashboard',
   },
   {
     name: 'Pro', price: '29', popular: true,
     items: ['Unlimited analyses', 'Priority processing', 'Custom ROI thresholds', 'Export reports (PDF/CSV)', 'API access', 'Team collaboration'],
-    cta: 'Coming Soon',
-    disabled: true,
+    cta: 'Join Waitlist',
+    disabled: false,
+    href: '/waitlist',
   },
 ]
 
@@ -75,18 +96,18 @@ export default function LandingPage() {
               >
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neural/10 border border-neural/20 mb-8">
                   <Radio className="w-3 h-3 text-neural" />
-                  <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Predictive Content Intelligence</span>
+                  <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Three Engines · One Prediction</span>
                 </div>
 
                 <h1 className="text-[clamp(2.5rem,6vw,4.5rem)] font-bold text-white leading-[1.02] tracking-[-0.03em] mb-6">
-                  Analyze your content{' '}
+                  Predict virality{' '}
                   <span className="text-gradient">before</span>
-                  {' '}you create
+                  {' '}you publish
                 </h1>
 
                 <p className="text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed mb-10">
-                  Paste a script for instant predictions, or upload a video for full neural analysis.
-                  Know how your content performs before you film, edit, or publish.
+                  TRIBE v2 maps brain response. MiroFish simulates social spread.
+                  Virality Predictor scores your clip with AI vision. Three engines, one score.
                 </p>
 
                 <div className="flex items-center gap-4 flex-wrap">
@@ -94,9 +115,9 @@ export default function LandingPage() {
                     <span>Go to Dashboard</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                   </button>
-                  <a href="#features" className="btn-ghost" aria-label="See all features">
+                  <Link href="/#features" className="btn-ghost" aria-label="See all features">
                     See Features
-                  </a>
+                  </Link>
                 </div>
 
                 <p className="text-xs text-gray-500 mt-5 font-mono tracking-wide" aria-label="Pricing info">No credit card &middot; Free tier includes 10 analyses per month</p>
@@ -158,6 +179,9 @@ export default function LandingPage() {
                     <span className="w-px h-3 bg-white/10 mx-1" />
                     <span className="status-dot status-swarm" />
                     <span className="text-[10px] font-mono text-gray-500 tracking-wide">MIROFISH</span>
+                    <span className="w-px h-3 bg-white/10 mx-1" />
+                    <span className="status-dot status-green" />
+                    <span className="text-[10px] font-mono text-gray-500 tracking-wide">PREDICT</span>
                   </div>
 
                   {/* Crosshair measurement marks */}
@@ -175,7 +199,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ===== FEATURES ===== */}
+        {/* ===== THREE PILLARS ===== */}
         <section id="features" aria-label="Features" className="max-w-7xl mx-auto px-6 py-24 md:py-32">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -186,48 +210,63 @@ export default function LandingPage() {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.06] mb-6">
               <Crosshair className="w-3 h-3 text-neural" />
-              <span className="text-[10px] font-mono text-neural/60 tracking-[0.15em] uppercase">Instrumentation</span>
+              <span className="text-[10px] font-mono text-neural/60 tracking-[0.15em] uppercase">Three Engines</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-[-0.02em] leading-[1.05]">
-              Two engines,<br />
+              Three engines,<br />
               <span className="text-gradient">one prediction</span>
             </h2>
             <p className="text-lg text-gray-400 max-w-xl leading-relaxed">
-              Biological brain response plus social swarm simulation. No other tool does both.
+              Biological brain response, social swarm simulation, and AI vision scoring.
+              No other platform combines all three.
             </p>
           </motion.div>
 
-          {/* Marquee features — wider, more prominent */}
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
-            {features.slice(0, 2).map((f, i) => (
+          <div className="grid md:grid-cols-3 gap-6 mb-16">
+            {pillars.map((p, i) => (
               <motion.div
-                key={f.title}
+                key={p.title}
                 initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                whileInView={p.isNew ? { opacity: 1, y: [0, -8, 0] } : { opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={staggerItem(i, 0.1)}
-                className="group relative rounded-2xl bg-white/[0.02] border border-white/[0.06] p-8 hover:bg-white/[0.04] hover:border-white/[0.1] transition-all"
+                transition={p.isNew ? { y: { duration: 4, repeat: Infinity, ease: "easeInOut" }, opacity: { duration: 0.6 } } : staggerItem(i, 0.1)}
+                className={`group relative rounded-2xl border ${p.border} p-8 transition-all ${
+                  p.isNew 
+                    ? 'glass-green ring-1 ring-signal-green/30 shadow-[0_0_40px_-8px_rgba(74,222,128,0.25)] hover:shadow-[0_0_60px_-8px_rgba(74,222,128,0.35)]' 
+                    : 'bg-white/[0.02] hover:bg-white/[0.04]'
+                }`}
               >
-                <div className="flex items-start gap-5">
-                  <div className={`w-12 h-12 rounded-xl ${f.bg} ${f.border} border flex items-center justify-center flex-shrink-0`}>
-                    <f.icon className={`w-6 h-6 ${f.color}`} />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-white mb-2">{f.title}</h3>
-                    <p className="text-sm text-gray-500 leading-relaxed max-w-md">{f.desc}</p>
-                    <div className="flex items-center gap-2 mt-4 text-[11px] font-mono text-neural/50 group-hover:text-neural/80 transition-colors">
-                      <span className="w-4 h-px bg-neural/30" />
-                      Learn more
+                {p.isNew && (
+                  <>
+                    <div className="absolute -top-3 left-6 px-3 py-0.5 rounded-full bg-signal-green/15 border border-signal-green/25 z-10">
+                      <span className="text-[9px] font-mono text-signal-green font-semibold tracking-[0.15em] uppercase">New</span>
                     </div>
-                  </div>
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(74,222,128,0.12),transparent_60%)] pointer-events-none rounded-2xl" />
+                  </>
+                )}
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${p.bg} ${p.border} border mb-5`}>
+                  <p.icon className={`w-3.5 h-3.5 ${p.color}`} />
+                  <span className="text-[9px] font-mono tracking-[0.12em] uppercase text-gray-400">{p.badge}</span>
                 </div>
+                <h3 className="text-lg font-semibold text-white mb-3">{p.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{p.desc}</p>
+                {p.isNew && (
+                  <div className="mt-6">
+                    <button
+                      onClick={() => router.push('/predict')}
+                      className={`inline-flex items-center gap-2 text-xs font-medium ${p.color} hover:underline`}
+                    >
+                      Try Virality Predictor <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
 
-          {/* Utility features — 2x2 grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {features.slice(2).map((f, i) => (
+          {/* Utility features — 5-column grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {features.map((f, i) => (
               <motion.div
                 key={f.title}
                 initial={{ opacity: 0, y: 16 }}
@@ -267,12 +306,12 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-0 relative">
             {/* Connecting line (desktop) */}
-            <div className="hidden md:block absolute top-12 left-[calc(16.66%+24px)] right-[calc(16.66%+24px)] h-px bg-gradient-to-r from-neural/30 via-swarm/30 to-neural/30" />
+            <div className="hidden md:block absolute top-12 left-[calc(16.66%+24px)] right-[calc(16.66%+24px)] h-px bg-gradient-to-r from-neural/30 via-swarm/30 to-signal-green/30" />
 
             {[
-              { num: '01', title: 'Upload your content', desc: 'Drop a video or paste a URL. NeuroSim processes it through TRIBE v2 neural encoding in seconds.' },
-              { num: '02', title: 'Neural analysis runs', desc: '70,000 virtual voxels mapped across 4 brain regions. Stage-Gate checks if engagement passes the threshold.' },
-              { num: '03', title: 'Get predictions', desc: 'Full report: hook score, viral potential, sentiment forecast, share prediction. Ship with confidence.' },
+              { num: '01', title: 'Input Video or Script', desc: 'Drop a video for full analysis, paste a script for instant scoring, or use the Virality Predictor for quick clip evaluation.' },
+              { num: '02', title: 'Tri-Engine Prediction', desc: 'TRIBE v2 maps brain response. MiroFish runs 1,000-agent swarm simulation. Gemini 2.5 Flash scores visual engagement.' },
+              { num: '03', title: 'Actionable Insights', desc: 'Unified score: hook strength, viral potential, sentiment forecast, engagement curve, and 3D brain activation. Ship with confidence.' },
             ].map((s, i) => (
               <motion.div
                 key={s.num}
@@ -343,7 +382,7 @@ export default function LandingPage() {
                 </ul>
                 <button
                   disabled={p.disabled}
-                  onClick={p.disabled ? undefined : () => router.push('/dashboard')}
+                  onClick={p.disabled ? undefined : () => router.push(p.href || '/dashboard')}
                   className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
                     p.popular
                       ? 'bg-gradient-to-r from-neural/15 to-swarm/15 border border-neural/25 text-neural hover:from-neural/25 hover:to-swarm/25'
@@ -404,6 +443,8 @@ export default function LandingPage() {
               <span className="text-[10px] text-gray-600 font-mono">TRIBE v2</span>
               <span className="text-[10px] text-gray-700">+</span>
               <span className="text-[10px] text-gray-600 font-mono">MiroFish</span>
+              <span className="text-[10px] text-gray-700">+</span>
+              <span className="text-[10px] text-signal-green/60 font-mono">Predict</span>
             </div>
           </div>
         </footer>

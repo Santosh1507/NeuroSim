@@ -1,0 +1,8 @@
+# Optional — heavy ML dependencies for audio transcription
+# Install only if you need faster-whisper and have enough RAM (>1GB):
+#   pip install -r requirements-optional.txt
+#
+# These pull in torch (~1.5GB) and transformers (~500MB).
+# Not suitable for Render 512MB free tier.
+
+faster-whisper>=1.0.0

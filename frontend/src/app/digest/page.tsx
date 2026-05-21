@@ -8,7 +8,7 @@ import { fadeIn } from '../../lib/easing'
 import { Mail, TrendingUp, Brain, Zap, BarChart3, Bell, BellOff, CheckCircle } from 'lucide-react'
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 export default function DigestPage() {
   const { isSignedIn, isLoaded } = useAuth()
@@ -76,7 +76,7 @@ export default function DigestPage() {
               <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Weekly Digest</span>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Your weekly<span className="text-gradient"> analysis digest</span>
+              Your weekly <span className="text-gradient">analysis digest</span>
             </h1>
             <p className="text-sm text-text-tertiary mb-8">Track your content performance trends over time.</p>
 

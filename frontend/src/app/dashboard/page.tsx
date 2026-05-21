@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useAuth } from '../../lib/auth-context'
@@ -13,11 +13,6 @@ import {
   Share2, Copy, Check, X, Sliders, Youtube, FileText
 } from 'lucide-react'
 import ProgressStageIndicator from '../components/ProgressStageIndicator'
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, AreaChart, Area,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
-} from 'recharts'
 import axios from 'axios'
 import dynamic from 'next/dynamic'
 import OnboardingTour from '../components/OnboardingTour'
@@ -27,7 +22,10 @@ const Brain3D = dynamic(() => import('../components/Brain3D'), {
   loading: () => <div className="w-full h-[300px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>
 })
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const DashboardRadar = dynamic(() => import('../components/charts/DashboardCharts').then(m => ({ default: m.DashboardRadar })), { ssr: false })
+const DashboardABAreaChart = dynamic(() => import('../components/charts/DashboardCharts').then(m => ({ default: m.DashboardABAreaChart })), { ssr: false })
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 export default function Dashboard() {
   const { isSignedIn, isLoaded, guestSessionId, recoverGuestSession } = useAuth()
@@ -87,6 +85,23 @@ export default function Dashboard() {
   const [benchmarkData, setBenchmarkData] = useState<any>(null)
   const [benchmarkCohort, setBenchmarkCohort] = useState('all')
 
+  // A/B Workspace states
+  const [abTests, setAbTests] = useState<any[]>([])
+  const [selectedAbTestId, setSelectedAbTestId] = useState<string | null>(null)
+  const [abBaselineVideoId, setAbBaselineVideoId] = useState<string>('')
+  const [abVariantVideoId, setAbVariantVideoId] = useState<string>('')
+  const [abVariantScript, setAbVariantScript] = useState<string>('')
+  const [abCompareMode, setAbCompareMode] = useState<'script' | 'video'>('script')
+  const [abTestName, setAbTestName] = useState<string>('')
+
+  // Script rewrite state
+  const [isRewriting, setIsRewriting] = useState(false)
+  const [rewriteResult, setRewriteResult] = useState<any>(null)
+  const [showRewriteModal, setShowRewriteModal] = useState(false)
+  const [activeRewriteDimension, setActiveRewriteDimension] = useState<'hook' | 'authenticity' | 'cta'>('hook')
+  const [additionalInstructions, setAdditionalInstructions] = useState('')
+  const [rewriteError, setRewriteError] = useState<string | null>(null)
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
     check()
@@ -100,6 +115,73 @@ export default function Dashboard() {
       .catch(() => setBackendReachable(false))
   }, [])
 
+  const selectVideo = async (videoId: string, customVideosList?: any[]) => {
+    setSelectedVideo(videoId)
+    const list = customVideosList || videos
+    const videoObj = list.find((v: any) => v.id === videoId)
+    if (!videoObj) return
+    
+    if (videoObj.status === 'analyzed') {
+      try {
+        const analysisRes = await axios.get(`${API_URL}/analyses/${videoId}`, { timeout: 10000 })
+        setAnalysis({ filename: videoObj.filename, ...analysisRes.data })
+        
+        // Also pre-fill baseline video selection for A/B testing
+        setAbBaselineVideoId(videoId)
+        
+        // Pre-fill transcript in variant script block
+        const transcriptText = analysisRes.data.full_transcript || analysisRes.data.transcript || ''
+        setAbVariantScript(transcriptText)
+      } catch (err) {
+        console.error('Failed to load analysis for selected video:', err)
+      }
+    }
+  }
+
+  const fetchABTests = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/v1/ab-tests`)
+      setAbTests(res.data.ab_tests || [])
+    } catch (err) {
+      console.error('Failed to fetch A/B tests:', err)
+    }
+  }
+
+  const deleteABTest = async (testId: string) => {
+    try {
+      await axios.delete(`${API_URL}/api/v1/ab-tests/${testId}`)
+      if (selectedAbTestId === testId) {
+        setAbResults(null)
+        setSelectedAbTestId(null)
+      }
+      await fetchABTests()
+    } catch (err) {
+      console.error('Failed to delete A/B test:', err)
+      setApiError('Failed to delete A/B test.')
+    }
+  }
+
+  useEffect(() => {
+    if (backendReachable) {
+      axios.get(`${API_URL}/api/v1/videos`)
+        .then(res => {
+          if (res.data?.videos) {
+            setVideos(res.data.videos)
+            if (res.data.videos.length > 0 && !selectedVideo) {
+              selectVideo(res.data.videos[0].id, res.data.videos)
+            }
+          }
+        })
+        .catch(err => console.error('Failed to load videos:', err))
+    }
+  }, [backendReachable])
+
+  useEffect(() => {
+    if (activeTab === 'abtesting') {
+      fetchABTests()
+    }
+  }, [activeTab])
+
   const toggleCompare = (videoId: string) => {
     setCompareIds(prev => {
       if (prev.includes(videoId)) return prev.filter(id => id !== videoId)
@@ -111,6 +193,45 @@ export default function Dashboard() {
   const goToComparison = () => {
     if (compareIds.length === 2) {
       router.push(`/comparison?a=${compareIds[0]}&b=${compareIds[1]}`)
+    }
+  }
+
+  const handleRewriteScript = async (dimension: 'hook' | 'authenticity' | 'cta') => {
+    if (!analysis) return
+    setActiveRewriteDimension(dimension)
+    setIsRewriting(true)
+    setRewriteError(null)
+    setRewriteResult(null)
+    setShowRewriteModal(true)
+
+    try {
+      const res = await axios.post(
+        `${API_URL}/api/v1/analyze/rewrite`,
+        {
+          video_id: selectedVideo || undefined,
+          script: analysis.full_transcript || analysis.transcript || undefined,
+          dimension: dimension,
+          additional_instructions: additionalInstructions || undefined,
+        },
+        { timeout: 30000 }
+      )
+      setRewriteResult(res.data)
+    } catch (err: any) {
+      console.error('Script rewrite failed:', err)
+      setRewriteError(err.response?.data?.detail || 'Gemini script rewrite failed. Please check backend log or try again.')
+    } finally {
+      setIsRewriting(false)
+    }
+  }
+
+  const applyRewrittenScript = () => {
+    if (!rewriteResult?.rewritten_script) return
+    setScriptText(rewriteResult.rewritten_script)
+    setInputMode('script')
+    setShowRewriteModal(false)
+    const editorElement = document.getElementById('script-editor-container')
+    if (editorElement) {
+      editorElement.scrollIntoView({ behavior: 'smooth' })
     }
   }
 
@@ -191,7 +312,7 @@ export default function Dashboard() {
         stage_gate: { passed: true, W_attn: 0.72, threshold: 0.4 }
       })
       setSelectedVideo(demoId)
-      const errorMsg = err.code === 'ECONNABORTED' ? 'Backend timeout. Ensure NeuroSim is running on localhost:8000' : err.response ? `Backend error (${err.response.status})` : 'Cannot reach backend. Run NeuroSim on localhost:8000'
+      const errorMsg = err.code === 'ECONNABORTED' ? 'Backend timeout. Ensure NeuroSim is running on localhost:8001' : err.response ? `Backend error (${err.response.status})` : 'Cannot reach backend. Run NeuroSim on localhost:8001'
       setApiError(`Demo Mode - ${errorMsg}`)
       setUploading(false)
     }
@@ -320,33 +441,46 @@ export default function Dashboard() {
   }
 
   const runABTest = async () => {
+    if (!abBaselineVideoId) {
+      setApiError('Please select a baseline video from your history.')
+      return
+    }
     setAbTestRunning(true)
     setApiError(null)
     
     try {
-      const [resA, resB] = await Promise.all([
-        axios.post(`${API_URL}/simulate/single`, { content_url: 'version_a' }, { timeout: 10000 }),
-        axios.post(`${API_URL}/simulate/single`, { content_url: 'version_b' }, { timeout: 10000 })
-      ])
-      
-      const dataA = resA.data
-      const dataB = resB.data
-      
-      if (dataA.social && dataA.social.seven_day_curve) {
-        dataA.social.seven_day_curve = dataA.social.seven_day_curve.map((v: number, i: number) => ({ day: i+1, value: v }))
-      }
-      if (dataB.social && dataB.social.seven_day_curve) {
-        dataB.social.seven_day_curve = dataB.social.seven_day_curve.map((v: number, i: number) => ({ day: i+1, value: v }))
+      const payload: any = {
+        name: abTestName || `A/B Test ${new Date().toLocaleDateString()}`,
+        baseline_video_id: abBaselineVideoId,
       }
       
-      setAbResults({
-        version_a: dataA,
-        version_b: dataB,
-        winner: dataA.W_attn > dataB.W_attn ? 'A' : 'B'
-      })
+      if (abCompareMode === 'video') {
+        if (!abVariantVideoId) {
+          setApiError('Please select a variant video to compare.')
+          setAbTestRunning(false)
+          return
+        }
+        payload.variant_video_id = abVariantVideoId
+      } else {
+        if (!abVariantScript.trim()) {
+          setApiError('Please write or generate a variant script in the smart editor.')
+          setAbTestRunning(false)
+          return
+        }
+        payload.variant_script = abVariantScript
+      }
+
+      const res = await axios.post(`${API_URL}/api/v1/ab-tests`, payload)
+      const data = res.data
+      setAbResults(data.results)
+      setSelectedAbTestId(data.id)
+      
+      // Refresh historical comparative list
+      await fetchABTests()
     } catch (err: any) {
-      console.error('A/B test failed:', err)
-      setApiError('A/B test failed. Backend may be unavailable.')
+      console.error('A/B test execution failed:', err)
+      const errorMsg = err.response?.data?.detail || 'A/B test failed. Ensure both baseline and variant videos are fully analyzed.'
+      setApiError(errorMsg)
     } finally {
       setAbTestRunning(false)
     }
@@ -532,7 +666,7 @@ export default function Dashboard() {
           </div>
 
           {/* Upload Zone - hero element, asymmetric */}
-          <div className="glass-panel-elevated p-8 min-h-[180px]">
+          <div id="script-editor-container" className="glass-panel-elevated p-8 min-h-[180px]">
             {/* Input mode toggle */}
             <div className="flex items-center gap-1 p-1 bg-white/[0.03] rounded-lg w-fit mb-6">
               <button
@@ -812,7 +946,7 @@ export default function Dashboard() {
             </div>
 
             <AnimatePresence mode="wait">
-              {(activeTab === 'overview' || activeTab === 'analysis') && (
+              {activeTab === 'overview' && (
                 <motion.div
                   key="analysis"
                   initial={{ opacity: 0, y: 8 }}
@@ -866,14 +1000,7 @@ export default function Dashboard() {
                           {analysis.tribev2_brain_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
                         </span>
                       </div>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <RadarChart data={radarData}>
-                          <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                          <PolarAngleAxis dataKey="subject" tick={{ fill: '#555', fontSize: 10 }} />
-                          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#333' }} />
-                          <Radar name="Response" dataKey="value" stroke="#4deeea" fill="#4deeea" fillOpacity={0.1} strokeWidth={1.5} />
-                        </RadarChart>
-                      </ResponsiveContainer>
+                      <DashboardRadar radarData={radarData} />
                     </div>
 
                     <div className="glass-panel p-5">
@@ -1159,7 +1286,7 @@ export default function Dashboard() {
                             <div 
                               key={video.id}
                               className="p-2.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-2"
-                              onClick={() => setSelectedVideo(video.id)}
+                              onClick={() => selectVideo(video.id)}
                             >
                               <input
                                 type="checkbox"
@@ -1188,6 +1315,134 @@ export default function Dashboard() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'analysis' && (
+                <motion.div
+                  key="analysis-workspace"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={tabSwitch}
+                  className="grid grid-cols-1 lg:grid-cols-8 gap-6"
+                >
+                  {/* Left Hand Side - Original Full Transcript (5 columns) */}
+                  <div className="lg:col-span-5 flex flex-col space-y-4">
+                    <div className="glass-panel p-6 flex flex-col h-[580px]">
+                      <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-lg bg-neural/10 text-neural border border-neural/20">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-white">Original Script / Transcript</h3>
+                            <p className="text-[10px] text-text-tertiary">Read and analyze the raw narrative data</p>
+                          </div>
+                        </div>
+                        <span className="badge badge-neural mono text-[10px]">
+                          {analysis.full_transcript ? 'FULL' : 'TRUNCATED'}
+                        </span>
+                      </div>
+                      
+                      {/* Script Reader Body */}
+                      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                        <p className="text-sm text-text-secondary whitespace-pre-wrap font-mono leading-relaxed bg-white/[0.01] p-4 rounded-xl border border-white/[0.03] select-text">
+                          {analysis.full_transcript || analysis.transcript || "No script text found."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Hand Side - Premium Script Doctors & Settings (3 columns) */}
+                  <div className="lg:col-span-3 space-y-4 flex flex-col">
+                    {/* Settings card */}
+                    <div className="glass-panel p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-neural" />
+                        <h4 className="text-sm font-semibold text-white">AI Co-Pilot Settings</h4>
+                      </div>
+                      <div>
+                        <label className="text-xs text-text-secondary block mb-1.5 font-medium">Custom Rewrite Context (Optional)</label>
+                        <textarea
+                          placeholder="e.g. 'Make the tone more aggressive', 'Focus on product benefits', 'Make it super relatable'..."
+                          value={additionalInstructions}
+                          onChange={(e) => setAdditionalInstructions(e.target.value)}
+                          rows={3}
+                          className="w-full p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/30 transition-colors resize-none font-mono leading-relaxed"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Boost Cards */}
+                    <div className="space-y-3">
+                      {/* Card 1: Hook Doctor */}
+                      <div className="glass-panel-elevated p-5 flex flex-col justify-between hover:border-neural/20 transition-all group">
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Brain className="w-4 h-4 text-neural" />
+                              <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Hook Doctor</h4>
+                            </div>
+                            <span className="text-[10px] bg-neural/10 text-neural border border-neural/20 px-2 py-0.5 rounded mono">Target: Opening 3s</span>
+                          </div>
+                          <p className="text-xs text-text-secondary leading-relaxed">
+                            Injects high-impact pattern interrupts and curiosity loops in the opening 3 seconds of the video to hook viewer attention and maximize LO/A5 scores.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRewriteScript('hook')}
+                          className="w-full btn-neural text-xs py-2.5 flex items-center justify-center gap-2 group-hover:scale-[1.01] transition-transform"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> Boost Hook Retention
+                        </button>
+                      </div>
+
+                      {/* Card 2: Authenticity Calibrator */}
+                      <div className="glass-panel-elevated p-5 flex flex-col justify-between hover:border-swarm/20 transition-all group">
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-swarm" />
+                              <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Authenticity Calibrator</h4>
+                            </div>
+                            <span className="text-[10px] bg-swarm/10 text-swarm border border-swarm/20 px-2 py-0.5 rounded mono">Target: TPJ / Area45</span>
+                          </div>
+                          <p className="text-xs text-text-secondary leading-relaxed">
+                            Strips corporate speech and sales-heavy words. Calibrates narrative copy to a conversational, peer-to-peer, vulnerable tone that viewers trust.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRewriteScript('authenticity')}
+                          className="w-full btn-swarm text-xs py-2.5 flex items-center justify-center gap-2 group-hover:scale-[1.01] transition-transform"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> Calibrate Authenticity
+                        </button>
+                      </div>
+
+                      {/* Card 3: CTA Amplifier */}
+                      <div className="glass-panel-elevated p-5 flex flex-col justify-between hover:border-purple-500/20 transition-all group">
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-purple-400" />
+                              <h4 className="text-xs font-semibold text-white uppercase tracking-wider">CTA Amplifier</h4>
+                            </div>
+                            <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded mono">Target: Conversion</span>
+                          </div>
+                          <p className="text-xs text-text-secondary leading-relaxed">
+                            Reframes your final call to action to reduce friction, clearly map benefits, and integrate smoothly into the script's visual payoff.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRewriteScript('cta')}
+                          className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs py-2.5 rounded-lg flex items-center justify-center gap-2 border border-purple-500/20 font-semibold group-hover:scale-[1.01] transition-transform"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> Amplify Call-to-Action
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -1290,50 +1545,10 @@ export default function Dashboard() {
                             </div>
                           )
                         })}
-                      </div>
-
-                      {abResults.version_a.social && abResults.version_b.social && (
+                      </div>                        {abResults.version_a.social && abResults.version_b.social && (
                         <div className="glass-panel p-5">
                           <h4 className="text-sm font-semibold text-white mb-4">7-Day Propagation</h4>
-                          <ResponsiveContainer width="100%" height={240}>
-                            <AreaChart>
-                              <defs>
-                                <linearGradient id="gradA" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#4deeea" stopOpacity={0.2}/>
-                                  <stop offset="95%" stopColor="#4deeea" stopOpacity={0}/>
-                                </linearGradient>
-                                <linearGradient id="gradB" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.2}/>
-                                  <stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/>
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                              <XAxis dataKey="day" stroke="#444" fontSize={10} />
-                              <YAxis stroke="#444" fontSize={10} />
-                              <Tooltip 
-                                contentStyle={{ background: '#0f0f16', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}
-                                labelStyle={{ color: '#fff' }}
-                              />
-                              <Area 
-                                type="monotone" 
-                                data={abResults.version_a.social.seven_day_curve.map((v: number, i: number) => ({ day: i+1, a: v }))}
-                                dataKey="a" 
-                                stroke="#4deeea" 
-                                fill="url(#gradA)" 
-                                strokeWidth={1.5}
-                                name="Version A"
-                              />
-                              <Area 
-                                type="monotone" 
-                                data={abResults.version_b.social.seven_day_curve.map((v: number, i: number) => ({ day: i+1, b: v }))}
-                                dataKey="b" 
-                                stroke="#a78bfa" 
-                                fill="url(#gradB)" 
-                                strokeWidth={1.5}
-                                name="Version B"
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
+                          <DashboardABAreaChart abResults={abResults} />
                         </div>
                       )}
 
@@ -1476,6 +1691,194 @@ export default function Dashboard() {
                 Submit Feedback
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+      {showRewriteModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => !isRewriting && setShowRewriteModal(false)} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-5xl rounded-2xl border border-white/[0.08] bg-[#0c0c0e] shadow-2xl p-6 overflow-hidden max-h-[90vh] flex flex-col"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-6 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center text-neural">
+                  <Sparkles className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    AI Script Rewrite Co-Pilot 
+                    <span className="text-xs bg-neural/10 text-neural border border-neural/20 px-2 py-0.5 rounded uppercase mono">
+                      {activeRewriteDimension}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-text-tertiary">Side-by-side comparison of original vs optimized script</p>
+                </div>
+              </div>
+              {!isRewriting && (
+                <button 
+                  onClick={() => setShowRewriteModal(false)} 
+                  className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-text-tertiary hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Modal Body Content */}
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-6 pr-2 custom-scrollbar">
+              {isRewriting ? (
+                /* Scanning / Loading Skeletons */
+                <div className="space-y-6 py-8 flex flex-col items-center justify-center">
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full border border-neural/30 flex items-center justify-center bg-neural/5 animate-pulse">
+                      <Brain className="w-8 h-8 text-neural animate-bounce" />
+                    </div>
+                    <div className="absolute inset-0 border-2 border-neural border-t-transparent rounded-full animate-spin" />
+                  </div>
+                  <div className="space-y-2 text-center max-w-sm">
+                    <h4 className="text-sm font-semibold text-white">Synthesizing Boosted Narrative...</h4>
+                    <p className="text-xs text-text-tertiary animate-pulse">
+                      {activeRewriteDimension === 'hook' && "Pattern-interrupting opening hooks being crafted..."}
+                      {activeRewriteDimension === 'authenticity' && "Calibrating conversational flow and stripping corporate speak..."}
+                      {activeRewriteDimension === 'cta' && "Structuring frictionless action call and mapping value payoffs..."}
+                    </p>
+                  </div>
+
+                  {/* Dummy side-by-side skeletons */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-4">
+                    <div className="glass-panel p-4 space-y-3 h-[250px] animate-pulse">
+                      <div className="h-3 w-1/4 bg-white/10 rounded" />
+                      <div className="h-2 w-full bg-white/5 rounded" />
+                      <div className="h-2 w-5/6 bg-white/5 rounded" />
+                      <div className="h-2 w-4/5 bg-white/5 rounded" />
+                    </div>
+                    <div className="glass-panel p-4 space-y-3 h-[250px] animate-pulse">
+                      <div className="h-3 w-1/4 bg-neural/10 rounded animate-pulse" />
+                      <div className="h-2 w-full bg-neural/5 rounded animate-pulse" />
+                      <div className="h-2 w-5/6 bg-neural/5 rounded animate-pulse" />
+                      <div className="h-2 w-4/5 bg-neural/5 rounded animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ) : rewriteError ? (
+                /* Error display */
+                <div className="glass-panel border-red-500/20 bg-red-500/[0.02] p-6 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 mx-auto flex items-center justify-center text-red-400">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold text-white">Rewrite Failed</h4>
+                    <p className="text-xs text-text-secondary max-w-md mx-auto leading-relaxed">{rewriteError}</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowRewriteModal(false)} 
+                    className="btn-ghost text-xs px-4 py-2"
+                  >
+                    Close Modal
+                  </button>
+                </div>
+              ) : rewriteResult ? (
+                /* Success Comparison Layout */
+                <div className="space-y-6">
+                  {/* Side-by-Side Editor Panels */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left - Original */}
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center justify-between text-xs px-1">
+                        <span className="font-semibold text-text-secondary uppercase tracking-wider">Original Script</span>
+                        <span className="text-[10px] text-text-tertiary mono">Original Text</span>
+                      </div>
+                      <div className="glass-panel p-4 bg-white/[0.01] h-[280px] overflow-y-auto">
+                        <p className="text-xs font-mono text-text-secondary whitespace-pre-wrap leading-relaxed select-text">
+                          {analysis.full_transcript || analysis.transcript || "No original script found."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right - Boosted */}
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center justify-between text-xs px-1">
+                        <span className="font-semibold text-neural uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" /> Boosted Optimization
+                        </span>
+                        <span className="text-[10px] text-neural mono">Gemini 2.5 Flash</span>
+                      </div>
+                      <div className="glass-panel p-4 bg-neural/[0.02] border-neural/20 h-[280px] overflow-y-auto ring-1 ring-neural/10">
+                        <p className="text-xs font-mono text-neural-light whitespace-pre-wrap leading-relaxed select-text">
+                          {rewriteResult.rewritten_script}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Impact Evaluation Scorecard & explanation */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Scores Comparison */}
+                    <div className="glass-panel p-4 bg-white/[0.01] flex flex-col justify-center items-center text-center">
+                      <p className="text-[10px] uppercase font-bold text-text-tertiary mb-3 tracking-wider">Score Projection</p>
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <p className="text-2xl font-black text-text-tertiary mono">
+                            {rewriteResult.estimated_improvements?.before_score || 50}
+                          </p>
+                          <p className="text-[9px] text-text-tertiary uppercase">Before</p>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-text-tertiary" />
+                        <div className="bg-neural/10 border border-neural/20 px-4 py-2 rounded-xl">
+                          <p className="text-3xl font-black text-neural mono animate-pulse">
+                            {rewriteResult.estimated_improvements?.after_score || 85}
+                          </p>
+                          <p className="text-[9px] text-neural uppercase font-bold">Projected</p>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-text-tertiary mt-4 leading-relaxed italic">
+                        "{rewriteResult.estimated_improvements?.rationale || "AI optimized metric projection"}"
+                      </p>
+                    </div>
+
+                    {/* Change explanation card (spans 2 cols) */}
+                    <div className="glass-panel p-4 bg-white/[0.01] md:col-span-2 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <Brain className="w-4 h-4 text-neural" />
+                          <p className="text-xs uppercase font-bold text-white tracking-wider">Doctor's Explanation</p>
+                        </div>
+                        <p className="text-xs text-text-secondary leading-relaxed">
+                          {rewriteResult.explanation || "No explanation provided."}
+                        </p>
+                      </div>
+                      <div className="text-[10px] text-text-tertiary pt-3 border-t border-white/[0.04] mt-3">
+                        Applying this rewrite will copy the script into your main editor draft workspace.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Actions Footer */}
+            {!isRewriting && (
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/[0.06] mt-6 flex-shrink-0">
+                <button
+                  onClick={() => setShowRewriteModal(false)}
+                  className="btn-ghost text-xs px-4 py-2.5"
+                >
+                  Discard & Close
+                </button>
+                {rewriteResult && (
+                  <button
+                    onClick={applyRewrittenScript}
+                    className="btn-neural text-xs px-6 py-2.5 flex items-center gap-2"
+                  >
+                    <Check className="w-4 h-4" /> Apply Rewritten Script
+                  </button>
+                )}
+              </div>
+            )}
           </motion.div>
         </div>
       )}

@@ -9,7 +9,7 @@ from storage_adapter import _supabase
 
 @pytest.fixture
 def client():
-    return TestClient(app=app)
+    return TestClient(app)
 
 
 class TestAuthRoutes:

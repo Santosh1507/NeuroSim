@@ -30,6 +30,7 @@ from rate_limiter import upload_limiter, check_api_limit
 from roi_extractor import roi_extractor
 from transcriber import transcriber
 from tribe_engine import tribe_engine
+from utils import is_video_magic, is_allowed_video_extension, check_free_tier_limit
 from shared_state import (
     _task_status,
     _ws_connections,
@@ -42,18 +43,6 @@ from shared_state import (
 
 logger = logging.getLogger(__name__)
 
-
-def _is_video_magic(header: bytes) -> bool:
-    """Check if the first bytes of a file match known video format signatures."""
-    if len(header) < 12:
-        return False
-    if header[4:8] == b"ftyp" or header[0:4] == b"ftyp":
-        return True
-    if header[0:4] == b"RIFF" and header[8:12] == b"AVI ":
-        return True
-    if len(header) >= 4 and header[0:4] == b"\x1a\x45\xdf\xa3":
-        return True
-    return False
 
 
 class VideoMetadata(BaseModel):
@@ -214,6 +203,7 @@ async def process_video(
             "threshold": settings.stage_gate_threshold,
         },
         "transcript": transcript[:500] + "..." if len(transcript) > 500 else transcript,
+        "full_transcript": transcript,
         "created_at": datetime.now().isoformat(),
     }
 
@@ -328,13 +318,9 @@ async def upload_video(
         )
 
     if user_id != "anonymous" and not _is_premium(user_id):
-        from shared_state import _usage_tracker
-        current_usage = _usage_tracker.get(user_id, 0)
-        if current_usage >= settings.premium_max_analyses_free:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Free tier limit reached ({settings.premium_max_analyses_free}/month). Upgrade to Pro for unlimited analyses.",
-            )
+        limit_error = check_free_tier_limit(user_id, settings.premium_max_analyses_free)
+        if limit_error:
+            raise HTTPException(status_code=403, detail=limit_error)
 
     allowed_extensions = {".mp4", ".mov", ".avi", ".webm"}
     file_ext = Path(file.filename).suffix.lower()
@@ -345,7 +331,7 @@ async def upload_video(
 
     header = await file.read(32)
     await file.seek(0)
-    if not _is_video_magic(header):
+    if not is_video_magic(header):
         raise HTTPException(
             status_code=400,
             detail="File content does not match a supported video format (mp4, mov, avi, webm).",

@@ -6,10 +6,12 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { easeOutExpo } from '../../../lib/easing'
 import { Brain, AlertTriangle, ArrowRight, BarChart3, MessageSquare, Target, Sparkles } from 'lucide-react'
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts'
+import dynamic from 'next/dynamic'
+
+const SharedRadarChart = dynamic(() => import('../../components/charts/SharedAnalysisCharts').then(m => ({ default: m.SharedRadarChart })), { ssr: false })
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 
 export default function SharedAnalysisPage() {
   const params = useParams()
@@ -117,14 +119,7 @@ export default function SharedAnalysisPage() {
                   <Brain className="w-4 h-4 text-neural" />
                   <h4 className="text-sm font-semibold text-white">Neural Response</h4>
                 </div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <RadarChart data={radarData}>
-                    <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#555', fontSize: 10 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#333' }} />
-                    <Radar name="Response" dataKey="value" stroke="#4deeea" fill="#4deeea" fillOpacity={0.1} strokeWidth={1.5} />
-                  </RadarChart>
-                </ResponsiveContainer>
+                <SharedRadarChart data={radarData} />
               </div>
 
               <div className="glass-panel p-5">

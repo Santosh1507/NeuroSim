@@ -28,7 +28,8 @@ class SignInRequest(BaseModel):
 
 
 class GuestMergeRequest(BaseModel):
-    guest_id: str
+    guest_id: Optional[str] = None
+    guest_session_id: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -121,28 +122,50 @@ async def merge_guest(req: GuestMergeRequest, user_id: str = Depends(require_aut
     if user_id == "anonymous":
         raise HTTPException(status_code=401, detail="Must be authenticated to merge guest data")
 
-    guest_id = req.guest_id
+    guest_id = req.guest_id or req.guest_session_id
+    if not guest_id:
+        raise HTTPException(status_code=400, detail="Missing guest_id or guest_session_id")
     if not guest_id.startswith("guest_"):
         raise HTTPException(status_code=400, detail="Invalid guest ID format")
 
     merged_count = 0
     try:
-        # Reassign guest videos to the authenticated user
-        videos = await store.list_videos()
-        for video in videos.get("videos", []):
-            if video.get("user_id") == guest_id:
-                video["user_id"] = user_id
-                await store.save_video(video)
-                merged_count += 1
+        # list_videos() returns List[Dict], not {"videos": [...]}
+        all_videos: list = await store.list_videos()
+        guest_videos = [v for v in all_videos if v.get("user_id") == guest_id]
 
-        # Reassign guest analyses to the authenticated user
-        for video in videos.get("videos", []):
-            video_id = video.get("id")
-            if video.get("user_id") == guest_id:
-                analysis = await store.get_analysis(video_id)
-                if analysis:
-                    analysis["user_id"] = user_id
-                    await store.save_analysis(analysis)
+        for video in guest_videos:
+            vid_id = video.get("id")
+            if not vid_id:
+                continue
+
+            # Reassign ownership: overwrite cache record with updated user_id
+            video["user_id"] = user_id
+            from storage_adapter import _videos_cache, _touch_cache
+            _videos_cache[vid_id] = video
+            _touch_cache(f"v:{vid_id}")
+
+            # Also update in Supabase if available
+            if _supabase.enabled:
+                try:
+                    _supabase.client.table("videos").update({"user_id": user_id}).eq("id", vid_id).execute()
+                except Exception as e:
+                    logger.warning(f"[AUTH] Guest merge: Supabase video update failed for {vid_id}: {e}")
+
+            # Reassign ownership for the associated analysis
+            from storage_adapter import _analyses_cache
+            analysis = await store.get_analysis(vid_id)
+            if analysis:
+                analysis["user_id"] = user_id
+                _analyses_cache[vid_id] = analysis
+                _touch_cache(f"a:{vid_id}")
+                if _supabase.enabled:
+                    try:
+                        _supabase.client.table("analyses").update({"user_id": user_id}).eq("video_id", vid_id).execute()
+                    except Exception as e:
+                        logger.warning(f"[AUTH] Guest merge: Supabase analysis update failed for {vid_id}: {e}")
+
+            merged_count += 1
 
         logger.info(f"[AUTH] Guest merge: {guest_id} → {user_id}, {merged_count} videos merged")
         return {
@@ -153,3 +176,4 @@ async def merge_guest(req: GuestMergeRequest, user_id: str = Depends(require_aut
     except Exception as e:
         logger.error(f"[AUTH] Guest merge error: {e}")
         raise HTTPException(status_code=500, detail=f"Merge failed: {e}")
+

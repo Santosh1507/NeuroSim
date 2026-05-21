@@ -1,0 +1,17 @@
+[
+  {
+    "video_id": "34009deb-17b4-4ac7-86da-a64727ddee20",
+    "user_id": "anonymous",
+    "analysis_type": "video",
+    "predicted_scores": {
+      "hook_score": 25.2,
+      "viral_potential": 0.0,
+      "success_probability": 12.6
+    },
+    "actual_views": 5000,
+    "actual_engagement": 4.5,
+    "would_publish": true,
+    "days_after_publish": 7,
+    "submitted_at": "2026-05-20T20:24:40.038115"
+  }
+]

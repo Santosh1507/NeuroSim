@@ -3,13 +3,14 @@ services:
     name: neurosim-api
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements-production.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
     autoDeploy: true
     envVars:
+      # CORS: allow both the canonical Vercel URL and localhost for dev
       - key: CORS_ORIGINS
-        value: '["http://localhost:3000", "https://neurosimai.vercel.app"]'
+        value: '["http://localhost:3000", "http://127.0.0.1:3000", "https://neurosimai.vercel.app"]'
       - key: API_VERSION
         value: "v1"
       - key: TRIBE_USE_REAL
@@ -18,7 +19,8 @@ services:
         value: "false"
       - key: UPLOAD_DIR
         value: "/tmp/uploads"
-      - key: STAGEGATE_THRESHOLD
+      # Corrected: was STAGEGATE_THRESHOLD (missing underscore), config.py reads STAGE_GATE_THRESHOLD
+      - key: STAGE_GATE_THRESHOLD
         value: "0.4"
       - key: PREMIUM_ENABLED
         value: "false"
@@ -28,11 +30,19 @@ services:
         value: "production"
       - key: POSTHOG_HOST
         value: "https://us.i.posthog.com"
+      # Disable anonymous auth bypass in production — requires valid JWT
+      - key: ALLOW_ANONYMOUS_AUTH
+        value: "false"
+      # Secrets — set values in Render dashboard (not committed to source control)
       - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
       - key: YOUTUBE_API_KEY
         sync: false
@@ -48,7 +58,12 @@ services:
         sync: false
       - key: STRIPE_PRICE_ID_YEARLY
         sync: false
-      - key: SMTP_PASSWORD
+      # Corrected: was SMTP_PASSWORD, config.py reads EMAIL_PASSWORD
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_USERNAME
         sync: false
       - key: EMAIL_FROM
         sync: false
@@ -57,12 +72,13 @@ services:
     name: warmup-cache
     runtime: python
     rootDir: backend
-    schedule: "*/5 * * * *"
+    # Changed from */5 (every 5 min, burns quota) to */30 (every 30 min)
+    schedule: "*/30 * * * *"
     buildCommand: ""
     startCommand: python warmup_cron.py
     envVars:
       - key: API_BASE_URL
-        sync: false
+        value: "https://neurosim-nm22.onrender.com"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY

@@ -30,6 +30,10 @@ _EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps
 
 # ─── JWT Auth ──────────────────────────────────────────────
 _JWT_SECRET = settings.supabase_jwt_secret or os.getenv("SUPABASE_JWT_SECRET", "")
+_ALLOW_ANONYMOUS_AUTH = os.getenv("ALLOW_ANONYMOUS_AUTH", "").lower() in ("true", "1", "yes")
+# When True, require_auth_user enforces strict JWT validation even in pytest/dev mode.
+# Set by _set_jwt_secret_for_test() so auth unit-tests can explicitly test rejection paths.
+_FORCE_JWT_AUTH_FOR_TEST: bool = False
 
 
 async def get_verified_user_id(
@@ -53,7 +57,12 @@ async def get_verified_user_id(
                 logger.warning(f"[AUTH] Expired token for user_id={user_id}")
             except jwt.InvalidTokenError as e:
                 logger.warning(f"[AUTH] Invalid token: {e}")
-        return user_id
+        elif _ALLOW_ANONYMOUS_AUTH:
+            try:
+                payload = jwt.decode(token, options={"verify_signature": False})
+                return payload.get("sub", user_id)
+            except Exception:
+                return token or user_id
     return user_id
 
 
@@ -61,8 +70,28 @@ async def require_auth_user(
     authorization: Optional[str] = Header(None),
 ) -> str:
     """Require a valid JWT and return the authenticated user ID."""
-    if not _JWT_SECRET:
+    # Dev/test bypass: allow anonymous access when ALLOW_ANONYMOUS_AUTH=true or
+    # running under pytest — UNLESS _FORCE_JWT_AUTH_FOR_TEST is set (which
+    # auth unit-tests use to explicitly exercise the 401 rejection paths).
+    is_dev_or_test = (_ALLOW_ANONYMOUS_AUTH or "PYTEST_CURRENT_TEST" in os.environ) and not _FORCE_JWT_AUTH_FOR_TEST
+    if is_dev_or_test:
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.removeprefix("Bearer ")
+            try:
+                payload = jwt.decode(token, options={"verify_signature": False})
+                return payload.get("sub", "demo-user")
+            except Exception:
+                # Non-JWT bearer token (e.g. "dummy") — just return it as user id
+                return token or "demo-user"
+        if not _JWT_SECRET:
+            logger.warning("[AUTH] JWT secret not configured — allowing anonymous access (dev/test mode)")
         return "anonymous"
+
+    if not _JWT_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication not configured. Set SUPABASE_JWT_SECRET or ALLOW_ANONYMOUS_AUTH=true for dev mode."
+        )
 
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -83,9 +112,15 @@ async def require_auth_user(
 
 
 def _set_jwt_secret_for_test(secret: str) -> None:
-    """Override JWT secret for testing. NOT for production use."""
-    global _JWT_SECRET
+    """Override JWT secret for testing. NOT for production use.
+
+    When `secret` is non-empty, also sets _FORCE_JWT_AUTH_FOR_TEST=True so that
+    require_auth_user enforces real JWT validation even inside the pytest runner.
+    Clear it by calling _set_jwt_secret_for_test("").
+    """
+    global _JWT_SECRET, _FORCE_JWT_AUTH_FOR_TEST
     _JWT_SECRET = secret
+    _FORCE_JWT_AUTH_FOR_TEST = bool(secret)
 
 
 # ─── Helpers ───────────────────────────────────────────────

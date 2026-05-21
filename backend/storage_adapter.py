@@ -20,9 +20,11 @@ logger = logging.getLogger(__name__)
 
 _videos_cache: Dict[str, dict] = {}
 _analyses_cache: Dict[str, dict] = {}
+_ab_tests_cache: Dict[str, dict] = {}
 _cache_timestamps: Dict[str, float] = {}
 _VIDEO_TTL = 3600  # 1 hour
 _ANALYSIS_TTL = 1800  # 30 minutes
+_AB_TEST_TTL = 1800  # 30 minutes
 _last_eviction: float = 0
 _EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps
 
@@ -47,6 +49,11 @@ def _evict_stale():
         for k in _cache_timestamps
         if k.startswith("a:") and now - _cache_timestamps[k] > _ANALYSIS_TTL
     ]
+    stale_ab_tests = [
+        k
+        for k in _cache_timestamps
+        if k.startswith("ab:") and now - _cache_timestamps[k] > _AB_TEST_TTL
+    ]
     for k in stale_videos:
         vid = k[2:]
         _videos_cache.pop(vid, None)
@@ -54,6 +61,10 @@ def _evict_stale():
     for k in stale_analyses:
         aid = k[2:]
         _analyses_cache.pop(aid, None)
+        _cache_timestamps.pop(k, None)
+    for k in stale_ab_tests:
+        abid = k[3:]
+        _ab_tests_cache.pop(abid, None)
         _cache_timestamps.pop(k, None)
 
 
@@ -204,8 +215,10 @@ class StorageAdapter:
     async def insert_analysis(
         self, video_id: str, analysis: Dict, user_id: str = "anonymous"
     ) -> Dict:
-        """Insert an analysis record into both stores.
+        """Insert or update an analysis record into both stores.
 
+        Uses upsert (on_conflict=video_id) so re-analyzing the same video
+        overwrites the existing record without a unique constraint violation.
         The in-memory cache stores the analysis dict flat (as returned by the API).
         Supabase wraps it in {"data": analysis} — the adapter normalizes reads.
         """
@@ -218,7 +231,10 @@ class StorageAdapter:
                     "data": analysis,
                     "created_at": datetime.now().isoformat(),
                 }
-                result = _supabase.client.table("analyses").insert(record).execute()
+                # upsert: update if video_id already exists, insert if not
+                _supabase.client.table("analyses").upsert(
+                    record, on_conflict="video_id"
+                ).execute()
             except Exception as e:
                 logger.warning(f"Supabase insert_analysis failed: {e}")
 
@@ -331,10 +347,105 @@ class StorageAdapter:
             "average_viral_potential": round(sum(virals) / len(virals), 1) if virals else 0,
         }
 
+    # ─── A/B Tests ─────────────────────────────────────────
+
+    async def insert_ab_test(
+        self,
+        ab_test_id: str,
+        name: str,
+        baseline_video_id: str,
+        variant_video_id: Optional[str],
+        variant_script: Optional[str],
+        results: Dict,
+        user_id: str = "anonymous",
+    ) -> Dict:
+        """Insert an A/B test record into both Supabase and in-memory cache."""
+        record = {
+            "id": ab_test_id,
+            "user_id": user_id,
+            "name": name,
+            "baseline_video_id": baseline_video_id,
+            "variant_video_id": variant_video_id,
+            "variant_script": variant_script,
+            "results": results,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        if _supabase.enabled:
+            try:
+                result = _supabase.client.table("ab_tests").insert(record).execute()
+                record = result.data[0] if result.data else record
+            except Exception as e:
+                logger.warning(f"Supabase insert_ab_test failed: {e}")
+
+        _ab_tests_cache[ab_test_id] = record
+        _touch_cache(f"ab:{ab_test_id}")
+        return record
+
+    async def get_ab_test(self, ab_test_id: str) -> Optional[Dict]:
+        """Get an A/B test — in-memory cache first, then Supabase."""
+        _evict_stale()
+
+        cached = _ab_tests_cache.get(ab_test_id)
+        if cached is not None:
+            return cached
+
+        if _supabase.enabled:
+            try:
+                result = _supabase.client.table("ab_tests").select("*").eq("id", ab_test_id).execute()
+                if result.data:
+                    rec = result.data[0]
+                    _ab_tests_cache[ab_test_id] = rec
+                    _touch_cache(f"ab:{ab_test_id}")
+                    return rec
+            except Exception as e:
+                logger.warning(f"Supabase get_ab_test failed: {e}")
+
+        return None
+
+    async def list_ab_tests(self, user_id: str = "anonymous", limit: int = 50) -> List[Dict]:
+        """List historical A/B tests — Supabase if available, else in-memory."""
+        _evict_stale()
+
+        if _supabase.enabled:
+            try:
+                result = (
+                    _supabase.client.table("ab_tests")
+                    .select("*")
+                    .eq("user_id", user_id)
+                    .order("created_at", desc=True)
+                    .limit(limit)
+                    .execute()
+                )
+                for rec in result.data:
+                    _ab_tests_cache[rec["id"]] = rec
+                    _touch_cache(f"ab:{rec['id']}")
+                return result.data
+            except Exception as e:
+                logger.warning(f"Supabase list_ab_tests failed: {e}")
+
+        return sorted(
+            [v for v in _ab_tests_cache.values() if v.get("user_id") == user_id],
+            key=lambda v: v.get("created_at", ""),
+            reverse=True,
+        )[:limit]
+
+    async def delete_ab_test(self, ab_test_id: str) -> None:
+        """Delete an A/B test record from both stores."""
+        _ab_tests_cache.pop(ab_test_id, None)
+        _cache_timestamps.pop(f"ab:{ab_test_id}", None)
+
+        if _supabase.enabled:
+            try:
+                _supabase.client.table("ab_tests").delete().eq("id", ab_test_id).execute()
+            except Exception as e:
+                logger.warning(f"Supabase delete_ab_test failed: {e}")
+
     def _reset(self) -> None:
         """Clear all caches and timestamps. For testing only."""
         _videos_cache.clear()
         _analyses_cache.clear()
+        _ab_tests_cache.clear()
         _cache_timestamps.clear()
 
 

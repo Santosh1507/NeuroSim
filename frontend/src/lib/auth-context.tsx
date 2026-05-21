@@ -1,10 +1,10 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from './supabase'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { API_URL } from './api'
 
 function getOrCreateGuestId(): string {
   if (typeof window === 'undefined') return ''
@@ -54,6 +54,7 @@ const DEMO_USER = {
 } as User
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [isDemoMode, setIsDemoMode] = useState(false)
@@ -65,8 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
-      setUser(DEMO_USER)
-      setIsDemoMode(true)
+      if (process.env.NODE_ENV === 'development') {
+        setUser(DEMO_USER)
+        setIsDemoMode(true)
+      }
       setIsLoaded(true)
       return
     }
@@ -86,9 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mergeGuestSession = async () => {
     if (!guestSessionId || !user) return
     try {
+      const session = supabase ? (await supabase.auth.getSession()).data.session : null
+      const token = session?.access_token
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      } else if (isDemoMode) {
+        headers['Authorization'] = `Bearer ${user.id}`
+      }
+
       await fetch(`${API_URL}/api/v1/auth/guest/merge`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ guest_session_id: guestSessionId, user_id: user.id }),
       })
       localStorage.removeItem('neurosim_guest_id')
@@ -103,14 +115,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!guestId || !user) return
 
     try {
+      const session = supabase ? (await supabase.auth.getSession()).data.session : null
+      const token = session?.access_token
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      } else if (isDemoMode) {
+        headers['Authorization'] = `Bearer ${user.id}`
+      }
+
       const response = await fetch(`${API_URL}/api/v1/auth/guest/merge`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ guest_session_id: guestId, user_id: user.id }),
       })
       if (response.ok) {
         localStorage.removeItem('neurosim_guest_id')
-        window.location.reload()
+        // Use router navigation instead of hard reload for smoother UX
+        router.refresh()
+        router.push('/dashboard')
       }
     } catch (error) {
       console.error('Guest session recovery failed:', error)
@@ -119,9 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     if (!supabase) return { error: 'Supabase not configured' }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { error: error.message }
-    setUser(data.user)
     setIsDemoMode(false)
     await mergeGuestSession()
     return { error: null }
@@ -132,7 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) return { error: error.message }
     if (data.user) {
-      setUser(data.user)
       setIsDemoMode(false)
       await mergeGuestSession()
     }
@@ -152,6 +173,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (supabase) await supabase.auth.signOut()
     setUser(null)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('neurosim_guest_id')
+      setGuestSessionId(getOrCreateGuestId())
+    }
   }
 
   return (

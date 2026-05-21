@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronRight, Upload, BarChart3, Share2, Download } from "lucide-react";
+import { X, ChevronRight, Upload, BarChart3, Share2, Download, Brain } from "lucide-react";
 
 interface OnboardingTourProps {
   onComplete: () => void;
@@ -10,28 +10,28 @@ interface OnboardingTourProps {
 
 const steps = [
   {
-    title: "Welcome to NeuroSim",
-    description: "Predict how your video content will perform before you publish. Let's walk through the key features.",
-    icon: BarChart3,
+    title: "Welcome to NeuroSim v3.0",
+    description: "Enter the era of predictive creative intelligence. Predict engagement, sentiment, and visual hold rates before you publish.",
+    icon: Brain,
   },
   {
-    title: "Upload Your Video",
-    description: "Drag and drop or click to upload. We support MP4, MOV, AVI, and WebM. Free tier: 10 analyses/month.",
+    title: "Tri-Engine Input",
+    description: "Paste a video script for instant scoring, drop an MP4/MOV clip for vision analysis, or submit a YouTube URL. Zero friction.",
     icon: Upload,
   },
   {
-    title: "Neural Analysis",
-    description: "Your video is transcribed and analyzed using brain-inspired ROI scoring. Results include hook score, viral potential, and risk assessment.",
+    title: "Tri-Engine Prediction",
+    description: "Our core encodes TRIBE v2 fMRI brain mapping, simulates a 1,000-agent MiroFish social swarm, and watches clips with Gemini 2.5 Flash.",
     icon: BarChart3,
   },
   {
-    title: "Share & Export",
-    description: "Share results with a link, export as PDF, or embed on your site. Links expire after 7 days.",
+    title: "Deep Creative Signals",
+    description: "Get precise, actionable recommendations, hook strength evaluation, hold curves, ROI cortices coverage, and complete PDF report exports.",
     icon: Share2,
   },
   {
-    title: "You're Ready!",
-    description: "Upload your first video to get started. The analysis takes 30-60 seconds depending on video length.",
+    title: "Publish with Certainty",
+    description: "Free tier includes 10 analyses/month. Step-gate guardrails ensure you never waste GPU credits on unoptimized content.",
     icon: Download,
   },
 ];

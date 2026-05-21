@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '../../lib/auth-context'
-import { Brain, Menu, X, LogOut, BarChart2, DollarSign, TrendingUp } from 'lucide-react'
+import { Brain, Menu, X, LogOut, BarChart2, DollarSign, TrendingUp, Zap } from 'lucide-react'
 import { AuthModal } from './AuthModal'
 
 export function Navbar() {
@@ -31,11 +32,14 @@ export function Navbar() {
         </button>
 
         <div className="hidden md:flex items-center gap-6">
-          <a href="/#features" className="text-xs text-text-tertiary hover:text-white transition-colors">Features</a>
-          <a href="/#pipeline" className="text-xs text-text-tertiary hover:text-white transition-colors">How it works</a>
-          <a href="/pricing" className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1">
+          <Link href="/#features" className="text-xs text-text-tertiary hover:text-white transition-colors">Features</Link>
+          <Link href="/#pipeline" className="text-xs text-text-tertiary hover:text-white transition-colors">How it works</Link>
+          <Link href="/pricing" className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1">
             <DollarSign className="w-3 h-3" /> Pricing
-          </a>
+          </Link>
+          <button onClick={() => router.push('/predict')} className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
+            <Zap className="w-3.5 h-3.5 text-signal-green" /> Predict
+          </button>
           {isSignedIn && (
             <>
               <button onClick={() => router.push('/analytics')} className="text-xs text-text-tertiary hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
@@ -83,9 +87,10 @@ export function Navbar() {
       {mobileOpen && (
         <div className="md:hidden border-t border-white/[0.04] bg-black/80 backdrop-blur-xl">
           <div className="px-6 py-4 space-y-3">
-            <a href="/#features" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">Features</a>
-            <a href="/#pipeline" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">How it works</a>
-            <a href="/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">Pricing</a>
+            <Link href="/#features" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">Features</Link>
+            <Link href="/#pipeline" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">How it works</Link>
+            <Link href="/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-text-tertiary hover:text-white">Pricing</Link>
+            <button onClick={() => { router.push('/predict'); setMobileOpen(false) }} className="block text-sm text-signal-green hover:text-white cursor-pointer">Predict</button>
             {isSignedIn && (
               <>
                 <button onClick={() => { router.push('/analytics'); setMobileOpen(false) }} className="block text-sm text-text-tertiary hover:text-white cursor-pointer">Analytics</button>
