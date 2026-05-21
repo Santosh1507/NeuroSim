@@ -88,26 +88,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const mergeGuestSession = async () => {
     if (!guestSessionId || !user) return
-    try {
-      const session = supabase ? (await supabase.auth.getSession()).data.session : null
-      const token = session?.access_token
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      } else if (isDemoMode) {
-        headers['Authorization'] = `Bearer ${user.id}`
+    let retries = 2
+    while (retries >= 0) {
+      try {
+        const response = await fetch(`${API_URL}/api/v1/auth/guest/merge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guest_session_id: guestSessionId, user_id: user.id }),
+        })
+        if (response.ok) {
+          localStorage.removeItem('neurosim_guest_id')
+          setGuestSessionId('')
+          return
+        }
+        console.error(`Guest merge failed with status ${response.status}`)
+      } catch (err) {
+        console.error('Guest merge failed:', err)
       }
-
-      await fetch(`${API_URL}/api/v1/auth/guest/merge`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ guest_session_id: guestSessionId, user_id: user.id }),
-      })
-      localStorage.removeItem('neurosim_guest_id')
-      setGuestSessionId('')
-    } catch (err) {
-      console.error('Guest merge failed:', err)
+      retries -= 1
+      if (retries >= 0) {
+        await new Promise(r => setTimeout(r, 1000))
+      }
     }
+    console.error('Guest merge failed after retries — data may be lost')
   }
 
   const recoverGuestSession = async () => {

@@ -209,8 +209,10 @@ async def get_analysis(video_id: str, _=Depends(check_api_limit)):
 @router.delete("/analyses/{video_id}")
 async def delete_analysis(video_id: str, user_id: str = Depends(require_auth_user)):
     """Delete an analysis and its associated data from cache and Supabase."""
+    if user_id == "anonymous":
+        raise HTTPException(status_code=401, detail="Authentication required to delete analyses")
     video = await _get_video_or_404(video_id)
-    if user_id != "anonymous" and video.get("user_id") != user_id:
+    if video.get("user_id") != user_id:
         raise HTTPException(status_code=403, detail="You can only delete your own analyses")
 
     await store.delete_analysis(video_id)

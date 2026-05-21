@@ -4,10 +4,11 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from config import settings
+from rate_limiter import auth_limiter, rate_limit
 from shared_state import require_auth_user
 from storage_adapter import _supabase
 
@@ -40,7 +41,8 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/auth/sign-up", response_model=AuthResponse)
-async def sign_up(req: SignUpRequest):
+@rate_limit(auth_limiter)
+async def sign_up(req: SignUpRequest, request: Request = None):
     """Create a new user account via Supabase Auth."""
     if not _supabase.enabled:
         raise HTTPException(status_code=503, detail="Auth service unavailable")
@@ -68,11 +70,12 @@ async def sign_up(req: SignUpRequest):
         if "User already registered" in error_msg or "already registered" in error_msg.lower():
             raise HTTPException(status_code=409, detail="Email already registered")
         logger.error(f"[AUTH] Sign-up error: {e}")
-        raise HTTPException(status_code=400, detail=f"Sign-up failed: {error_msg}")
+        raise HTTPException(status_code=400, detail="Sign-up failed. Please try again.")
 
 
 @router.post("/auth/sign-in", response_model=AuthResponse)
-async def sign_in(req: SignInRequest):
+@rate_limit(auth_limiter)
+async def sign_in(req: SignInRequest, request: Request = None):
     """Authenticate with email and password."""
     if not _supabase.enabled:
         raise HTTPException(status_code=503, detail="Auth service unavailable")
@@ -97,7 +100,7 @@ async def sign_in(req: SignInRequest):
         if "Invalid login credentials" in error_msg or "invalid" in error_msg.lower():
             raise HTTPException(status_code=401, detail="Invalid email or password")
         logger.error(f"[AUTH] Sign-in error: {e}")
-        raise HTTPException(status_code=400, detail=f"Sign-in failed: {error_msg}")
+        raise HTTPException(status_code=400, detail="Sign-in failed. Please try again.")
 
 
 @router.post("/auth/sign-out")
@@ -111,7 +114,7 @@ async def sign_out(authorization: Optional[str] = None):
         return {"message": "Signed out successfully."}
     except Exception as e:
         logger.error(f"[AUTH] Sign-out error: {e}")
-        raise HTTPException(status_code=400, detail=f"Sign-out failed: {e}")
+        raise HTTPException(status_code=400, detail="Sign-out failed. Please try again.")
 
 
 @router.post("/auth/guest/merge")
@@ -175,5 +178,5 @@ async def merge_guest(req: GuestMergeRequest, user_id: str = Depends(require_aut
         }
     except Exception as e:
         logger.error(f"[AUTH] Guest merge error: {e}")
-        raise HTTPException(status_code=500, detail=f"Merge failed: {e}")
+        raise HTTPException(status_code=500, detail="Merge failed. Please try again.")
 

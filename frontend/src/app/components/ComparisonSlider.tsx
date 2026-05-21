@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Zap, Brain, Heart, TrendingUp, MessageSquare } from 'lucide-react'
 
@@ -16,16 +16,31 @@ export default function ComparisonSlider({
   labelB?: string
 }) {
   const [sliderPos, setSliderPos] = useState(50)
+  const [isDragging, setIsDragging] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const handleMouseDown = () => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (rect) setSliderPos(Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100)))
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (rect) setSliderPos(Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100)))
+  }, [])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
     }
-    const handleMouseUp = () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp) }
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
+  const handleMouseDown = () => {
+    setIsDragging(true)
   }
 
   const scoreA = analysisA?.success_probability ?? 0

@@ -61,6 +61,8 @@ def rate_limit(limiter: RateLimiter):
 # Default limiters
 upload_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 uploads per 5 min
 api_limiter = RateLimiter(max_requests=60, window_seconds=60)  # 60 API calls per min
+predict_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 predicts per min (Gemini quota protection)
+auth_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 auth attempts per min (credential stuffing protection)
 
 
 def check_api_limit(request: Request):
@@ -69,4 +71,14 @@ def check_api_limit(request: Request):
         raise HTTPException(
             status_code=429,
             detail="Rate limit exceeded. Too many requests, please slow down.",
+        )
+
+
+def check_predict_limit(request: Request):
+    """Stricter rate limit for /predict to protect Gemini API quota."""
+    ip = request.client.host if request.client else "unknown"
+    if not predict_limiter.is_allowed(ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Predict rate limit exceeded. Max 10 predictions per minute. Please slow down.",
         )

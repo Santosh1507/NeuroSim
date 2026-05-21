@@ -46,9 +46,8 @@ export default function DigestPage() {
       setSubscribedSuccess(true)
       setSubscribed(true)
     } catch {
-      // fallback
-      setSubscribedSuccess(true)
-      setSubscribed(true)
+      setSubscribedSuccess(false)
+      setSubscribed(false)
     } finally {
       setSubscribing(false)
     }

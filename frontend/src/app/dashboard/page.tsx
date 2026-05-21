@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, Suspense } from 'react'
+import { useState, useCallback, useEffect, useRef, Suspense, useMemo } from 'react'
 import { useAuth } from '../../lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -30,10 +30,18 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
 export default function Dashboard() {
   const { isSignedIn, isLoaded, guestSessionId, recoverGuestSession } = useAuth()
   const router = useRouter()
+  const pollAbortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push('/')
   }, [isLoaded, isSignedIn, router])
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      pollAbortRef.current?.abort()
+    }
+  }, [])
 
   const [videos, setVideos] = useState<any[]>([])
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null)
@@ -236,16 +244,21 @@ export default function Dashboard() {
   }
 
   const pollAnalysis = async (videoId: string, file: File) => {
+    pollAbortRef.current?.abort()
+    pollAbortRef.current = new AbortController()
+    const { signal } = pollAbortRef.current
+
     const maxAttempts = 60
     for (let i = 0; i < maxAttempts; i++) {
+      if (signal.aborted) return
       try {
-        const statusRes = await axios.get(`${API_URL}/status/${videoId}`, { timeout: 5000 })
+        const statusRes = await axios.get(`${API_URL}/status/${videoId}`, { timeout: 5000, signal })
         const s = statusRes.data
         setUploadProgress(s.progress || 0)
         setUploadStatusMsg(s.message || '')
         setUploadStage(s.stage || '')
         if (s.status === 'completed') {
-          const analysisRes = await axios.get(`${API_URL}/analyses/${videoId}`, { timeout: 10000 })
+          const analysisRes = await axios.get(`${API_URL}/analyses/${videoId}`, { timeout: 10000, signal })
           setAnalysis({ filename: file.name, ...analysisRes.data })
           setSelectedVideo(videoId)
           setVideos(prev => prev.map(v => v.id === videoId ? { ...v, status: 'analyzed' } : v))
@@ -256,6 +269,7 @@ export default function Dashboard() {
           throw new Error(s.message || 'Analysis failed')
         }
       } catch (err: any) {
+        if (axios.isCancel(err)) return
         if (err.message === 'Analysis failed') throw err
       }
       await new Promise(r => setTimeout(r, 1500))
@@ -637,13 +651,13 @@ export default function Dashboard() {
     }
   }
 
-  const radarData = analysis ? [
+  const radarData = useMemo(() => analysis ? [
     { subject: 'Hook', value: analysis.hook_score || 0, fullMark: 100 },
     { subject: 'Authenticity', value: analysis.authenticity_score || 0, fullMark: 100 },
     { subject: 'Viral', value: analysis.viral_potential || 0, fullMark: 100 },
     { subject: 'CTA', value: analysis.cta_analysis?.cta_activation_score || 0, fullMark: 100 },
     { subject: 'Share', value: analysis.sentiment_forecast?.shareability_index || 0, fullMark: 100 },
-  ] : []
+  ] : [], [analysis])
 
   return (
     <div className="min-h-screen bg-neural neural-grid">
