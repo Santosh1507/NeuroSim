@@ -64,12 +64,12 @@ describe('apiClient', () => {
   it('has request interceptor registered', async () => {
     const apiModule = await import('../lib/api')
     const client = apiModule.default
-    expect(client.interceptors.request.handlers.length).toBeGreaterThanOrEqual(1)
+    expect(client.interceptors.request.handlers?.length ?? 0).toBeGreaterThanOrEqual(1)
   })
 
   it('has response interceptor registered', async () => {
     const apiModule = await import('../lib/api')
     const client = apiModule.default
-    expect(client.interceptors.response.handlers.length).toBeGreaterThanOrEqual(1)
+    expect(client.interceptors.response.handlers?.length ?? 0).toBeGreaterThanOrEqual(1)
   })
 })

@@ -84,7 +84,7 @@ export default function LandingPage() {
       <div className="relative z-10">
 
         {/* ===== HERO ===== */}
-        <section aria-label="Hero" className="max-w-7xl mx-auto px-6 pt-24 pb-28 md:pt-32 md:pb-36">
+        <section aria-label="Hero" className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 md:pt-32 md:pb-36">
           <div className="grid md:grid-cols-12 gap-12 items-center">
             
             {/* Left: text — 7 cols */}
@@ -99,13 +99,13 @@ export default function LandingPage() {
                   <span className="text-[11px] font-mono text-neural tracking-[0.15em] uppercase">Three Engines · One Prediction</span>
                 </div>
 
-                <h1 className="text-[clamp(2.5rem,6vw,4.5rem)] font-bold text-white leading-[1.02] tracking-[-0.03em] mb-6">
+                <h1 className="text-[clamp(2rem,6vw,4.5rem)] sm:text-[clamp(2.5rem,6vw,4.5rem)] font-bold text-white leading-[1.02] tracking-[-0.03em] mb-4 sm:mb-6">
                   Predict virality{' '}
                   <span className="text-gradient">before</span>
                   {' '}you publish
                 </h1>
 
-                <p className="text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed mb-10">
+                <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed mb-8 sm:mb-10">
                   TRIBE v2 maps brain response. MiroFish simulates social spread.
                   Virality Predictor scores your clip with AI vision. Three engines, one score.
                 </p>
@@ -199,8 +199,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ===== THREE PILLARS ===== */}
-        <section id="features" aria-label="Features" className="max-w-7xl mx-auto px-6 py-24 md:py-32">
+        {/* ===== THREE PILLARS ===== */}          <section id="features" aria-label="Features" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 md:py-32">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -230,7 +229,7 @@ export default function LandingPage() {
                 whileInView={p.isNew ? { opacity: 1, y: [0, -8, 0] } : { opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={p.isNew ? { y: { duration: 4, repeat: Infinity, ease: "easeInOut" }, opacity: { duration: 0.6 } } : staggerItem(i, 0.1)}
-                className={`group relative rounded-2xl border ${p.border} p-8 transition-all ${
+                className={`group relative rounded-2xl border ${p.border} p-5 sm:p-8 transition-all ${
                   p.isNew 
                     ? 'glass-green ring-1 ring-signal-green/30 shadow-[0_0_40px_-8px_rgba(74,222,128,0.25)] hover:shadow-[0_0_60px_-8px_rgba(74,222,128,0.35)]' 
                     : 'bg-white/[0.02] hover:bg-white/[0.04]'
@@ -273,7 +272,7 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={staggerItem(i)}
-                className="group rounded-2xl bg-white/[0.02] border border-white/[0.06] p-6 hover:bg-white/[0.04] hover:border-white/[0.1] transition-all"
+                className="group rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 sm:p-6 hover:bg-white/[0.04] hover:border-white/[0.1] transition-all"
               >
                 <div className={`w-10 h-10 rounded-xl ${f.bg} ${f.border} border flex items-center justify-center mb-4`}>
                   <f.icon className={`w-5 h-5 ${f.color}`} />
@@ -286,7 +285,7 @@ export default function LandingPage() {
         </section>
 
         {/* ===== HOW IT WORKS — PIPELINE ===== */}
-        <section id="pipeline" aria-label="How it works" className="max-w-5xl mx-auto px-6 py-24 md:py-32">
+        <section id="pipeline" aria-label="How it works" className="max-w-5xl mx-auto px-4 sm:px-6 py-16 md:py-32">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -319,7 +318,7 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15, ...fadeIn }}
-                className="flex flex-col items-center text-center px-8 relative"
+                className="flex flex-col items-center text-center px-4 sm:px-8 relative"
               >
                 <div className="w-12 h-12 rounded-full bg-neural/10 border border-neural/20 flex items-center justify-center mb-5 z-10 relative">
                   <span className="text-lg font-bold font-mono text-neural">{s.num}</span>
@@ -332,7 +331,7 @@ export default function LandingPage() {
         </section>
 
         {/* ===== PRICING ===== */}
-        <section aria-label="Pricing" className="max-w-4xl mx-auto px-6 py-24 md:py-32">
+        <section aria-label="Pricing" className="max-w-4xl mx-auto px-4 sm:px-6 py-16 md:py-32">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -398,7 +397,7 @@ export default function LandingPage() {
         </section>
 
         {/* ===== CTA ===== */}
-        <section aria-label="Call to action" className="max-w-5xl mx-auto px-6 pb-32">
+        <section aria-label="Call to action" className="max-w-5xl mx-auto px-4 sm:px-6 pb-20 md:pb-32">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -433,8 +432,8 @@ export default function LandingPage() {
         </section>
 
         {/* ===== FOOTER ===== */}
-        <footer className="border-t border-white/[0.04] py-8">
-          <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+        <footer className="border-t border-white/[0.04] py-6 sm:py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
             <div className="flex items-center gap-2">
               <Brain className="w-4 h-4 text-neural" />
               <span className="text-xs text-gray-500">NeuroSim v3.0</span>

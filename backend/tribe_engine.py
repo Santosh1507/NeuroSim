@@ -1,7 +1,5 @@
-import asyncio
+import hashlib
 import logging
-import os
-import time
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -36,6 +34,16 @@ class TribeEngine:
                 logger.warning(f"TRIBE v2 load failed: {e}. Falling back to simulated mode.")
                 self.is_real = False
 
+    @staticmethod
+    def _derive_seed(content: str) -> int:
+        """Derive a deterministic seed from content string.
+
+        Different content produces different seeds, so different activation patterns.
+        Same content produces the same seed, so consistent results.
+        """
+        digest = hashlib.sha256(content.encode()).hexdigest()[:8]
+        return int(digest, 16)
+
     async def predict_from_video(self, video_path: str) -> Dict[str, Any]:
         if self.is_real and self.model:
             return await self._real_predict(video_path)
@@ -54,16 +62,14 @@ class TribeEngine:
         }
 
     async def _simulated_predict(
-        self, video_path: str, seed: Optional[int] = None
+        self, video_path: str
     ) -> Dict[str, Any]:
-        await asyncio.sleep(1.5)
+        # No artificial delay — simulation is instant.
+        # Previously slept 1.5s to "feel real" — removed.
 
-        # Use a random seed by default so each run produces unique predictions.
-        # Accept an explicit seed for testing/deterministic mode.
-        if seed is not None:
-            np.random.seed(seed % (2**32))
-        else:
-            np.random.seed((time.time_ns() ^ int.from_bytes(os.urandom(4), "big")) % (2**32))
+        # Derive deterministic seed from video_path so same video = same predictions
+        seed = self._derive_seed(video_path)
+        np.random.seed(seed % (2**32))
 
         n_timesteps = 20
         n_vertices = 20484
@@ -89,19 +95,19 @@ class TribeEngine:
             "n_timesteps": n_timesteps,
             "n_vertices": n_vertices,
             "mode": "simulated",
+            "is_early_estimate": True,
+            "confidence_note": "TRIBE neuroscience simulation — brain activation patterns are statistically modeled based on video structure. Results are directional estimates, not real neural measurements.",
         }
 
-    async def predict_from_text(self, text: str, seed: Optional[int] = None) -> Dict[str, Any]:
+    async def predict_from_text(self, text: str) -> Dict[str, Any]:
         if self.is_real and self.model:
             df = self.model.get_events_dataframe(text_path=text)
             preds, segments = self.model.predict(events=df)
             return {"predictions": preds, "segments": segments, "mode": "real"}
 
-        await asyncio.sleep(0.8)
-        if seed is not None:
-            np.random.seed(seed % (2**32))
-        else:
-            np.random.seed((time.time_ns() ^ int.from_bytes(os.urandom(4), "big")) % (2**32))
+        # Derive deterministic seed from text so same text = same predictions
+        seed = self._derive_seed(text)
+        np.random.seed(seed % (2**32))
         return {
             "predictions": np.random.uniform(0.2, 0.8, size=(10, 20484)).tolist(),
             "segments": [{"start": 0, "end": len(text), "type": "text"}],

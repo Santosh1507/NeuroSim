@@ -14,6 +14,8 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
+  const [touchedEmail, setTouchedEmail] = useState(false)
+  const [touchedPassword, setTouchedPassword] = useState(false)
 
   const dialogRef = useRef<HTMLDivElement>(null)
   const firstInputRef = useRef<HTMLInputElement>(null)
@@ -77,6 +79,8 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setTouchedEmail(true)
+    setTouchedPassword(true)
     setError('')
     setSuccess('')
     setLoading(true)
@@ -154,12 +158,19 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
                 id="auth-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setTouchedEmail(true) }}
+                onBlur={() => setTouchedEmail(true)}
                 placeholder="you@example.com"
                 required
                 autoComplete="email"
                 aria-required="true"
-                className="w-full pl-9 pr-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/40"
+                aria-invalid={!!error && touchedEmail ? 'true' : 'false'}
+                aria-describedby={error && touchedEmail ? 'auth-error' : undefined}
+                className={`w-full pl-9 pr-3 py-2 rounded-lg bg-white/[0.04] border text-sm text-white placeholder:text-text-tertiary focus:outline-none transition-colors ${
+                  error && touchedEmail
+                    ? 'border-red-400/40 focus:border-red-400/60'
+                    : 'border-white/[0.08] focus:border-neural/40 hover:border-white/[0.15]'
+                }`}
               />
             </div>
           </div>
@@ -174,19 +185,26 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
                 id="auth-password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setTouchedPassword(true) }}
+                onBlur={() => setTouchedPassword(true)}
                 placeholder="••••••••"
                 required
                 minLength={6}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 aria-required="true"
-                className="w-full pl-9 pr-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:border-neural/40"
+                aria-invalid={!!error && touchedPassword ? 'true' : 'false'}
+                aria-describedby={error && touchedPassword ? 'auth-error' : undefined}
+                className={`w-full pl-9 pr-3 py-2 rounded-lg bg-white/[0.04] border text-sm text-white placeholder:text-text-tertiary focus:outline-none transition-colors ${
+                  error && touchedPassword
+                    ? 'border-red-400/40 focus:border-red-400/60'
+                    : 'border-white/[0.08] focus:border-neural/40 hover:border-white/[0.15]'
+                }`}
               />
             </div>
           </div>
 
           {error && (
-            <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2" role="alert">
+            <p id="auth-error" className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2" role="alert">
               {error}
             </p>
           )}

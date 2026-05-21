@@ -73,7 +73,7 @@ describe('Navbar', () => {
 
   it('shows dashboard and analytics links when signed in', async () => {
     mockAuth.isSignedIn = true
-    mockAuth.user = { email: 'test@test.com', user_metadata: { name: 'Test User' } }
+    mockAuth.user = { email: 'test@test.com', user_metadata: { name: 'Test User' } } as any
     const { Navbar } = await import('../app/components/Navbar')
     render(<Navbar />)
     expect(screen.getByText('Analytics')).toBeDefined()
@@ -81,7 +81,7 @@ describe('Navbar', () => {
 
   it('shows user name when signed in', async () => {
     mockAuth.isSignedIn = true
-    mockAuth.user = { email: 'test@test.com', user_metadata: { name: 'Test User' } }
+    mockAuth.user = { email: 'test@test.com', user_metadata: { name: 'Test User' } } as any
     const { Navbar } = await import('../app/components/Navbar')
     render(<Navbar />)
     expect(screen.getByText('Test User')).toBeDefined()
@@ -89,7 +89,7 @@ describe('Navbar', () => {
 
   it('calls signOut when logout button is clicked', async () => {
     mockAuth.isSignedIn = true
-    mockAuth.user = { email: 'test@test.com', user_metadata: { name: 'Test' } }
+    mockAuth.user = { email: 'test@test.com', user_metadata: { name: 'Test' } } as any
     const { Navbar } = await import('../app/components/Navbar')
     render(<Navbar />)
     

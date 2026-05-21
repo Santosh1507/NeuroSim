@@ -6,12 +6,12 @@ from heuristic_scorer import score_transcript
 class TestHeuristicScorer:
     def test_empty_transcript(self):
         result = score_transcript("")
-        assert result["A5"] == 0.5
-        assert result["LO"] == 0.5
-        assert result["Area45"] == 0.5
-        assert result["TPJ"] == 0.5
-        assert result["mode"] == "heuristic"
+        # Empty transcript now returns varied fallback scores (not flat 0.5)
+        for key in ("A5", "LO", "Area45", "TPJ"):
+            assert 0.0 <= result[key] <= 1.0, f"{key} out of range: {result[key]}"
+        assert result["mode"] == "fallback"
         assert result["word_count"] == 0
+        assert "empty transcript" in result.get("note", "")
 
     def test_all_scores_in_range(self):
         text = "This is a test transcript with some content to analyze."

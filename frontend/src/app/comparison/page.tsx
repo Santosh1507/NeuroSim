@@ -44,7 +44,7 @@ function ComparisonContent() {
     setLoading(true)
     try {
       const [analysisRes, compareRes] = await Promise.all([
-        axios.get(`${API_URL}/analyses/${id}`),
+        axios.get(`${API_URL}/api/v1/analyses/${id}`),
         axios.post(`${API_URL}/api/v1/benchmarks/compare`, { video_id: id, cohort: selectedCohort }),
       ])
       setVideo(analysisRes.data)
@@ -56,7 +56,11 @@ function ComparisonContent() {
     }
   }
 
-  if (!isLoaded || !isSignedIn) return null
+  if (!isLoaded || !isSignedIn) return (
+    <div className="min-h-screen bg-neural flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
 
   const metrics: { label: string; key: string; icon: LucideIcon; invert?: boolean }[] = [
     { label: 'Success Probability', key: 'success_probability', icon: Target },
@@ -126,7 +130,26 @@ function ComparisonContent() {
               </div>
             </div>
 
-            {comparison && (
+            {/* Loading skeleton */}
+            {loading && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="glass-panel p-4 animate-pulse">
+                      <div className="h-3 bg-white/[0.06] rounded w-2/3 mb-3" />
+                      <div className="h-6 bg-white/[0.06] rounded w-1/2 mb-2" />
+                      <div className="h-3 bg-white/[0.04] rounded w-1/3" />
+                    </div>
+                  ))}
+                </div>
+                <div className="glass-panel p-5 animate-pulse">
+                  <div className="h-4 bg-white/[0.06] rounded w-1/4 mb-6" />
+                  <div className="h-64 bg-white/[0.04] rounded" />
+                </div>
+              </div>
+            )}
+
+            {!loading && comparison && (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
                   {metrics.map(m => {
@@ -135,7 +158,7 @@ function ComparisonContent() {
                     const delta = data.delta
                     const Icon = m.icon
                     return (
-                      <div key={m.label} className="glass-panel p-4">
+                      <div key={m.label} className="glass-panel p-3 sm:p-4">
                         <div className="flex items-center gap-1.5 mb-2">
                           <Icon className="w-3.5 h-3.5 text-neural" />
                           <span className="text-[10px] mono text-text-tertiary">{m.label}</span>
@@ -160,12 +183,14 @@ function ComparisonContent() {
                   })}
                 </div>
 
-                <div className="glass-panel p-5 mb-8">
+                <div className="glass-panel p-4 sm:p-5 mb-8">
                   <h3 className="text-sm font-semibold text-white mb-4">Your Score vs Average</h3>
-                  <ComparisonBarChart data={chartData} />
+                  <div className="h-64 sm:h-80">
+                    <ComparisonBarChart data={chartData} />
+                  </div>
                 </div>
 
-                <div className="glass-panel p-5 border-neural/20">
+                <div className="glass-panel p-4 sm:p-5 border-neural/20">
                   <h3 className="text-sm font-semibold text-white mb-3">Cohort: {comparison.cohort}</h3>
                   <p className="text-xs text-text-tertiary">
                     Based on {comparison.cohort_n.toLocaleString()} videos from the FineVideo dataset.

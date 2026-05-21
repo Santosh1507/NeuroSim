@@ -1,7 +1,6 @@
 """Tests for signal_merge module."""
 
-from signal_merge import merge_signals, get_analysis_mode
-from bridge_logic import ROI
+from signal_merge import get_analysis_mode, merge_signals
 
 
 class TestMergeSignals:
@@ -20,11 +19,18 @@ class TestMergeSignals:
         result = merge_signals(heuristic, vision)
         assert result.A5 == 0.6
 
-    def test_vision_fallback_returns_heuristic(self):
+    def test_vision_fallback_merges_with_heuristic(self):
         heuristic = {"A5": 0.65, "LO": 0.55, "Area45": 0.45, "TPJ": 0.75}
-        vision = {"mode": "fallback"}
+        vision = {
+            "mode": "fallback",
+            "audio_engagement": 0.35,
+            "visual_engagement": 0.45,
+            "cta_presence": 0.55,
+            "emotional_arc": 0.65,
+        }
         result = merge_signals(heuristic, vision)
-        assert result.A5 == 0.65
+        assert result.A5 == 0.485
+        assert result.LO == 0.485
 
     def test_vision_dominates_when_both_available(self):
         heuristic = {"A5": 0.3, "LO": 0.3, "Area45": 0.3, "TPJ": 0.3}
@@ -77,6 +83,12 @@ class TestGetAnalysisMode:
 
     def test_heuristic_only(self):
         assert get_analysis_mode(True, "disabled") == "heuristic"
+
+    def test_fallback_and_heuristic(self):
+        assert get_analysis_mode(True, "fallback") == "fallback+heuristic"
+
+    def test_fallback_only(self):
+        assert get_analysis_mode(False, "fallback") == "fallback"
 
     def test_unknown(self):
         assert get_analysis_mode(False, "error") == "unknown"

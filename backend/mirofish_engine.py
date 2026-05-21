@@ -1,7 +1,7 @@
 import asyncio
+import hashlib
 import logging
-import os
-import random
+import random as _random
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -113,6 +113,23 @@ class MiroFishEngine:
             logger.warning(f"MiroFish real API failed: {e}. Falling back to simulated mode.")
             return await self._simulated_simulation(content, roi_scores)
 
+    @staticmethod
+    def _derive_seed(content: Dict[str, Any], roi_scores: Optional[Dict[str, float]] = None) -> int:
+        """Derive a deterministic seed from content features and ROI scores.
+
+        Different inputs produce different seeds, so different outputs.
+        Same inputs produce the same seed, so consistent results.
+        """
+        text = content.get("transcript", "")
+        # Hash transcript length, word count, and content into a single seed
+        seed_material = str(len(text)) + "::" + str(len(text.split())) + "::" + text[:500]
+        if roi_scores:
+            roi_str = "|".join(f"{k}={v}" for k, v in sorted(roi_scores.items()))
+            seed_material += "::roi:" + roi_str
+        # Take first 8 hex chars of SHA-256
+        digest = hashlib.sha256(seed_material.encode()).hexdigest()[:8]
+        return int(digest, 16)
+
     async def _simulated_simulation(
         self,
         content: Dict[str, Any],
@@ -120,8 +137,11 @@ class MiroFishEngine:
         num_agents: int = 1000,
         simulation_rounds: int = 20,
     ) -> Dict[str, Any]:
-        # Use shorter sleep in test mode (NEUROSIM_SYNC_MODE)
-        await asyncio.sleep(0.05 if os.environ.get("NEUROSIM_SYNC_MODE") else 0.8)
+        # Simulated mode: no artificial delay. The simulation is instant.
+        # Previously slept 0.8s to "feel real" — that was misleading.
+        # Derive a deterministic seed so same input = same output
+        seed = self._derive_seed(content, roi_scores)
+        rng = _random.Random(seed)
 
         roi_boost = 0
         if roi_scores:
@@ -129,10 +149,10 @@ class MiroFishEngine:
 
         reactions = []
         for i in range(num_agents):
-            persona = random.choices(self.personas, weights=[p["weight"] for p in self.personas])[0]
+            persona = rng.choices(self.personas, weights=[p["weight"] for p in self.personas])[0]
 
             base_sentiment = persona["sentiment_bias"] + roi_boost * 0.2
-            sentiment = min(1.0, max(0.0, base_sentiment + random.uniform(-0.1, 0.1)))
+            sentiment = min(1.0, max(0.0, base_sentiment + rng.uniform(-0.1, 0.1)))
 
             comment_types = {
                 "supportive": ["omg love this!", "finally someone said it", "this is everything"],
@@ -151,9 +171,9 @@ class MiroFishEngine:
                     "persona_type": persona["type"],
                     "initial_sentiment": sentiment,
                     "current_sentiment": sentiment,
-                    "engagement_score": random.uniform(0.3, 1.0),
-                    "share_likelihood": sentiment * random.uniform(0.5, 1.0),
-                    "comment": random.choice(
+                    "engagement_score": rng.uniform(0.3, 1.0),
+                    "share_likelihood": sentiment * rng.uniform(0.5, 1.0),
+                    "comment": rng.choice(
                         comment_types.get(persona["engagement_style"], ["..."])
                     ),
                     "trust_level": sentiment,
@@ -168,7 +188,7 @@ class MiroFishEngine:
 
             for reaction in reactions:
                 influence = (avg_sentiment - reaction["current_sentiment"]) * 0.05
-                random_event = random.uniform(-0.02, 0.02)
+                random_event = rng.uniform(-0.02, 0.02)
                 new_sentiment = reaction["current_sentiment"] + influence + random_event
                 reaction["current_sentiment"] = min(1.0, max(0.0, new_sentiment))
                 reaction["trust_level"] = min(
@@ -263,6 +283,8 @@ class MiroFishEngine:
         return {
             "simulation_id": f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "mode": "simulated",
+            "is_early_estimate": True,
+            "confidence_note": "Swarm simulation — predicted audience reactions based on statistical modeling. Scores are directional estimates, not guarantees.",
             "persona_distribution": distribution,
             "final_sentiment": round(final_round["avg_sentiment"] * 100, 1),
             "viral_prediction": viral_prediction,
@@ -289,9 +311,7 @@ class MiroFishEngine:
             except Exception:
                 pass
 
-        # Use shorter sleep in test mode (NEUROSIM_SYNC_MODE)
-        await asyncio.sleep(0.05 if os.environ.get("NEUROSIM_SYNC_MODE") else 0.5)
-
+        # Simulated mode: no artificial delay.
         effects = []
         if modifications.get("earlier_product_mention"):
             effects.append(

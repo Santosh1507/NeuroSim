@@ -226,28 +226,43 @@ class TestAPIEndpoints:
 
     def test_upload_and_delete_analysis(self, client):
         """Upload an analysis, then delete it, then verify it's gone."""
-        file_content = _mp4_header() + b"fake mp4 content" * 1000
-        upload_response = client.post(
-            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
-        )
-        assert upload_response.status_code == 200
-        video_id = upload_response.json()["video_id"]
-        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
+        import jwt
+        import time
+        from main import _set_jwt_secret_for_test
 
-        # Delete the analysis
-        delete_response = client.delete(f"/api/v1/analyses/{video_id}")
-        assert delete_response.status_code == 200
-        data = delete_response.json()
-        assert data["status"] == "deleted"
-        assert data["video_id"] == video_id
+        secret = "test-secret"
+        _set_jwt_secret_for_test(secret)
+        try:
+            payload = {"sub": "test-user", "exp": time.time() + 3600, "aud": "authenticated"}
+            token = jwt.encode(payload, secret, algorithm="HS256")
+            headers = {"Authorization": f"Bearer {token}"}
 
-        # Verify it's gone
-        get_response = client.get(f"/api/v1/analyses/{video_id}")
-        assert get_response.status_code == 404
+            file_content = _mp4_header() + b"fake mp4 content" * 1000
+            upload_response = client.post(
+                "/api/v1/upload",
+                files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")},
+                headers=headers,
+            )
+            assert upload_response.status_code == 200
+            video_id = upload_response.json()["video_id"]
+            assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
-        # Delete again should 404
-        delete_response2 = client.delete(f"/api/v1/analyses/{video_id}")
-        assert delete_response2.status_code == 404
+            # Delete the analysis
+            delete_response = client.delete(f"/api/v1/analyses/{video_id}", headers=headers)
+            assert delete_response.status_code == 200
+            data = delete_response.json()
+            assert data["status"] == "deleted"
+            assert data["video_id"] == video_id
+
+            # Verify it's gone
+            get_response = client.get(f"/api/v1/analyses/{video_id}")
+            assert get_response.status_code == 404
+
+            # Delete again should 404
+            delete_response2 = client.delete(f"/api/v1/analyses/{video_id}", headers=headers)
+            assert delete_response2.status_code == 404
+        finally:
+            _set_jwt_secret_for_test("")
 
     def test_pdf_report_download(self, client):
         """PDF report endpoint returns valid PDF bytes."""

@@ -63,3 +63,41 @@ export function DashboardABAreaChart({ abResults }: { abResults: any }) {
     </ResponsiveContainer>
   )
 }
+
+export function DashboardABRadarOverlay({ abResults }: { abResults: any }) {
+  if (!abResults?.version_a?.brain_regions || !abResults?.version_b?.brain_regions) {
+    return null
+  }
+
+  const brainRegionLabels: Record<string, string> = {
+    visual_cortex: 'Visual Cortex',
+    auditory_cortex: 'Auditory Cortex',
+    amygdala: 'Amygdala',
+    prefrontal: 'Prefrontal',
+    memory: 'Memory',
+    social_cognition: 'Social Cog'
+  }
+
+  const chartData = Object.keys(brainRegionLabels).map(key => ({
+    subject: brainRegionLabels[key],
+    a: (abResults.version_a.brain_regions[key] ?? 0.5) * 100,
+    b: (abResults.version_b.brain_regions[key] ?? 0.5) * 100,
+  }))
+
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <RadarChart data={chartData}>
+        <PolarGrid stroke="rgba(255,255,255,0.05)" />
+        <PolarAngleAxis dataKey="subject" tick={{ fill: '#888', fontSize: 10 }} />
+        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#444', fontSize: 8 }} />
+        <Radar name="Version A" dataKey="a" stroke="#4deeea" fill="#4deeea" fillOpacity={0.15} strokeWidth={2} />
+        <Radar name="Version B" dataKey="b" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.15} strokeWidth={2} />
+        <Tooltip
+          contentStyle={{ background: '#0f0f16', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}
+          labelStyle={{ color: '#fff' }}
+        />
+      </RadarChart>
+    </ResponsiveContainer>
+  )
+}
+

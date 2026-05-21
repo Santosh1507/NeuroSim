@@ -111,6 +111,24 @@ describe('DashboardABAreaChart', () => {
     const { container } = render(<DashboardABAreaChart abResults={unevenResults as any} />)
     expect(container.querySelector('svg')).toBeDefined()
   })
+
+  it('renders backend A/B result shape with social projection', () => {
+    const backendResults = {
+      version_a: {
+        hook_score: 0.6,
+        hold_rate: 0.5,
+        social: { seven_day_curve: [1000, 2000, 3000, 4000, 5000, 6000, 7000] },
+      },
+      version_b: {
+        hook_score: 0.78,
+        hold_rate: 0.62,
+        social: { seven_day_curve: [1200, 2400, 3600, 4800, 6000, 7200, 8400] },
+      },
+      winner: 'B',
+    }
+    const { container } = render(<DashboardABAreaChart abResults={backendResults} />)
+    expect(container.querySelector('svg')).toBeDefined()
+  })
 })
 
 // ─── AnalyticsCharts ──────────────────────────────────────
