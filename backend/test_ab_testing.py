@@ -4,8 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from storage_adapter import store
 from shared_state import require_auth_user
+from storage_adapter import store
 
 client = TestClient(app)
 
@@ -51,6 +51,8 @@ class TestABTestingRoutes:
         assert data["results"]["version_a"]["hook_score"] == 0.6
         assert data["results"]["version_b"]["hook_score"] > 0.6  # simulated boost
         assert data["results"]["winner"] == "B"
+        assert len(data["results"]["version_a"]["social"]["seven_day_curve"]) == 7
+        assert len(data["results"]["version_b"]["social"]["seven_day_curve"]) == 7
 
     @pytest.mark.asyncio
     async def test_create_ab_test_video_success(self):
@@ -75,6 +77,7 @@ class TestABTestingRoutes:
         assert data["results"]["version_a"]["hook_score"] == 0.6
         assert data["results"]["version_b"]["hook_score"] == 0.8
         assert data["results"]["winner"] == "B"
+        assert data["results"]["version_a"]["social"]["peak_reach"] > 0
 
     @pytest.mark.asyncio
     async def test_list_and_get_ab_tests(self):

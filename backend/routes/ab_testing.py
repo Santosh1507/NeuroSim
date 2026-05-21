@@ -2,17 +2,107 @@
 
 import logging
 import uuid
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from storage_adapter import store
 from shared_state import require_auth_user
+from storage_adapter import store
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["ab_testing"])
+
+_DEFAULT_BRAIN_REGIONS = {
+    "visual_cortex": 0.5,
+    "auditory_cortex": 0.5,
+    "amygdala": 0.5,
+    "prefrontal": 0.5,
+    "memory": 0.5,
+    "social_cognition": 0.5,
+}
+
+
+def _build_social_projection(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """Create the reach projection shape consumed by the dashboard chart."""
+    w_attn = float(metrics.get("W_attn", 0.5))
+    viral_score = float(metrics.get("virality_score", 50.0))
+    viral_coefficient = round(max(0.2, min(3.5, (w_attn * 2.0) + (viral_score / 100.0))), 2)
+    base_reach = 50000
+    return {
+        "initial_attention_weight": round(w_attn, 3),
+        "viral_coefficient": viral_coefficient,
+        "peak_reach": int(base_reach * viral_coefficient * 2.5),
+        "seven_day_curve": [
+            int(base_reach * 0.1 * (i + 1) * viral_coefficient) for i in range(7)
+        ],
+    }
+
+
+def _extract_metrics(
+    video: Optional[Dict],
+    analysis: Optional[Dict],
+    default_filename: str = "Unknown",
+) -> Dict[str, Any]:
+    """Extract normalized metrics from a video + analysis pair.
+
+    Handles both flat and wrapped analysis shapes (Fix 3: shape duality).
+    Returns a metrics dict with all fields needed for A/B comparison.
+    """
+    # Normalize analysis shape: unwrap {"data": {...}} if present
+    a_data = analysis or {}
+    if "data" in a_data and isinstance(a_data["data"], dict):
+        a_data = a_data["data"]
+
+    filename = (video or {}).get("filename", default_filename)
+
+    metrics = {
+        "filename": filename,
+        "hook_score": float(a_data.get("hook_score", 0.5)),
+        "hold_rate": float(a_data.get("hold_rate", 0.5)),
+        "virality_score": float(a_data.get("virality_score", 50.0)),
+        "engagement_curve": list(a_data.get("engagement_curve", [0.5] * 8)),
+        "visual_engagement": float(a_data.get("visual_engagement", 0.5)),
+        "audio_engagement": float(a_data.get("audio_engagement", 0.5)),
+        "emotional_arc": float(a_data.get("emotional_arc", 0.5)),
+        "cta_presence": float(a_data.get("cta_presence", 0.5)),
+        "peak_hook_timestamp": float(a_data.get("peak_hook_timestamp", 1.0)),
+        "brain_regions": dict(a_data.get("brain_regions", _DEFAULT_BRAIN_REGIONS)),
+        "recommendations": list(a_data.get("recommendations", [])),
+    }
+
+    # Attention weight: composite of hold rate and hook score
+    metrics["W_attn"] = 0.7 * metrics["hold_rate"] + 0.3 * metrics["hook_score"]
+    metrics["social"] = _build_social_projection(metrics)
+
+    return metrics
+
+
+def _simulate_optimized_metrics(
+    baseline: Dict[str, Any],
+    label: str = "Optimized Script",
+) -> Dict[str, Any]:
+    """Generate simulated A/B variant metrics with realistic improvements over baseline."""
+    metrics = {
+        "filename": label,
+        "hook_score": min(1.0, baseline["hook_score"] + 0.18),
+        "hold_rate": min(1.0, baseline["hold_rate"] + 0.12),
+        "virality_score": min(100.0, baseline["virality_score"] + 15.0),
+        "engagement_curve": [min(1.0, val + 0.14) for val in baseline["engagement_curve"]],
+        "visual_engagement": min(1.0, baseline["visual_engagement"] + 0.05),
+        "audio_engagement": min(1.0, baseline["audio_engagement"] + 0.08),
+        "emotional_arc": min(1.0, baseline["emotional_arc"] + 0.10),
+        "cta_presence": min(1.0, baseline["cta_presence"] + 0.20),
+        "peak_hook_timestamp": baseline["peak_hook_timestamp"],
+        "brain_regions": {
+            r: min(1.0, v + 0.15) for r, v in baseline["brain_regions"].items()
+        },
+        "recommendations": ["Greatly improved hook interrupt", "Stronger emotional retention arc"],
+        "W_attn": 0.7 * min(1.0, baseline["hold_rate"] + 0.12) + 0.3 * min(1.0, baseline["hook_score"] + 0.18),
+    }
+    metrics["social"] = _build_social_projection(metrics)
+    return metrics
 
 
 class ABTestCreateRequest(BaseModel):
@@ -40,48 +130,11 @@ async def create_ab_test(
             detail=f"Baseline analysis for video {req.baseline_video_id} not found.",
         )
 
-    # 2. Extract baseline metrics
-    b_data = baseline_analysis
-    # Support both flat and wrapped shapes
-    if "data" in b_data and isinstance(b_data["data"], dict):
-        b_data = b_data["data"]
-
-    # Extract required fields with fallbacks
-    a_metrics = {
-        "filename": baseline_video.get("filename", "Original Video"),
-        "hook_score": float(b_data.get("hook_score", 0.5)),
-        "hold_rate": float(b_data.get("hold_rate", 0.5)),
-        "virality_score": float(b_data.get("virality_score", 50.0)),
-        "engagement_curve": list(b_data.get("engagement_curve", [0.5] * 8)),
-        "visual_engagement": float(b_data.get("visual_engagement", 0.5)),
-        "audio_engagement": float(b_data.get("audio_engagement", 0.5)),
-        "emotional_arc": float(b_data.get("emotional_arc", 0.5)),
-        "cta_presence": float(b_data.get("cta_presence", 0.5)),
-        "peak_hook_timestamp": float(b_data.get("peak_hook_timestamp", 1.0)),
-        "brain_regions": dict(
-            b_data.get(
-                "brain_regions",
-                {
-                    "visual_cortex": 0.5,
-                    "auditory_cortex": 0.5,
-                    "amygdala": 0.5,
-                    "prefrontal": 0.5,
-                    "memory": 0.5,
-                    "social_cognition": 0.5,
-                },
-            )
-        ),
-        "recommendations": list(b_data.get("recommendations", [])),
-    }
-
-    # Helper to calculate W_attn
-    def calc_w_attn(metrics: dict) -> float:
-        return 0.7 * metrics["hold_rate"] + 0.3 * metrics["hook_score"]
-
-    a_metrics["W_attn"] = calc_w_attn(a_metrics)
+    # 2. Extract baseline metrics (handles shape normalization internally)
+    a_metrics = _extract_metrics(baseline_video, baseline_analysis, "Original Video")
 
     # 3. Determine/simulate Variant B metrics
-    b_metrics = {}
+    b_metrics: Dict[str, Any] = {}
     if req.variant_video_id:
         variant_video = await store.get_video(req.variant_video_id)
         if not variant_video:
@@ -94,61 +147,14 @@ async def create_ab_test(
                 detail=f"Variant analysis for video {req.variant_video_id} not found.",
             )
 
-        v_data = variant_analysis
-        if "data" in v_data and isinstance(v_data["data"], dict):
-            v_data = v_data["data"]
-
-        b_metrics = {
-            "filename": variant_video.get("filename", "Variant Video"),
-            "hook_score": float(v_data.get("hook_score", 0.5)),
-            "hold_rate": float(v_data.get("hold_rate", 0.5)),
-            "virality_score": float(v_data.get("virality_score", 50.0)),
-            "engagement_curve": list(v_data.get("engagement_curve", [0.5] * 8)),
-            "visual_engagement": float(v_data.get("visual_engagement", 0.5)),
-            "audio_engagement": float(v_data.get("audio_engagement", 0.5)),
-            "emotional_arc": float(v_data.get("emotional_arc", 0.5)),
-            "cta_presence": float(v_data.get("cta_presence", 0.5)),
-            "peak_hook_timestamp": float(v_data.get("peak_hook_timestamp", 1.0)),
-            "brain_regions": dict(
-                v_data.get(
-                    "brain_regions",
-                    {
-                        "visual_cortex": 0.5,
-                        "auditory_cortex": 0.5,
-                        "amygdala": 0.5,
-                        "prefrontal": 0.5,
-                        "memory": 0.5,
-                        "social_cognition": 0.5,
-                    },
-                )
-            ),
-            "recommendations": list(v_data.get("recommendations", [])),
-        }
+        b_metrics = _extract_metrics(variant_video, variant_analysis, "Variant Video")
     elif req.variant_script:
-        # Script-based optimization comparison. Simulate a realistic improvement!
-        b_metrics = {
-            "filename": "Optimized Script",
-            "hook_score": min(1.0, a_metrics["hook_score"] + 0.18),
-            "hold_rate": min(1.0, a_metrics["hold_rate"] + 0.12),
-            "virality_score": min(100.0, a_metrics["virality_score"] + 15.0),
-            "engagement_curve": [min(1.0, val + 0.14) for val in a_metrics["engagement_curve"]],
-            "visual_engagement": min(1.0, a_metrics["visual_engagement"] + 0.05),
-            "audio_engagement": min(1.0, a_metrics["audio_engagement"] + 0.08),
-            "emotional_arc": min(1.0, a_metrics["emotional_arc"] + 0.10),
-            "cta_presence": min(1.0, a_metrics["cta_presence"] + 0.20),
-            "peak_hook_timestamp": a_metrics["peak_hook_timestamp"],
-            "brain_regions": {
-                r: min(1.0, v + 0.15) for r, v in a_metrics["brain_regions"].items()
-            },
-            "recommendations": ["Greatly improved hook interrupt", "Stronger emotional retention arc"],
-        }
+        b_metrics = _simulate_optimized_metrics(a_metrics, "Optimized Script")
     else:
         raise HTTPException(
             status_code=400,
             detail="Must provide either variant_video_id or variant_script to compare.",
         )
-
-    b_metrics["W_attn"] = calc_w_attn(b_metrics)
 
     # 4. Formulate comparison results
     results = {

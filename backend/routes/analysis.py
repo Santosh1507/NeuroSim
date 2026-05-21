@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -67,6 +68,8 @@ class ScriptAnalysisRequest(BaseModel):
 class YouTubeAnalysisRequest(BaseModel):
     url: str
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["analysis"])
 
@@ -215,6 +218,9 @@ async def delete_analysis(video_id: str, user_id: str = Depends(require_auth_use
     if video.get("user_id") != user_id:
         raise HTTPException(status_code=403, detail="You can only delete your own analyses")
 
+    filename = video.get("filename", video_id)
+    logger.info(f"User {user_id} deleting analysis {video_id} (file: {filename})")
+
     await store.delete_analysis(video_id)
     await store.delete_video(video_id)
     _task_status.pop(video_id, None)
@@ -224,6 +230,8 @@ async def delete_analysis(video_id: str, user_id: str = Depends(require_auth_use
     for sid in share_ids:
         _share_links.pop(sid, None)
         _share_link_timestamps.pop(sid, None)
+
+    logger.info(f"Analysis {video_id} deleted by user {user_id} — cleaned {len(share_ids)} share links")
 
     return {"status": "deleted", "video_id": video_id}
 
@@ -343,15 +351,17 @@ async def submit_validation_data(
 
 @router.get("/validation/study")
 async def get_validation_study():
-    """Return validation study progress and correlation results."""
+    """Return validation study progress, correlation results, and prediction accuracy."""
     progress = _study.get_study_progress()
     correlations = _study.compute_correlations()
     benchmarks = _study.get_benchmark_comparison()
+    accuracy = _study.compute_accuracy()
 
     return {
         "progress": progress,
         "correlations": correlations,
         "benchmarks": benchmarks,
+        "accuracy": accuracy,
     }
 
 

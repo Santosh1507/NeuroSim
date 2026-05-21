@@ -17,22 +17,24 @@ logger = logging.getLogger(__name__)
 
 
 # ─── In-memory storage ────────────────────────────────────
-
+ 
 _videos_cache: Dict[str, dict] = {}
 _analyses_cache: Dict[str, dict] = {}
 _ab_tests_cache: Dict[str, dict] = {}
+_social_simulations_cache: Dict[str, dict] = {}
 _cache_timestamps: Dict[str, float] = {}
 _VIDEO_TTL = 3600  # 1 hour
 _ANALYSIS_TTL = 1800  # 30 minutes
 _AB_TEST_TTL = 1800  # 30 minutes
+_SOCIAL_SIMULATION_TTL = 1800  # 30 minutes
 _last_eviction: float = 0
 _EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps
-
-
+ 
+ 
 def _touch_cache(key: str):
     _cache_timestamps[key] = datetime.now().timestamp()
-
-
+ 
+ 
 def _evict_stale():
     global _last_eviction
     now = datetime.now().timestamp()
@@ -54,6 +56,11 @@ def _evict_stale():
         for k in _cache_timestamps
         if k.startswith("ab:") and now - _cache_timestamps[k] > _AB_TEST_TTL
     ]
+    stale_social_simulations = [
+        k
+        for k in _cache_timestamps
+        if k.startswith("ss:") and now - _cache_timestamps[k] > _SOCIAL_SIMULATION_TTL
+    ]
     for k in stale_videos:
         vid = k[2:]
         _videos_cache.pop(vid, None)
@@ -65,6 +72,10 @@ def _evict_stale():
     for k in stale_ab_tests:
         abid = k[3:]
         _ab_tests_cache.pop(abid, None)
+        _cache_timestamps.pop(k, None)
+    for k in stale_social_simulations:
+        ssid = k[3:]
+        _social_simulations_cache.pop(ssid, None)
         _cache_timestamps.pop(k, None)
 
 
@@ -441,11 +452,106 @@ class StorageAdapter:
             except Exception as e:
                 logger.warning(f"Supabase delete_ab_test failed: {e}")
 
+    # ─── Social Simulations ────────────────────────────────
+
+    async def insert_social_simulation(
+        self,
+        sim_id: str,
+        video_id: str,
+        platform: str,
+        algorithmic_score: float,
+        vtr: float,
+        retention_data: Dict,
+        user_id: str = "anonymous",
+    ) -> Dict:
+        """Insert a social simulation record into both Supabase and in-memory cache."""
+        record = {
+            "id": sim_id,
+            "user_id": user_id,
+            "video_id": video_id,
+            "platform": platform,
+            "algorithmic_score": algorithmic_score,
+            "vtr": vtr,
+            "retention_data": retention_data,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        if _supabase.enabled:
+            try:
+                result = _supabase.client.table("social_simulations").insert(record).execute()
+                record = result.data[0] if result.data else record
+            except Exception as e:
+                logger.warning(f"Supabase insert_social_simulation failed: {e}")
+
+        _social_simulations_cache[sim_id] = record
+        _touch_cache(f"ss:{sim_id}")
+        return record
+
+    async def get_social_simulation(self, sim_id: str) -> Optional[Dict]:
+        """Get a social simulation — in-memory cache first, then Supabase."""
+        _evict_stale()
+
+        cached = _social_simulations_cache.get(sim_id)
+        if cached is not None:
+            return cached
+
+        if _supabase.enabled:
+            try:
+                result = _supabase.client.table("social_simulations").select("*").eq("id", sim_id).execute()
+                if result.data:
+                    rec = result.data[0]
+                    _social_simulations_cache[sim_id] = rec
+                    _touch_cache(f"ss:{sim_id}")
+                    return rec
+            except Exception as e:
+                logger.warning(f"Supabase get_social_simulation failed: {e}")
+
+        return None
+
+    async def list_social_simulations(self, user_id: str = "anonymous", limit: int = 50) -> List[Dict]:
+        """List historical social simulations — Supabase if available, else in-memory."""
+        _evict_stale()
+
+        if _supabase.enabled:
+            try:
+                result = (
+                    _supabase.client.table("social_simulations")
+                    .select("*")
+                    .eq("user_id", user_id)
+                    .order("created_at", desc=True)
+                    .limit(limit)
+                    .execute()
+                )
+                for rec in result.data:
+                    _social_simulations_cache[rec["id"]] = rec
+                    _touch_cache(f"ss:{rec['id']}")
+                return result.data
+            except Exception as e:
+                logger.warning(f"Supabase list_social_simulations failed: {e}")
+
+        return sorted(
+            [v for v in _social_simulations_cache.values() if v.get("user_id") == user_id],
+            key=lambda v: v.get("created_at", ""),
+            reverse=True,
+        )[:limit]
+
+    async def delete_social_simulation(self, sim_id: str) -> None:
+        """Delete a social simulation record from both stores."""
+        _social_simulations_cache.pop(sim_id, None)
+        _cache_timestamps.pop(f"ss:{sim_id}", None)
+
+        if _supabase.enabled:
+            try:
+                _supabase.client.table("social_simulations").delete().eq("id", sim_id).execute()
+            except Exception as e:
+                logger.warning(f"Supabase delete_social_simulation failed: {e}")
+
     def _reset(self) -> None:
         """Clear all caches and timestamps. For testing only."""
         _videos_cache.clear()
         _analyses_cache.clear()
         _ab_tests_cache.clear()
+        _social_simulations_cache.clear()
         _cache_timestamps.clear()
 
 
