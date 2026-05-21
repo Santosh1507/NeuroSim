@@ -1,0 +1,17 @@
+name: Warmup
+
+on:
+  schedule:
+    # Render free tier spins down after 15 min idle — ping every 10 min
+    - cron: '*/10 * * * *'
+  workflow_dispatch:  # allow manual run
+
+permissions:
+  contents: read
+
+jobs:
+  ping-render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render backend to prevent spin-down
+        run: curl -s --max-time 15 https://neurosim-nm22.onrender.com/ -o /dev/null -w "%{http_code}"
