@@ -226,6 +226,80 @@ class ValidationStudy:
             return 1.0
         return x**a * (1 - x) ** b / (a * ValidationStudy._beta_func(a, b))
 
+    def compute_accuracy(self) -> Dict[str, Any]:
+        """Compute prediction accuracy based on directional correctness.
+
+        For each entry, checks whether the predicted success_probability
+        directionally matches the actual outcome (above/below median).
+        Returns an intuitive accuracy percentage.
+        """
+        if len(self._entries) < self.MIN_SAMPLES_FOR_CORR:
+            return {
+                "status": "insufficient_data",
+                "message": f"Need at least {self.MIN_SAMPLES_FOR_CORR} entries to compute accuracy",
+            }
+
+        entries = self._entries
+
+        # Compute median views and engagement for directional comparison
+        sorted_views = sorted(e.actual_views for e in entries)
+        sorted_eng = sorted(e.actual_engagement for e in entries)
+        mid = len(sorted_views) // 2
+        median_views = sorted_views[mid]
+        median_eng = sorted_eng[mid]
+
+        # For each entry, check if predicted scores match actual outcomes directionally
+        correct_views = 0
+        correct_eng = 0
+        total = len(entries)
+
+        # Also compute Mean Absolute Error for predicted scores vs normalized actuals
+        # Scale: actual views/engagement normalized to 0-100 range within dataset
+        max_views = max(e.actual_views for e in entries) or 1
+        max_eng = max(e.actual_engagement for e in entries) or 1
+
+        mae_views = 0
+        mae_eng = 0
+
+        for e in entries:
+            pred_success = e.predicted_scores.get("success_probability", 50)
+
+            # Directional check: above-median success_prob should match above-median outcome
+            if (pred_success >= 50 and e.actual_views >= median_views) or \
+               (pred_success < 50 and e.actual_views < median_views):
+                correct_views += 1
+
+            if (pred_success >= 50 and e.actual_engagement >= median_eng) or \
+               (pred_success < 50 and e.actual_engagement < median_eng):
+                correct_eng += 1
+
+            # Normalized MAE
+            norm_views = (e.actual_views / max_views) * 100
+            mae_views += abs(pred_success - norm_views)
+            norm_eng = (e.actual_engagement / max_eng) * 100
+            mae_eng += abs(pred_success - norm_eng)
+
+        views_accuracy = round((correct_views / total) * 100, 1)
+        eng_accuracy = round((correct_eng / total) * 100, 1)
+        overall = round((views_accuracy + eng_accuracy) / 2, 1)
+
+        mae_views = round(mae_views / total, 1)
+        mae_eng = round(mae_eng / total, 1)
+
+        return {
+            "status": "computed",
+            "n_samples": total,
+            "directional_accuracy": {
+                "overall": overall,
+                "vs_views": views_accuracy,
+                "vs_engagement": eng_accuracy,
+            },
+            "mean_absolute_error": {
+                "vs_views": mae_views,
+                "vs_engagement": mae_eng,
+            },
+        }
+
     @staticmethod
     def _beta_func(a: float, b: float) -> float:
         """Approximation of beta function using gamma."""

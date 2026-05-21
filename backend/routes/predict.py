@@ -8,7 +8,7 @@ This is a separate flow from the main upload pipeline — no database writes,
 no swarm simulation, no persistent state. Pure prediction.
 """
 
-import asyncio
+import hashlib
 import logging
 import os
 import uuid
@@ -19,12 +19,13 @@ from typing import Optional
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
-from bridge_logic import ROI, NeuroSocialBridge
+from bridge_logic import NeuroSocialBridge
 from config import settings
 from heuristic_scorer import score_transcript
-from signal_merge import merge_signals, get_analysis_mode
+from rate_limiter import check_predict_limit
+from signal_merge import get_analysis_mode, merge_signals
 from transcriber import transcriber
-from utils import is_video_magic, is_allowed_video_extension
+from utils import is_allowed_video_extension, is_video_magic
 from vision_scorer import vision_scorer
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["predict"])
 
 _MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB for quick predict
-_ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm"}
 
+
+def _file_hash_seed(file_path: str) -> str:
+    """Return deterministic seed from file bytes for fallback scoring."""
+    digest = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _get_video_duration(file_path: str) -> Optional[float]:
@@ -58,6 +66,7 @@ def _get_video_duration(file_path: str) -> Optional[float]:
 async def predict_virality(
     request: Request,
     file: UploadFile = File(...),
+    _=Depends(check_predict_limit),
 ):
     """Quick virality prediction for a video clip.
 
@@ -123,12 +132,18 @@ async def predict_virality(
             logger.warning(f"[PREDICT] Transcription failed: {e}")
 
         # Run heuristic scoring on transcript
-        heuristic_roi = score_transcript(transcript) if transcript else {
-            "A5": 0.5, "LO": 0.5, "Area45": 0.5, "TPJ": 0.5, "mode": "heuristic", "word_count": 0
-        }
+        # Always call score_transcript (even for empty strings) so the
+        # fallback path returns varied scores with honest labeling.
+        heuristic_roi = score_transcript(transcript) if transcript else score_transcript("")
 
-        # Run Gemini vision analysis
+        # Run Gemini vision analysis, with deterministic fallback if unavailable.
         vision_scores = vision_scorer.analyze_video(str(file_path))
+        if vision_scores.get("mode") in ("disabled", "error"):
+            fallback_duration = int(round(duration)) if duration else settings.vision_max_duration
+            vision_scores = vision_scorer.get_fallback_scores(
+                duration_seconds=max(1, fallback_duration),
+                seed=_file_hash_seed(str(file_path)),
+            )
 
         # Merge signals
         roi = merge_signals(heuristic_roi, vision_scores)
@@ -149,7 +164,7 @@ async def predict_virality(
         rec_texts = [r["recommendation"] for r in recommendations]
 
         # Merge vision recommendations with bridge recommendations
-        if vision_scores.get("mode") == "vision":
+        if vision_scores.get("mode") in ("vision", "fallback"):
             vision_recs = vision_scores.get("recommendations", [])
             rec_texts = vision_recs + rec_texts
 
@@ -159,14 +174,14 @@ async def predict_virality(
             "duration_seconds": round(duration, 1) if duration else None,
 
             # Virality Predictor scores
-            "virality_score": vision_scores.get("virality_score") if vision_scores.get("mode") == "vision" else None,
+            "virality_score": vision_scores.get("virality_score") if vision_scores.get("mode") in ("vision", "fallback") else None,
             "hook_score": hook_score,
             "hook_strength": "Strong" if roi.LO > 0.6 else "Moderate" if roi.LO > 0.4 else "Weak",
-            "hold_rate": round(vision_scores.get("hold_rate", 0) * 100, 1) if vision_scores.get("mode") == "vision" else None,
-            "peak_hook_timestamp": vision_scores.get("peak_hook_timestamp") if vision_scores.get("mode") == "vision" else None,
+            "hold_rate": round(vision_scores.get("hold_rate", 0) * 100, 1) if vision_scores.get("mode") in ("vision", "fallback") else None,
+            "peak_hook_timestamp": vision_scores.get("peak_hook_timestamp") if vision_scores.get("mode") in ("vision", "fallback") else None,
 
             # Engagement curve
-            "engagement_curve": vision_scores.get("engagement_curve") if vision_scores.get("mode") == "vision" else None,
+            "engagement_curve": vision_scores.get("engagement_curve") if vision_scores.get("mode") in ("vision", "fallback") else None,
 
             # ROI scores (merged)
             "roi_scores": {
@@ -187,7 +202,7 @@ async def predict_virality(
             },
 
             # Brain regions (for 3D visualization)
-            "brain_regions": vision_scores.get("brain_regions") if vision_scores.get("mode") == "vision" else None,
+            "brain_regions": vision_scores.get("brain_regions") if vision_scores.get("mode") in ("vision", "fallback") else None,
 
             # Recommendations
             "recommendations": rec_texts[:8],  # cap at 8

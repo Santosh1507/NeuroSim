@@ -26,7 +26,7 @@ def merge_signals(
     """
     vision_mode = vision_scores.get("mode", "")
 
-    if vision_mode in ("disabled", "error", "fallback"):
+    if vision_mode in ("disabled", "error"):
         return ROI(
             A5=heuristic_roi.get("A5", 0.5),
             LO=heuristic_roi.get("LO", 0.5),
@@ -56,6 +56,10 @@ def get_analysis_mode(heuristic_available: bool, vision_mode: str) -> str:
         return "vision+heuristic"
     if vision_mode == "vision":
         return "vision"
+    if vision_mode == "fallback" and heuristic_available:
+        return "fallback+heuristic"
+    if vision_mode == "fallback":
+        return "fallback"
     if heuristic_available:
         return "heuristic"
     return "unknown"

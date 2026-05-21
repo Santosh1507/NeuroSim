@@ -97,13 +97,30 @@ class TestVisionScorerClamp:
 
 
 class TestVisionScorerFallback:
-    def test_fallback_returns_neutral_scores(self):
+    def test_fallback_returns_varied_scores(self):
         scorer = VisionScorer(api_key="")
-        result = scorer.get_fallback_scores(duration_seconds=5)
+        result = scorer.get_fallback_scores(duration_seconds=5, seed=42)
         assert result["mode"] == "fallback"
-        assert result["hook_score"] == 0.5
+        # Scores should be in the realistic 0.30-0.70 range, not flat 0.5
+        assert 0.30 <= result["hook_score"] <= 0.70
         assert len(result["engagement_curve"]) == 5
-        assert all(v == 0.5 for v in result["engagement_curve"])
+        # Each curve point should also be in the varied range
+        assert all(0.30 <= v <= 0.75 for v in result["engagement_curve"])
+
+    def test_fallback_deterministic_with_seed(self):
+        scorer = VisionScorer(api_key="")
+        result1 = scorer.get_fallback_scores(seed=42)
+        result2 = scorer.get_fallback_scores(seed=42)
+        assert result1["hook_score"] == result2["hook_score"]
+        assert result1["virality_score"] == result2["virality_score"]
+        assert result1["engagement_curve"] == result2["engagement_curve"]
+
+    def test_fallback_different_seeds_different_scores(self):
+        scorer = VisionScorer(api_key="")
+        result1 = scorer.get_fallback_scores(seed=42)
+        result2 = scorer.get_fallback_scores(seed=99)
+        # Different seed should produce different scores
+        assert result1["hook_score"] != result2["hook_score"]
 
     def test_fallback_has_all_fields(self):
         scorer = VisionScorer(api_key="")
@@ -119,6 +136,19 @@ class TestVisionScorerFallback:
         scorer = VisionScorer(api_key="")
         result = scorer.get_fallback_scores()
         assert len(result["brain_regions"]) == 6
+
+    def test_fallback_string_seed(self):
+        scorer = VisionScorer(api_key="")
+        # String seeds should be hashed to deterministic int
+        result1 = scorer.get_fallback_scores(seed="my_video.mp4")
+        result2 = scorer.get_fallback_scores(seed="my_video.mp4")
+        assert result1["hook_score"] == result2["hook_score"]
+
+    def test_fallback_different_strings_different_scores(self):
+        scorer = VisionScorer(api_key="")
+        result1 = scorer.get_fallback_scores(seed="video_a.mp4")
+        result2 = scorer.get_fallback_scores(seed="video_b.mp4")
+        assert result1["hook_score"] != result2["hook_score"]
 
 
 class TestVisionScorerDisabled:
