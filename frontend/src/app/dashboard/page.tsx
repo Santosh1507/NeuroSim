@@ -22,6 +22,11 @@ const Brain3D = dynamic(() => import('../components/Brain3D'), {
   loading: () => <div className="w-full h-[300px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>
 })
 
+const SimulatedPhone = dynamic(() => import('../components/SimulatedPhone'), { 
+  ssr: false,
+  loading: () => <div className="w-full h-[400px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>
+})
+
 const DashboardRadar = dynamic(() => import('../components/charts/DashboardCharts').then(m => ({ default: m.DashboardRadar })), { ssr: false })
 const DashboardABAreaChart = dynamic(() => import('../components/charts/DashboardCharts').then(m => ({ default: m.DashboardABAreaChart })), { ssr: false })
 
@@ -49,7 +54,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'abtesting'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'abtesting' | 'feed_simulator'>('overview')
   const [abTestRunning, setAbTestRunning] = useState(false)
   const [abResults, setAbResults] = useState<any>(null)
   const [demoMode, setDemoMode] = useState(false)
@@ -957,6 +962,16 @@ export default function Dashboard() {
               >
                 <Zap className="w-3.5 h-3.5" /> A/B Testing
               </button>
+              <button
+                onClick={() => setActiveTab('feed_simulator')}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'feed_simulator'
+                    ? 'bg-neural/15 text-neural border border-neural/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5" /> Social Feed
+              </button>
             </div>
 
             <AnimatePresence mode="wait">
@@ -1581,6 +1596,19 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
+                </motion.div>
+              )}
+
+              {activeTab === 'feed_simulator' && (
+                <motion.div
+                  key="feed_simulator"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={tabSwitch}
+                  className="space-y-6"
+                >
+                  <SimulatedPhone video_id={selectedVideo || ''} analysis={analysis} />
                 </motion.div>
               )}
             </AnimatePresence>

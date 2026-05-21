@@ -119,3 +119,34 @@ CREATE POLICY "Allow admin read waitlist"
     ON waitlist FOR SELECT
     USING (auth.uid() IS NOT NULL);
 
+CREATE TABLE IF NOT EXISTS social_simulations (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL DEFAULT 'anonymous',
+    video_id TEXT NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL,
+    algorithmic_score REAL NOT NULL,
+    vtr REAL NOT NULL,
+    retention_data JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_social_simulations_user_id ON social_simulations(user_id);
+
+ALTER TABLE social_simulations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own social_simulations"
+    ON social_simulations FOR SELECT
+    USING (
+        (auth.uid() IS NULL AND user_id = 'anonymous')
+        OR (auth.uid() IS NOT NULL AND auth.uid()::text = user_id)
+    );
+
+CREATE POLICY "Users can insert own social_simulations"
+    ON social_simulations FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+CREATE POLICY "Users can delete own social_simulations"
+    ON social_simulations FOR DELETE
+    USING (auth.uid()::text = user_id);
+
+

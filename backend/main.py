@@ -61,6 +61,8 @@ from routes.premium import router as premium_router
 from routes.digest import router as digest_router
 from routes.ab_testing import router as ab_testing_router
 from routes.waitlist import router as waitlist_router
+from routes.social_feed import router as social_feed_router
+
 
 
 _BACKGROUND_SWEEP_INTERVAL = 60  # seconds between automatic housekeeping sweeps
@@ -172,6 +174,8 @@ app.include_router(digest_router, prefix=API_PREFIX)
 app.include_router(predict_router, prefix=API_PREFIX)
 app.include_router(ab_testing_router)
 app.include_router(waitlist_router)
+app.include_router(social_feed_router, prefix=API_PREFIX)
+
 
 
 # ─── Pydantic models for remaining routes ──────────────────

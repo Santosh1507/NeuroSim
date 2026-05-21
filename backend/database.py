@@ -203,6 +203,59 @@ class Database:
             from shared_state import _waitlist
             return any(entry["email"] == email for entry in _waitlist)
 
+    async def insert_social_simulation(
+        self,
+        sim_id: str,
+        video_id: str,
+        platform: str,
+        algorithmic_score: float,
+        vtr: float,
+        retention_data: Dict,
+        user_id: str = "anonymous",
+    ) -> Dict:
+        """Insert a social simulation record."""
+        record = {
+            "id": sim_id,
+            "user_id": user_id,
+            "video_id": video_id,
+            "platform": platform,
+            "algorithmic_score": algorithmic_score,
+            "vtr": vtr,
+            "retention_data": retention_data,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        if self.enabled:
+            result = self.client.table("social_simulations").insert(record).execute()
+            return result.data[0] if result.data else record
+        return record
+
+    async def get_social_simulation(self, sim_id: str) -> Optional[Dict]:
+        """Get a social simulation record."""
+        if self.enabled:
+            result = self.client.table("social_simulations").select("*").eq("id", sim_id).execute()
+            return result.data[0] if result.data else None
+        return None
+
+    async def list_social_simulations(self, user_id: str = "anonymous", limit: int = 50) -> List[Dict]:
+        """List historical social simulations for a user."""
+        if self.enabled:
+            result = (
+                self.client.table("social_simulations")
+                .select("*")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return result.data
+        return []
+
+    async def delete_social_simulation(self, sim_id: str) -> None:
+        """Delete a social simulation record."""
+        if self.enabled:
+            self.client.table("social_simulations").delete().eq("id", sim_id).execute()
+
 
 db = Database()
 
