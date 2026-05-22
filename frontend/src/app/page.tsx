@@ -68,10 +68,10 @@ const plans = [
     href: '/dashboard',
   },
   {
-    name: 'Pro', price: '29', popular: true,
+    name: 'Pro', price: '—', popular: true,
     items: ['Unlimited analyses', 'Priority processing', 'Custom ROI thresholds', 'Export reports (PDF/CSV)', 'API access', 'Team collaboration'],
-    cta: 'Join Waitlist',
-    disabled: false,
+    cta: 'Coming Soon',
+    disabled: true,
     href: '/waitlist',
   },
 ]
@@ -368,8 +368,8 @@ export default function LandingPage() {
                 )}
                 <h3 className="text-lg font-semibold text-white mb-1">{p.name}</h3>
                 <div className="flex items-baseline gap-0.5 mb-6">
-                  <span className="text-4xl font-bold text-white font-mono tracking-tight">${p.price}</span>
-                  <span className="text-sm text-gray-500 font-mono">/mo</span>
+                  <span className="text-4xl font-bold text-white font-mono tracking-tight">{p.price === '—' ? '—' : `\$${p.price}`}</span>
+                  {p.price !== '—' && <span className="text-sm text-gray-500 font-mono">/mo</span>}
                 </div>
                 <ul className="space-y-3 mb-8 flex-1">
                   {p.items.map(item => (

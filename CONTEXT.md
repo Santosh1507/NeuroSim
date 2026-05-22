@@ -98,7 +98,6 @@
 
 ## Roadmap
 
-**v2.5** (current) — JWT auth, storage adapter, email digest, Stripe billing
-**v3.0** — Script analyzer (text input), validation study launch, benchmark data collection
+**v3.0** (current) — Health endpoint reports 3.0.0. Script analyzer, validation study, benchmark data collection, JWT auth, Stripe billing, email digest.
 **v3.1** — What-if simulation UI, PDF report polish, comparison against benchmarks
 **v4.0** — Real neural encoding (GPU) — only after validation study proves heuristic baseline has merit
