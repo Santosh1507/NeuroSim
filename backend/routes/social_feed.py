@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from storage_adapter import store
+from rate_limiter import check_api_limit
 from shared_state import get_verified_user_id
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class SocialFeedSimulationRequest(BaseModel):
 @router.post("/simulation/social-feed")
 async def create_social_feed_simulation(
     req: SocialFeedSimulationRequest,
+    _=Depends(check_api_limit),
     user_id: str = Depends(get_verified_user_id),
 ):
     """Generate a second-by-second social feed simulation for a platform."""

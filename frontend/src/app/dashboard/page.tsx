@@ -1006,7 +1006,9 @@ export default function Dashboard() {
                           <Brain className="w-4 h-4 text-neural" />
                           <h4 className="text-sm font-semibold text-white">Content Analysis</h4>
                         </div>
-                        <span className="badge badge-ghost">SIM</span>
+                        <span className={`badge ${analysis.analysis_response?.mode === 'real' ? 'badge-neural' : 'badge-ghost'}`}>
+                          {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
+                        </span>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         {[
@@ -1125,7 +1127,9 @@ export default function Dashboard() {
                         <Sliders className="w-4 h-4 text-swarm" />
                         <h4 className="text-sm font-semibold text-white">What-If Simulation</h4>
                       </div>
-                      <span className="text-[10px] mono text-text-tertiary">SIM</span>
+                      <span className={`text-[10px] mono ${analysis.mirofish_simulation?.mode === 'real' ? 'text-neural' : 'text-amber-400/70'}`}>
+                        {analysis.mirofish_simulation?.mode === 'real' ? 'REAL' : 'SIM'}
+                      </span>
                     </div>
                     <div className="space-y-3">
                       <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">

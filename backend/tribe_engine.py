@@ -59,29 +59,69 @@ class TribeEngine:
             "mode": "real",
         }
 
+    # ROI vertex ranges — used to generate region-specific activations
+    # instead of a single uniform distribution over all 20484 vertices.
+    # Different videos get genuinely different ROI profiles because each
+    # ROI mean is derived from the video-specific seed.
+    _ROI_REGIONS = {
+        "A5":     (4200, 4600),
+        "LO":     (8000, 9200),
+        "Area45": (12000, 12800),
+        "TPJ":    (14000, 15200),
+    }
+
+    @staticmethod
+    def _roi_seeds(main_seed: int) -> list[int]:
+        roi_names = ["A5", "LO", "Area45", "TPJ"]
+        seeds = []
+        for i, name in enumerate(roi_names):
+            sub = hashlib.sha256(f"{main_seed}:{name}".encode()).hexdigest()[:8]
+            seeds.append(int(sub, 16))
+        return seeds
+
     async def _simulated_predict(
         self, video_path: str
     ) -> Dict[str, Any]:
         import numpy as np  # type: ignore[import-untyped]
-        # No artificial delay — simulation is instant.
-        # Previously slept 1.5s to "feel real" — removed.
-
-        import numpy as np  # lazy: only used for deterministic random arrays
 
         # Derive deterministic seed from video_path so same video = same predictions
-        seed = self._derive_seed(video_path)
-        np.random.seed(seed % (2**32))
+        main_seed = self._derive_seed(video_path)
 
         n_timesteps = 20
         n_vertices = 20484
 
-        base_activation = np.random.uniform(0.3, 0.7, size=(n_timesteps, n_vertices))
+        # Build predictions vertex-by-vertex-ROI so each region has
+        # input-dependent mean ≠ 0.5. Non-ROI regions get uniform noise.
+        predictions = np.zeros((n_timesteps, n_vertices), dtype=np.float64)
 
+        # Fill non-ROI regions first with neutral noise (0.4-0.6)
+        np.random.seed(main_seed % (2**32))
+        predictions[:] = np.random.uniform(0.4, 0.6, size=(n_timesteps, n_vertices))
+
+        # Generate per-ROI mean values from the main seed
+        np.random.seed((main_seed + 1) % (2**32))
+        roi_means = np.random.uniform(0.25, 0.75, size=4)
+
+        roi_seeds = self._roi_seeds(main_seed)
         temporal_pattern = np.sin(np.linspace(0, 4 * np.pi, n_timesteps))
         temporal_pattern = (temporal_pattern + 1) / 2
-        temporal_pattern = temporal_pattern[:, np.newaxis]
 
-        predictions = base_activation * temporal_pattern * 0.5 + 0.25
+        for idx, (roi_name, (start, end)) in enumerate(self._ROI_REGIONS.items()):
+            region_size = end - start
+            mean_val = roi_means[idx]
+
+            np.random.seed(roi_seeds[idx] % (2**32))
+
+            lo = max(0.01, mean_val - 0.18)
+            hi = min(0.99, mean_val + 0.18)
+            region_base = np.random.uniform(lo, hi, size=(n_timesteps, region_size))
+
+            # Different temporal strength per ROI
+            roi_temporal_strength = [0.3, 0.5, 0.4, 0.6][idx]
+            shaped = region_base * (1 - roi_temporal_strength) + temporal_pattern[:, np.newaxis] * roi_temporal_strength
+
+            predictions[:, start:end] = np.clip(shaped, 0.01, 0.99)
+
         predictions = np.clip(predictions, 0, 1)
 
         segments = [
