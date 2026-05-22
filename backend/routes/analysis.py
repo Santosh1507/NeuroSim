@@ -416,6 +416,7 @@ class ScriptRewriteRequest(BaseModel):
 @router.post("/analyze/rewrite")
 async def rewrite_script(
     req: ScriptRewriteRequest,
+    _=Depends(check_api_limit),
     user_id: str = Depends(get_verified_user_id),
 ):
     """Rewrite a script to boost a specific dimension using Gemini 2.5 Flash."""

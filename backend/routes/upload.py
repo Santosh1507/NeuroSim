@@ -401,7 +401,7 @@ async def get_video(video_id: str):
 
 
 @router.post("/simulate/single")
-async def simulate_single(req: SingleSimRequest):
+async def simulate_single(req: SingleSimRequest, _=Depends(check_api_limit)):
     import numpy as np
 
     is_strong = req.variant.lower() in ("a", "strong", "version_a")
@@ -445,7 +445,7 @@ async def simulate_single(req: SingleSimRequest):
 
 
 @router.post("/simulation/what-if/{video_id}")
-async def run_what_if(video_id: str, request: WhatIfRequest):
+async def run_what_if(video_id: str, request: WhatIfRequest, _=Depends(check_api_limit)):
     from mirofish_engine import mirofish_engine
 
     analysis = await _get_analysis_or_404(video_id)

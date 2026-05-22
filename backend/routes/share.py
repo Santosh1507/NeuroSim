@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from storage_adapter import store, _videos_cache, _supabase
+from rate_limiter import check_api_limit
 from shared_state import (
     _evict_stale,
     _get_analysis_or_404,
@@ -37,7 +38,7 @@ router = APIRouter(tags=["share"])
 
 
 @router.post("/share")
-async def create_share_link(req: ShareRequest, user_id: str = Depends(require_auth_user)):
+async def create_share_link(req: ShareRequest, _=Depends(check_api_limit), user_id: str = Depends(require_auth_user)):
     _evict_stale()
     analysis = await store.get_analysis(req.video_id)
     if not analysis:
