@@ -31,10 +31,10 @@ const TIERS = [
     name: 'Pro',
     monthly: 29,
     yearly: 290,
-    desc: 'Real GPU-powered neural processing with TRIBE v2.',
+    desc: 'LLM-enhanced analysis with deeper content insights.',
     features: [
       'Unlimited analyses',
-      'Real TRIBE v2 brain encoding',
+      'LLM-enhanced content analysis',
       'Priority swarm simulation',
       'Custom ROI thresholds',
       'Export reports (PDF/CSV)',
@@ -136,7 +136,7 @@ export default function PricingPage() {
             <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-bold text-white leading-[1.02] tracking-[-0.03em] mb-4">
               Simple, transparent <span className="text-gradient">pricing</span>
             </h1>
-            <p className="text-lg text-gray-400 max-w-md mx-auto">Start free. Upgrade when you need real GPU processing.</p>
+              <p className="text-lg text-gray-400 max-w-md mx-auto">Start free. Upgrade when you need deeper analysis.</p>
 
             <div
               className="inline-flex items-center gap-2 mt-10 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]"
@@ -193,7 +193,7 @@ export default function PricingPage() {
                   {tier.popular && (
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-5 py-1 rounded-full bg-gradient-to-r from-neural/20 to-swarm/20 border border-neural/25 backdrop-blur-sm flex items-center gap-2">
                       <Cpu className="w-3 h-3 text-neural" />
-                      <span className="text-[10px] font-mono text-neural font-semibold tracking-[0.15em] uppercase">GPU Powered</span>
+                      <span className="text-[10px] font-mono text-neural font-semibold tracking-[0.15em] uppercase">AI Enhanced</span>
                     </div>
                   )}
                   <div className="flex items-center gap-3 mb-2">

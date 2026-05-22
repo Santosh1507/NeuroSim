@@ -62,7 +62,7 @@ const features = [
 const plans = [
   {
     name: 'Free', price: '0', popular: false,
-    items: ['10 analyses/month', 'TRIBE v2 brain encoding', 'MiroFish swarm simulation', 'Stage-Gate guardrail', 'A/B comparison'],
+    items: ['10 analyses/month', 'TRIBE v2 neural analysis', 'MiroFish swarm simulation', 'Stage-Gate guardrail', 'A/B comparison'],
     cta: 'Get Started Free',
     disabled: false,
     href: '/dashboard',
