@@ -117,7 +117,7 @@ export default function SharedAnalysisPage() {
               <div className="glass-panel p-5">
                 <div className="flex items-center gap-2 mb-5">
                   <Brain className="w-4 h-4 text-neural" />
-                  <h4 className="text-sm font-semibold text-white">Neural Response</h4>
+                  <h4 className="text-sm font-semibold text-white">Content Analysis</h4>
                 </div>
                 <SharedRadarChart data={radarData} />
               </div>

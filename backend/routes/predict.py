@@ -66,16 +66,16 @@ async def predict_virality(
     file: UploadFile = File(...),
     _=Depends(check_predict_limit),
 ):
-    """Quick virality prediction for a video clip."""
-    from transcriber import transcriber
-    from vision_scorer import vision_scorer
+    """Quick virality prediction for a video clip.
 
     Upload a clip (max 15 seconds recommended). Returns virality score,
     hook score, hold rate, engagement curve, and brain region activations.
 
     This endpoint does NOT store the analysis or run the full pipeline.
-    It's a standalone prediction flow.
+    It is a standalone prediction flow.
     """
+    from transcriber import transcriber
+    from vision_scorer import vision_scorer
     client_ip = request.client.host if request.client else "unknown"
     logger.info(f"[PREDICT] Request from {client_ip}: {file.filename}")
 

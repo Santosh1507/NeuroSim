@@ -152,7 +152,7 @@ class TestAPIEndpoints:
         analysis = analysis_response.json()
         assert "hook_score" in analysis
         assert "mirofish_simulation" in analysis
-        assert "tribev2_brain_response" in analysis
+        assert "analysis_response" in analysis
         assert "stage_gate" in analysis
 
     def test_report_generation(self, client):
@@ -192,7 +192,7 @@ class TestAPIEndpoints:
         video_id = upload_response.json()["video_id"]
         assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
 
-        brain_response = client.get(f"/api/v1/brain-response/{video_id}")
+        brain_response = client.get(f"/api/v1/analysis-response/{video_id}")
         assert brain_response.status_code == 200
         brain = brain_response.json()
         assert "cortical_response" in brain
@@ -307,7 +307,7 @@ class TestScriptAnalysis:
         assert "success_probability" in data
         assert "risk_score" in data
         assert "recommendations" in data
-        assert "tribev2_brain_response" in data
+        assert "analysis_response" in data
         assert "mirofish_simulation" in data
         assert "stage_gate" in data
         assert data["analysis_type"] == "script"
@@ -317,7 +317,7 @@ class TestScriptAnalysis:
     def test_analyze_script_roi_scores(self, client):
         """Script analysis returns valid ROI scores in 0-1 range."""
         response = client.post("/api/v1/analyze/script", json={"script": _SAMPLE_SCRIPT})
-        brain = response.json()["tribev2_brain_response"]["cortical_response"]
+        brain = response.json()["analysis_response"]["cortical_response"]
         assert 0 <= brain["auditory_cortex"] <= 100
         assert 0 <= brain["visual_cortex"] <= 100
         assert 0 <= brain["language_center"] <= 100

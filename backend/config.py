@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     max_file_size: int = 2 * 1024 * 1024 * 1024
     cors_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "https://neurosim.vercel.app"]
 
-    # TRIBE v2 settings
+    # Neural engine settings (facebook/tribev2)
     tribe_use_real: bool = False
     tribe_model_name: str = "facebook/tribev2"
     tribe_cache_folder: str = "./cache/tribev2"

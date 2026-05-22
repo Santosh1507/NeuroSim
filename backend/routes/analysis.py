@@ -267,10 +267,10 @@ async def get_simulation(video_id: str):
     return analysis.get("mirofish_simulation", {})
 
 
-@router.get("/brain-response/{video_id}")
-async def get_brain_response(video_id: str):
+@router.get("/analysis-response/{video_id}")
+async def get_analysis_response(video_id: str):
     analysis = await _get_analysis_or_404(video_id)
-    return analysis.get("tribev2_brain_response", {})
+    return analysis.get("analysis_response", {})
 
 
 @router.post("/feedback")

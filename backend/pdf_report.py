@@ -135,10 +135,10 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     story.append(sg_table)
 
     # ROI Scores
-    brain = analysis.get("tribev2_brain_response", {})
+    brain = analysis.get("analysis_response", {})
     cortical = brain.get("cortical_response", {})
     if cortical:
-        story.append(Paragraph("Neural Response (TRIBE v2)", styles["ReportSection"]))
+        story.append(Paragraph("Content Analysis", styles["ReportSection"]))
         roi_data = [
             [Paragraph(k.replace("_", " ").title(), styles["MetricLabel"]), Paragraph(f"{v:.1f}%", styles["MetricValue"])]
             for k, v in cortical.items()
@@ -218,7 +218,7 @@ def generate_pdf_report(analysis: Dict[str, Any], video_info: Dict[str, Any] = N
     )
     story.append(
         Paragraph(
-            "NeuroSim v3.0 — TRIBE v2 + MiroFish Swarm | Confidential",
+            "NeuroSim v3.0 — AI Content Analysis + MiroFish Swarm | Confidential",
             styles["Footer"],
         )
     )

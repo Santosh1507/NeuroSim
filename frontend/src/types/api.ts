@@ -81,7 +81,7 @@ export interface TemporalDynamics {
   segments: TemporalSegment[];
 }
 
-export interface TRIBEBrainResponse {
+export interface AnalysisResponse {
   cortical_response: CorticalResponse;
   emotional_impact: EmotionalImpact;
   engagement_prediction: EngagementPrediction;
@@ -124,7 +124,7 @@ export interface Analysis {
   risk_score: number;
   recommendations: string[];
   mirofish_simulation: MiroFishSimulation;
-  tribev2_brain_response: TRIBEBrainResponse;
+  analysis_response: AnalysisResponse;
   stage_gate: StageGate;
   transcript: string;
   full_transcript?: string;

@@ -32,7 +32,7 @@ class TestSocialFeedSimulator:
             "hook_score": 85.0,
             "success_probability": 80.0,
             "engagement_curve": [0.85, 0.82, 0.75, 0.72, 0.70],
-            "tribev2_brain_response": {
+            "analysis_response": {
                 "cortical_response": {
                     "auditory_cortex": 92.0,  # strong auditory trigger
                     "visual_cortex": 80.0,
@@ -64,7 +64,7 @@ class TestSocialFeedSimulator:
             "hook_score": 30.0,
             "success_probability": 40.0,
             "engagement_curve": [0.30, 0.25, 0.20, 0.15, 0.10],  # first 2s average < 40%
-            "tribev2_brain_response": {
+            "analysis_response": {
                 "cortical_response": {
                     "auditory_cortex": 25.0,  # weak auditory trigger
                     "visual_cortex": 30.0,
@@ -99,7 +99,7 @@ class TestSocialFeedSimulator:
         await store.insert_analysis(video_good, {
             "hook_score": 90.0,
             "success_probability": 85.0,
-            "tribev2_brain_response": {
+            "analysis_response": {
                 "cortical_response": {
                     "visual_cortex": 95.0,
                     "auditory_cortex": 60.0,
@@ -113,7 +113,7 @@ class TestSocialFeedSimulator:
         await store.insert_analysis(video_bad, {
             "hook_score": 25.0,
             "success_probability": 30.0,
-            "tribev2_brain_response": {
+            "analysis_response": {
                 "cortical_response": {
                     "visual_cortex": 20.0,
                     "auditory_cortex": 30.0,
@@ -150,7 +150,7 @@ class TestSocialFeedSimulator:
             "hook_score": 75.0,
             "success_probability": 75.0,
             "engagement_curve": [0.75, 0.70, 0.68, 0.65, 0.60],
-            "tribev2_brain_response": {
+            "analysis_response": {
                 "cortical_response": {
                     "amygdala": 80.0,
                     "visual_cortex": 70.0,

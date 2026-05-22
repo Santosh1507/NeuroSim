@@ -14,7 +14,7 @@ class ROIScores:
 
 class ROIExtractor:
     """
-    Extracts Region-of-Interest scores from TRIBE v2 fMRI predictions.
+    Extracts Region-of-Interest scores from neural predictions.
 
     Maps ~20k fsaverage5 vertices to 4 key brain regions:
     - A5: Primary Auditory Cortex (temporal)

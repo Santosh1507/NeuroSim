@@ -51,7 +51,7 @@ class TestPDFReport:
                 "neutral_sentiment_pct": 20.0,
                 "shareability_index": 45.0,
             },
-            "tribev2_brain_response": {
+            "analysis_response": {
                 "cortical_response": {
                     "visual_cortex": 82.0,
                     "auditory_cortex": 65.0,
@@ -116,7 +116,7 @@ class TestPDFReport:
         assert result.startswith(b"%PDF-")
 
     def test_missing_nested_keys(self):
-        """Missing optional nested sections (no stage_gate, no tribev2) should not crash."""
+        """Missing optional nested sections (no stage_gate, no analysis_response) should not crash."""
         analysis = {"hook_score": 60, "success_probability": 70}
         result = generate_pdf_report(analysis, video_info=None)
         assert result.startswith(b"%PDF-")

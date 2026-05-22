@@ -50,8 +50,8 @@ async def create_social_feed_simulation(
 
     # Helper to extract brain region scores (0 to 100) robustly
     def get_region(region_name: str, default: float = 50.0) -> float:
-        # Check inside tribev2_brain_response.cortical_response
-        response = analysis.get("tribev2_brain_response", {})
+        # Check inside analysis_response.cortical_response
+        response = analysis.get("analysis_response", {})
         if isinstance(response, dict):
             cortical = response.get("cortical_response", {})
             if isinstance(cortical, dict) and region_name in cortical:

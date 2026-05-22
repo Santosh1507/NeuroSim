@@ -327,7 +327,7 @@ export default function Dashboard() {
         viral_potential: 72, success_probability: 74, risk_score: 16,
         recommendations: ['Strong hook detected with curiosity gap - good viral potential', 'High authenticity score - content feels natural', 'CTA at 8s mark should perform well'],
         mirofish_simulation: { simulation_id: 'sim_demo_001', final_sentiment: 68.5, viral_prediction: 'High - Positive sentiment spreading', backlash_prediction: 'Low risk - positive reception', share_prediction: 72, persona_distribution: { loyal_fan: 18, trend_seeker: 24, casual_viewer: 26, skeptic: 10, budget_shopper: 16, anti_ad: 6 }, comment_samples: [{ type: 'positive', persona: 'trend_seeker', comment: 'sharing this! everyone needs to see this', sentiment: 0.82 }, { type: 'neutral', persona: 'casual_viewer', comment: 'interesting', sentiment: 0.55 }, { type: 'positive', persona: 'loyal_fan', comment: 'omg love this!', sentiment: 0.91 }], trust_trajectory: [65, 68, 70, 72, 74, 76, 78] },
-        tribev2_brain_response: { cortical_response: { visual_cortex: 78, auditory_cortex: 72, language_center: 68, amygdala: 65, prefrontal_cortex: 70, reward_center: 82, social_cognition: 62, memory_formation: 68, overall_response_strength: 72 }, emotional_impact: { primary_emotion: 'excitement', emotional_intensity: 72 }, engagement_prediction: { overall_engagement: 78, retention_prediction: 'high' }, mode: 'simulated' },
+        analysis_response: { cortical_response: { visual_cortex: 78, auditory_cortex: 72, language_center: 68, amygdala: 65, prefrontal_cortex: 70, reward_center: 82, social_cognition: 62, memory_formation: 68, overall_response_strength: 72 }, emotional_impact: { primary_emotion: 'excitement', emotional_intensity: 72 }, engagement_prediction: { overall_engagement: 78, retention_prediction: 'high' }, mode: 'simulated' },
         stage_gate: { passed: true, W_attn: 0.72, threshold: 0.4 }
       })
       setSelectedVideo(demoId)
@@ -406,7 +406,7 @@ export default function Dashboard() {
           viral_potential: 72, success_probability: 74, risk_score: 16,
           recommendations: ['Strong hook detected with curiosity gap - good viral potential', 'High authenticity score - content feels natural', 'CTA at 8s mark should perform well'],
           mirofish_simulation: { simulation_id: 'sim_demo_001', final_sentiment: 68.5, viral_prediction: 'High - Positive sentiment spreading', backlash_prediction: 'Low risk - positive reception', share_prediction: 72, persona_distribution: { loyal_fan: 18, trend_seeker: 24, casual_viewer: 26, skeptic: 10, budget_shopper: 16, anti_ad: 6 }, comment_samples: [{ type: 'positive', persona: 'trend_seeker', comment: 'sharing this! everyone needs to see this', sentiment: 0.82 }, { type: 'neutral', persona: 'casual_viewer', comment: 'interesting', sentiment: 0.55 }, { type: 'positive', persona: 'loyal_fan', comment: 'omg love this!', sentiment: 0.91 }], trust_trajectory: [65, 68, 70, 72, 74, 76, 78] },
-          tribev2_brain_response: { cortical_response: { visual_cortex: 78, auditory_cortex: 72, language_center: 68, amygdala: 65, prefrontal_cortex: 70, reward_center: 82, social_cognition: 62, memory_formation: 68, overall_response_strength: 72 }, emotional_impact: { primary_emotion: 'excitement', emotional_intensity: 72 }, engagement_prediction: { overall_engagement: 78, retention_prediction: 'high' }, mode: 'simulated' },
+          analysis_response: { cortical_response: { visual_cortex: 78, auditory_cortex: 72, language_center: 68, amygdala: 65, prefrontal_cortex: 70, reward_center: 82, social_cognition: 62, memory_formation: 68, overall_response_strength: 72 }, emotional_impact: { primary_emotion: 'excitement', emotional_intensity: 72 }, engagement_prediction: { overall_engagement: 78, retention_prediction: 'high' }, mode: 'simulated' },
           stage_gate: { passed: true, W_attn: 0.72, threshold: 0.4 },
           analysis_type: 'script',
           source: 'text_input',
@@ -602,7 +602,7 @@ export default function Dashboard() {
         ],
         trust_trajectory: [65, 68, 70, 72, 74, 76, 78]
       },
-      tribev2_brain_response: {
+      analysis_response: {
         cortical_response: { 
           visual_cortex: 78, auditory_cortex: 72, language_center: 68,
           amygdala: 65, prefrontal_cortex: 70, reward_center: 82,
@@ -992,18 +992,18 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <Brain className="w-4 h-4 text-neural" />
-                          <h4 className="text-sm font-semibold text-white">Neural Response</h4>
+                          <h4 className="text-sm font-semibold text-white">Content Analysis</h4>
                         </div>
                         <span className="badge badge-ghost">SIM</span>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         {[
-                          { label: 'Visual Cortex', value: analysis.tribev2_brain_response?.cortical_response?.visual_cortex || 0 },
-                          { label: 'Auditory Cortex', value: analysis.tribev2_brain_response?.cortical_response?.auditory_cortex || 0 },
-                          { label: 'Language Center', value: analysis.tribev2_brain_response?.cortical_response?.language_center || 0 },
-                          { label: 'Amygdala', value: analysis.tribev2_brain_response?.cortical_response?.amygdala || 0 },
-                          { label: 'Prefrontal', value: analysis.tribev2_brain_response?.cortical_response?.prefrontal_cortex || 0 },
-                          { label: 'Reward Center', value: analysis.tribev2_brain_response?.cortical_response?.reward_center || 0 },
+                          { label: 'Visual Cortex', value: analysis.analysis_response?.cortical_response?.visual_cortex || 0 },
+                          { label: 'Auditory Cortex', value: analysis.analysis_response?.cortical_response?.auditory_cortex || 0 },
+                          { label: 'Language Center', value: analysis.analysis_response?.cortical_response?.language_center || 0 },
+                          { label: 'Amygdala', value: analysis.analysis_response?.cortical_response?.amygdala || 0 },
+                          { label: 'Prefrontal', value: analysis.analysis_response?.cortical_response?.prefrontal_cortex || 0 },
+                          { label: 'Reward Center', value: analysis.analysis_response?.cortical_response?.reward_center || 0 },
                         ].map(item => (
                           <div key={item.label} className="p-3 rounded-lg bg-white/[0.02]">
                             <p className="text-[10px] mono text-text-tertiary mb-1">{item.label}</p>
@@ -1014,7 +1014,7 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <Suspense fallback={<div className="w-full h-[300px] glass-panel flex items-center justify-center"><div className="w-6 h-6 border-2 border-neural border-t-transparent rounded-full animate-spin" /></div>}>
-                      <Brain3D brainData={analysis.tribev2_brain_response} />
+                      <Brain3D brainData={analysis.analysis_response} />
                     </Suspense>
                   )}
 
@@ -1023,10 +1023,10 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-2">
                           <Brain className="w-4 h-4 text-neural" />
-                          <h4 className="text-sm font-semibold text-white">Neural Response</h4>
+                          <h4 className="text-sm font-semibold text-white">Content Analysis</h4>
                         </div>
-                        <span className={`badge ${analysis.tribev2_brain_response?.mode === 'real' ? 'badge-neural' : 'badge-ghost'}`}>
-                          {analysis.tribev2_brain_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
+                        <span className={`badge ${analysis.analysis_response?.mode === 'real' ? 'badge-neural' : 'badge-ghost'}`}>
+                          {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
                         </span>
                       </div>
                       <DashboardRadar radarData={radarData} />

@@ -163,7 +163,7 @@ async def process_video(
         "risk_score": risk_score,
         "recommendations": [r["recommendation"] for r in recommendations],
         "mirofish_simulation": mirofish_result,
-        "tribev2_brain_response": {
+        "analysis_response": {
             "cortical_response": {
                 "visual_cortex": round(roi.LO * 100, 1),
                 "auditory_cortex": round(roi.A5 * 100, 1),
@@ -255,7 +255,7 @@ async def _process_in_background(
         _task_status[video_id] = {
             "status": "processing",
             "progress": 55,
-            "message": "Running TRIBE v2 neural analysis...",
+            "message": "Running content analysis...",
             "stage": "scoring",
         }
         await _broadcast_progress(video_id, _task_status[video_id])
@@ -462,7 +462,7 @@ async def model_status():
     return {
         "tribev2": {
             "status": "ready",
-            "type": "brain_encoding",
+            "type": "neural_engine",
             "model": "facebook/tribev2",
             "mode": "real" if tribe_engine.is_real else "simulated",
         },

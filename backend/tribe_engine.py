@@ -97,7 +97,7 @@ class TribeEngine:
             "n_vertices": n_vertices,
             "mode": "simulated",
             "is_early_estimate": True,
-            "confidence_note": "TRIBE neuroscience simulation — brain activation patterns are statistically modeled based on video structure. Results are directional estimates, not real neural measurements.",
+            "confidence_note": "Content analysis simulation — brain activation patterns are statistically modeled based on video structure. Results are directional estimates, not real neural measurements.",
         }
 
     async def predict_from_text(self, text: str) -> Dict[str, Any]:
