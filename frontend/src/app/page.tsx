@@ -11,7 +11,7 @@ import {
 
 const pillars = [
   {
-    icon: Brain, title: 'TRIBE v2 — Brain Encoding',
+    icon: Brain, title: 'Neural Encoding',
     desc: 'fMRI-level neural response mapping across 6 brain regions. Predicts visual, auditory, and emotional engagement from your video content.',
     color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
     badge: 'NEURAL ENGINE',
@@ -62,7 +62,7 @@ const features = [
 const plans = [
   {
     name: 'Free', price: '0', popular: false,
-    items: ['10 analyses/month', 'TRIBE v2 neural analysis', 'MiroFish swarm simulation', 'Stage-Gate guardrail', 'A/B comparison'],
+    items: ['10 analyses/month', 'Neural encoding analysis', 'MiroFish swarm simulation', 'Stage-Gate guardrail', 'A/B comparison'],
     cta: 'Get Started Free',
     disabled: false,
     href: '/dashboard',
@@ -106,7 +106,7 @@ export default function LandingPage() {
                 </h1>
 
                 <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed mb-8 sm:mb-10">
-                  TRIBE v2 maps brain response. MiroFish simulates social spread.
+                  Neural encoding maps brain response. MiroFish simulates social spread.
                   Virality Predictor scores your clip with AI vision. Three engines, one score.
                 </p>
 
@@ -175,7 +175,7 @@ export default function LandingPage() {
                   {/* Status indicators */}
                   <div className="absolute bottom-4 left-4 flex items-center gap-2">
                     <span className="status-dot status-neural" />
-                    <span className="text-[10px] font-mono text-gray-500 tracking-wide">TRIBE v2</span>
+                    <span className="text-[10px] font-mono text-gray-500 tracking-wide">Neural</span>
                     <span className="w-px h-3 bg-white/10 mx-1" />
                     <span className="status-dot status-swarm" />
                     <span className="text-[10px] font-mono text-gray-500 tracking-wide">MIROFISH</span>
@@ -309,7 +309,7 @@ export default function LandingPage() {
 
             {[
               { num: '01', title: 'Input Video or Script', desc: 'Drop a video for full analysis, paste a script for instant scoring, or use the Virality Predictor for quick clip evaluation.' },
-              { num: '02', title: 'Tri-Engine Prediction', desc: 'TRIBE v2 maps brain response. MiroFish runs 1,000-agent swarm simulation. AI vision scores visual engagement.' },
+              { num: '02', title: 'Tri-Engine Prediction', desc: 'Neural encoding maps brain response. MiroFish runs 1,000-agent swarm simulation. AI vision scores visual engagement.' },
               { num: '03', title: 'Actionable Insights', desc: 'Unified score: hook strength, viral potential, sentiment forecast, engagement curve, and 3D brain activation. Ship with confidence.' },
             ].map((s, i) => (
               <motion.div
@@ -439,7 +439,7 @@ export default function LandingPage() {
               <span className="text-xs text-gray-500">NeuroSim v3.0</span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-[10px] text-gray-600 font-mono">TRIBE v2</span>
+              <span className="text-[10px] text-gray-600 font-mono">Neural</span>
               <span className="text-[10px] text-gray-700">+</span>
               <span className="text-[10px] text-gray-600 font-mono">MiroFish</span>
               <span className="text-[10px] text-gray-700">+</span>

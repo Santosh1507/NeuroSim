@@ -54,7 +54,7 @@
 
 ## Engines
 
-**TRIBE v2** — Meta's foundation model for in-silico neuroscience. The core USP and competitive moat. Requires GPU infra. NOT currently loaded — deferred to premium/future release (v4.0). Current heuristic pipeline should NOT be branded as "TRIBE" in the UI to avoid confusion. Real TRIBE v2 is the premium differentiator.
+**TRIBE v2** — Meta's foundation model for in-silico neuroscience. The core USP and competitive moat. Requires GPU infra. NOT currently loaded — deferred to premium/future release (v4.0). Current heuristic pipeline is branded as "Neural Encoding" in the UI (not "TRIBE v2") to avoid confusion. Real TRIBE v2 is the premium differentiator and will be branded as such when live.
 
 **MiroFish** — Swarm intelligence simulator. Runs 1000 agents through 20 rounds of sentiment evolution based on persona distributions (loyal_fan, skeptic, trend_seeker, etc.). Produces final_sentiment, viral_prediction, backlash_prediction, and persona_distribution. Used by both NeuroSim (cloud) and MiroFish-Offline (desktop).
 

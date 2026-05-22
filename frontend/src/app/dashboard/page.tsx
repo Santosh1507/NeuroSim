@@ -1211,8 +1211,8 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2">
                             <span className="status-dot status-neural"></span>
                             <div>
-                              <span className="text-xs text-white font-medium">TRIBE v2</span>
-                              <p className="text-[10px] text-text-tertiary">Brain Encoding</p>
+                              <span className="text-xs text-white font-medium">Neural</span>
+                              <p className="text-[10px] text-text-tertiary">Encoding</p>
                             </div>
                           </div>
                           <span className="text-[10px] mono text-neural">ONLINE</span>
@@ -1512,7 +1512,7 @@ export default function Dashboard() {
                         <Brain className="w-6 h-6 text-neural absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                       </div>
                       <p className="text-white font-medium mb-1">Running Neural Pipeline</p>
-                      <p className="text-text-tertiary text-xs mono">TRIBE v2 ΓåÆ ROI ΓåÆ MiroFish Swarm</p>
+                      <p className="text-text-tertiary text-xs mono">Neural ΓåÆ ROI ΓåÆ MiroFish Swarm</p>
                     </div>
                   )}
 
