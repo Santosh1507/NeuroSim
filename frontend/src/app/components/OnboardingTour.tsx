@@ -21,7 +21,7 @@ const steps = [
   },
   {
     title: "Tri-Engine Prediction",
-    description: "Our core encodes TRIBE v2 fMRI brain mapping, simulates a 1,000-agent MiroFish social swarm, and watches clips with Gemini 2.5 Flash.",
+    description: "Our core encodes TRIBE v2 fMRI brain mapping, simulates a 1,000-agent MiroFish social swarm, and scores clips with AI vision.",
     icon: BarChart3,
   },
   {

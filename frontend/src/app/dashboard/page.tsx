@@ -231,7 +231,7 @@ export default function Dashboard() {
       setRewriteResult(res.data)
     } catch (err: any) {
       console.error('Script rewrite failed:', err)
-      setRewriteError(err.response?.data?.detail || 'Gemini script rewrite failed. Please check backend log or try again.')
+      setRewriteError(err.response?.data?.detail || 'Script rewrite failed. Please check backend log or try again.')
     } finally {
       setIsRewriting(false)
     }
@@ -1847,7 +1847,7 @@ export default function Dashboard() {
                         <span className="font-semibold text-neural uppercase tracking-wider flex items-center gap-1.5">
                           <Sparkles className="w-3.5 h-3.5" /> Boosted Optimization
                         </span>
-                        <span className="text-[10px] text-neural mono">Gemini 2.5 Flash</span>
+                          <span className="text-[10px] text-neural mono">AI Vision</span>
                       </div>
                       <div className="glass-panel p-4 bg-neural/[0.02] border-neural/20 h-[280px] overflow-y-auto ring-1 ring-neural/10">
                         <p className="text-xs font-mono text-neural-light whitespace-pre-wrap leading-relaxed select-text">

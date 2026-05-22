@@ -188,7 +188,7 @@ def _format_waitlist_html(email: str, name: str, queue_position: int) -> str:
       
       <div class="feature-item">
         <div class="feature-name">🧠 Real-time Multimodal Video Scoring</div>
-        <p class="feature-desc">Upload your video clips to extract frame-by-frame engagement trends, CTA efficacy, and predicted hook scores using Gemini 2.5 Flash.</p>
+        <p class="feature-desc">Upload your video clips to extract frame-by-frame engagement trends, CTA efficacy, and predicted hook scores using advanced AI vision.</p>
       </div>
 
       <div class="feature-item">

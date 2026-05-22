@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+from urllib.parse import urlparse
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -37,6 +38,13 @@ async def create_checkout_session(
     """Create a Stripe Checkout session for the selected plan."""
     if not settings.stripe_secret_key:
         raise HTTPException(status_code=501, detail="Stripe not configured — set STRIPE_SECRET_KEY")
+    allowed_origins = list(settings.cors_origins) + [settings.app_base_url]
+    for url in [req.success_url, req.cancel_url]:
+        parsed = urlparse(url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin not in allowed_origins:
+            raise HTTPException(status_code=400, detail=f"Redirect origin not allowed: {origin}")
+
     try:
         auth_user_id = verified_user_id if verified_user_id != "anonymous" else req.user_id
         metadata = {}

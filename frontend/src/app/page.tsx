@@ -12,7 +12,7 @@ import {
 const pillars = [
   {
     icon: Brain, title: 'TRIBE v2 — Brain Encoding',
-    desc: 'fMRI-level neural response mapping across 6 brain regions. Meta\'s model predicts visual, auditory, and emotional engagement from your video content.',
+    desc: 'fMRI-level neural response mapping across 6 brain regions. Predicts visual, auditory, and emotional engagement from your video content.',
     color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
     badge: 'NEURAL ENGINE',
   },
@@ -24,7 +24,7 @@ const pillars = [
   },
   {
     icon: Zap, title: 'Virality Predictor',
-    desc: 'Upload a clip and get instant virality scoring powered by Gemini 2.5 Flash video understanding. Hook strength, hold rate, engagement curve, and 3D brain activation in seconds.',
+    desc: 'Upload a clip and get instant virality scoring powered by advanced AI video understanding. Hook strength, hold rate, engagement curve, and 3D brain activation in seconds.',
     color: 'text-signal-green', border: 'border-signal-green/20', bg: 'bg-signal-green/5',
     badge: 'VISION ENGINE',
     isNew: true,
@@ -39,7 +39,7 @@ const features = [
   },
   {
     icon: Eye, title: 'Vision-Powered Scoring',
-    desc: 'Gemini 2.5 Flash watches your clip and scores hook strength, hold rate, and per-second engagement. Vision scores dominate the merge at 55-65% weight.',
+    desc: 'AI vision watches your clip and scores hook strength, hold rate, and per-second engagement. Vision scores dominate the merge at 55-65% weight.',
     color: 'text-signal-green', border: 'border-signal-green/20', bg: 'bg-signal-green/5',
   },
   {
@@ -309,7 +309,7 @@ export default function LandingPage() {
 
             {[
               { num: '01', title: 'Input Video or Script', desc: 'Drop a video for full analysis, paste a script for instant scoring, or use the Virality Predictor for quick clip evaluation.' },
-              { num: '02', title: 'Tri-Engine Prediction', desc: 'TRIBE v2 maps brain response. MiroFish runs 1,000-agent swarm simulation. Gemini 2.5 Flash scores visual engagement.' },
+              { num: '02', title: 'Tri-Engine Prediction', desc: 'TRIBE v2 maps brain response. MiroFish runs 1,000-agent swarm simulation. AI vision scores visual engagement.' },
               { num: '03', title: 'Actionable Insights', desc: 'Unified score: hook strength, viral potential, sentiment forecast, engagement curve, and 3D brain activation. Ship with confidence.' },
             ].map((s, i) => (
               <motion.div
