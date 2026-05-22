@@ -23,7 +23,7 @@ const pillars = [
     badge: 'SOCIAL ENGINE',
   },
   {
-    icon: Zap, title: 'Virality Predictor — Higgsfield AI',
+    icon: Zap, title: 'Virality Predictor',
     desc: 'Upload a clip and get instant virality scoring powered by Gemini 2.5 Flash video understanding. Hook strength, hold rate, engagement curve, and 3D brain activation in seconds.',
     color: 'text-signal-green', border: 'border-signal-green/20', bg: 'bg-signal-green/5',
     badge: 'VISION ENGINE',
