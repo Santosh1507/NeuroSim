@@ -25,9 +25,6 @@ _premium_users: set = set()
 _ws_connections: Dict[str, list] = {}
 _share_permissions: Dict[str, dict] = {}
 
-_last_eviction: float = 0
-_EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps
-
 # ─── JWT Auth ──────────────────────────────────────────────
 _JWT_SECRET = settings.supabase_jwt_secret or os.getenv("SUPABASE_JWT_SECRET", "")
 _ALLOW_ANONYMOUS_AUTH = os.getenv("ALLOW_ANONYMOUS_AUTH", "").lower() in ("true", "1", "yes")
@@ -124,14 +121,7 @@ def _set_jwt_secret_for_test(secret: str) -> None:
 
 
 # ─── Helpers ───────────────────────────────────────────────
-def _evict_stale():
-    from storage_adapter import _evict_stale as _adapter_evict
-    _adapter_evict()
-    global _last_eviction
-    now = datetime.now().timestamp()
-    if now - _last_eviction < _EVICTION_INTERVAL:
-        return
-    _last_eviction = now
+from storage_adapter import _evict_stale
 
 
 def _is_premium(user_id: str) -> bool:
@@ -151,7 +141,6 @@ def _increment_usage(user_id: str):
 async def _get_analysis_or_404(video_id: str) -> Dict[str, Any]:
     """Fetch analysis from store. Raises 404 if not found."""
     from storage_adapter import store
-    _evict_stale()
     analysis = await store.get_analysis(video_id)
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -161,7 +150,6 @@ async def _get_analysis_or_404(video_id: str) -> Dict[str, Any]:
 async def _get_video_or_404(video_id: str) -> Dict[str, Any]:
     """Fetch video from store. Raises 404 if not found."""
     from storage_adapter import store
-    _evict_stale()
     video = await store.get_video(video_id)
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")

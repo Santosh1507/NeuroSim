@@ -1,29 +1,20 @@
-import asyncio
 import logging
 import os
-import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO)
 
-import sentry_sdk
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from bridge_logic import ROI, NeuroSocialBridge
 from config import settings
 from storage_adapter import store, _supabase
-from heuristic_scorer import score_transcript
-from mirofish_engine import mirofish_engine
-from rate_limiter import upload_limiter, check_api_limit
-from roi_extractor import roi_extractor
-from transcriber import transcriber
-from tribe_engine import tribe_engine
+from rate_limiter import check_api_limit
 from monitoring import metrics
 
 # ─── Shared state (re-exported for test compatibility) ────
@@ -38,8 +29,6 @@ from shared_state import (
     _usage_tracker,
     _premium_users,
     _ws_connections,
-    _last_eviction,
-    _evict_stale,
     _is_premium,
     _increment_usage,
     _get_analysis_or_404,
@@ -48,9 +37,8 @@ from shared_state import (
     require_auth_user,
     _set_jwt_secret_for_test,
 )
-from routes.digest import _send_email_smtp
 from routes.predict import router as predict_router
-from vision_scorer import vision_scorer
+from routes.digest import _send_email_smtp  # re-exported for test compatibility
 
 # ─── Route modules ─────────────────────────────────────────
 from routes.auth import router as auth_router
@@ -63,9 +51,6 @@ from routes.ab_testing import router as ab_testing_router
 from routes.waitlist import router as waitlist_router
 from routes.social_feed import router as social_feed_router
 
-
-
-_BACKGROUND_SWEEP_INTERVAL = 60  # seconds between automatic housekeeping sweeps
 
 
 def _user_error(message: str, detail: str = "", status_code: int = 500):
@@ -83,8 +68,9 @@ def _user_error(message: str, detail: str = "", status_code: int = 500):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize Sentry
+    # Initialize Sentry (lazy import — only if DSN is configured)
     if settings.sentry_dsn:
+        import sentry_sdk  # type: ignore[import-untyped]
         sentry_sdk.init(
             dsn=settings.sentry_dsn,
             environment=settings.sentry_environment,
@@ -100,6 +86,11 @@ async def lifespan(app: FastAPI):
         logger.info("PostHog initialized")
 
     os.makedirs(settings.upload_dir, exist_ok=True)
+    # Lazy-import engines (loaded at startup, not at module import time)
+    from transcriber import transcriber
+    from vision_scorer import vision_scorer
+    from tribe_engine import tribe_engine
+    from mirofish_engine import mirofish_engine
     whisper_status = "ready" if transcriber.available else "unavailable (install faster-whisper)"
     vision_status = "enabled" if vision_scorer.enabled else "disabled (no GEMINI_API_KEY)"
     logger.info(
@@ -108,21 +99,7 @@ async def lifespan(app: FastAPI):
         f"Whisper: {whisper_status}, Vision: {vision_status}"
     )
 
-    async def _background_sweep():
-        import shared_state
-        while True:
-            await asyncio.sleep(_BACKGROUND_SWEEP_INTERVAL)
-            try:
-                shared_state._last_eviction = 0
-                _evict_stale()
-            except Exception as e:
-                logger.warning(f"Background sweep failed: {e}")
-
-    sweep_task = asyncio.create_task(_background_sweep())
-
     yield
-
-    sweep_task.cancel()
     logger.info("NeuroSim API shutting down")
 
 
@@ -183,6 +160,10 @@ app.include_router(social_feed_router, prefix=API_PREFIX)
 # ─── Remaining inline routes ───────────────────────────────
 @app.get("/")
 async def root():
+    from transcriber import transcriber
+    from vision_scorer import vision_scorer
+    from tribe_engine import tribe_engine
+    from mirofish_engine import mirofish_engine
     return {
         "status": "ok",
         "message": "NeuroSim API v3.0 — Heuristic + Vision Analysis (Simulated Analysis)",
@@ -203,6 +184,7 @@ async def warmup_cache():
 @app.get("/health")
 async def health():
     """Health check for Render keep-alive and monitoring."""
+    from transcriber import transcriber  # cached after lifespan import
     return {
         "status": "healthy",
         "version": "3.0.0",

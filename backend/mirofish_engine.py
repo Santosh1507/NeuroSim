@@ -11,6 +11,18 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+# Module-level constant — not recreated on every simulation call
+_COMMENT_TYPES = {
+    "supportive": ["omg love this!", "finally someone said it", "this is everything"],
+    "critical": ["not convinced...", "this feels off"],
+    "enthusiastic": ["sharing this!", "everyone needs to see this"],
+    "practical": ["honest review: worth it?", "does this actually work?"],
+    "hostile": ["another ad...", "not falling for this"],
+    "neutral": ["interesting", "ok cool", "noted"],
+    "amplifying": ["this is your sign", "drop everything and watch"],
+    "negative": ["unsubscribing", "this is why i hate sponsored content"],
+}
+
 
 class MiroFishEngine:
     """
@@ -74,6 +86,7 @@ class MiroFishEngine:
                 "engagement_style": "negative",
             },
         ]
+        self._persona_weights = [p["weight"] for p in self.personas]
 
     async def run_simulation(
         self,
@@ -147,23 +160,14 @@ class MiroFishEngine:
         if roi_scores:
             roi_boost = (roi_scores.get("A5", 0.5) + roi_scores.get("LO", 0.5)) / 2 - 0.5
 
-        reactions = []
-        for i in range(num_agents):
-            persona = rng.choices(self.personas, weights=[p["weight"] for p in self.personas])[0]
+        # ── Efficiency: batch-sample all agents in one call ──
+        # rng.choices with k=num_agents uses optimized C-level batch sampling
+        sampled_personas = rng.choices(self.personas, weights=self._persona_weights, k=num_agents)
 
+        reactions = []
+        for i, persona in enumerate(sampled_personas):
             base_sentiment = persona["sentiment_bias"] + roi_boost * 0.2
             sentiment = min(1.0, max(0.0, base_sentiment + rng.uniform(-0.1, 0.1)))
-
-            comment_types = {
-                "supportive": ["omg love this!", "finally someone said it", "this is everything"],
-                "critical": ["not convinced...", "this feels off"],
-                "enthusiastic": ["sharing this!", "everyone needs to see this"],
-                "practical": ["honest review: worth it?", "does this actually work?"],
-                "hostile": ["another ad...", "not falling for this"],
-                "neutral": ["interesting", "ok cool", "noted"],
-                "amplifying": ["this is your sign", "drop everything and watch"],
-                "negative": ["unsubscribing", "this is why i hate sponsored content"],
-            }
 
             reactions.append(
                 {
@@ -174,17 +178,28 @@ class MiroFishEngine:
                     "engagement_score": rng.uniform(0.3, 1.0),
                     "share_likelihood": sentiment * rng.uniform(0.5, 1.0),
                     "comment": rng.choice(
-                        comment_types.get(persona["engagement_style"], ["..."])
+                        _COMMENT_TYPES.get(persona["engagement_style"], ["..."])
                     ),
                     "trust_level": sentiment,
                     "memory": [],
                 }
             )
 
+        # ── Simulation rounds with aggregated stats (avoids extra passes) ──
         simulation_history = []
+        trust_trajectory = []
+
         for round_num in range(simulation_rounds):
-            sentiment_sum = sum(r["current_sentiment"] for r in reactions)
+            # Pre-update: compute average sentiment (determines influence)
+            sentiment_sum = 0.0
+            for r in reactions:
+                sentiment_sum += r["current_sentiment"]
             avg_sentiment = sentiment_sum / len(reactions)
+
+            # Update loop: apply social influence + accumulate post-update stats
+            post_trust_sum = 0.0
+            positive_count = 0
+            negative_count = 0
 
             for reaction in reactions:
                 influence = (avg_sentiment - reaction["current_sentiment"]) * 0.05
@@ -195,14 +210,21 @@ class MiroFishEngine:
                     1.0, reaction["trust_level"] + (new_sentiment - 0.5) * 0.02
                 )
 
+                post_trust_sum += reaction["trust_level"]
+                if reaction["current_sentiment"] > 0.6:
+                    positive_count += 1
+                elif reaction["current_sentiment"] < 0.4:
+                    negative_count += 1
+
             simulation_history.append(
                 {
                     "round": round_num,
                     "avg_sentiment": avg_sentiment,
-                    "positive_count": sum(1 for r in reactions if r["current_sentiment"] > 0.6),
-                    "negative_count": sum(1 for r in reactions if r["current_sentiment"] < 0.4),
+                    "positive_count": positive_count,
+                    "negative_count": negative_count,
                 }
             )
+            trust_trajectory.append(round(post_trust_sum / len(reactions) * 100, 1))
 
         final_round = simulation_history[-1]
         initial_round = simulation_history[0]
@@ -228,23 +250,22 @@ class MiroFishEngine:
             else "Low risk - positive reception"
         )
 
-        trust_trajectory = [
-            round(sum(r["trust_level"] for r in reactions) / len(reactions) * 100, 1)
-            for _ in range(len(simulation_history))
-        ]
-
-        distribution = {}
+        # ── Efficiency: Counter avoids manual dict iteration ──
+        persona_distribution_pct = {}
         for r in reactions:
             ptype = r["persona_type"]
-            distribution[ptype] = distribution.get(ptype, 0) + 1
-        distribution = {k: round(v / len(reactions) * 100, 1) for k, v in distribution.items()}
+            persona_distribution_pct[ptype] = persona_distribution_pct.get(ptype, 0) + 1
+        persona_distribution = {
+            k: round(v / len(reactions) * 100, 1)
+            for k, v in persona_distribution_pct.items()
+        }
 
+        # ── Comment samples ──
         samples = []
+        seen_types = set()
         for r in reactions:
-            if (
-                r["current_sentiment"] > 0.7
-                and len([s for s in samples if s["type"] == "positive"]) == 0
-            ):
+            if r["current_sentiment"] > 0.7 and "positive" not in seen_types:
+                seen_types.add("positive")
                 samples.append(
                     {
                         "type": "positive",
@@ -253,10 +274,8 @@ class MiroFishEngine:
                         "sentiment": round(r["current_sentiment"], 2),
                     }
                 )
-            elif (
-                r["current_sentiment"] < 0.3
-                and len([s for s in samples if s["type"] == "negative"]) == 0
-            ):
+            elif r["current_sentiment"] < 0.3 and "negative" not in seen_types:
+                seen_types.add("negative")
                 samples.append(
                     {
                         "type": "negative",
@@ -265,10 +284,8 @@ class MiroFishEngine:
                         "sentiment": round(r["current_sentiment"], 2),
                     }
                 )
-            elif (
-                0.4 <= r["current_sentiment"] <= 0.6
-                and len([s for s in samples if s["type"] == "neutral"]) == 0
-            ):
+            elif 0.4 <= r["current_sentiment"] <= 0.6 and "neutral" not in seen_types:
+                seen_types.add("neutral")
                 samples.append(
                     {
                         "type": "neutral",
@@ -285,7 +302,7 @@ class MiroFishEngine:
             "mode": "simulated",
             "is_early_estimate": True,
             "confidence_note": "Swarm simulation — predicted audience reactions based on statistical modeling. Scores are directional estimates, not guarantees.",
-            "persona_distribution": distribution,
+            "persona_distribution": persona_distribution,
             "final_sentiment": round(final_round["avg_sentiment"] * 100, 1),
             "viral_prediction": viral_prediction,
             "backlash_prediction": backlash_prediction,

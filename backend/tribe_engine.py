@@ -2,8 +2,6 @@ import hashlib
 import logging
 from typing import Any, Dict, Optional
 
-import numpy as np
-
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -64,8 +62,11 @@ class TribeEngine:
     async def _simulated_predict(
         self, video_path: str
     ) -> Dict[str, Any]:
+        import numpy as np  # type: ignore[import-untyped]
         # No artificial delay — simulation is instant.
         # Previously slept 1.5s to "feel real" — removed.
+
+        import numpy as np  # lazy: only used for deterministic random arrays
 
         # Derive deterministic seed from video_path so same video = same predictions
         seed = self._derive_seed(video_path)
@@ -104,6 +105,8 @@ class TribeEngine:
             df = self.model.get_events_dataframe(text_path=text)
             preds, segments = self.model.predict(events=df)
             return {"predictions": preds, "segments": segments, "mode": "real"}
+
+        import numpy as np  # type: ignore[import-untyped]
 
         # Derive deterministic seed from text so same text = same predictions
         seed = self._derive_seed(text)
