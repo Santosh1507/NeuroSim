@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import aiofiles
-import numpy as np
 from fastapi import (
     APIRouter,
     Depends,
@@ -25,11 +24,7 @@ from bridge_logic import ROI, NeuroSocialBridge
 from config import settings
 from storage_adapter import store
 from heuristic_scorer import score_transcript
-from mirofish_engine import mirofish_engine
 from rate_limiter import upload_limiter, check_api_limit
-from roi_extractor import roi_extractor
-from transcriber import transcriber
-from tribe_engine import tribe_engine
 from utils import is_video_magic, is_allowed_video_extension, check_free_tier_limit
 from shared_state import (
     _task_status,
@@ -82,6 +77,11 @@ async def _broadcast_progress(video_id: str, data: dict):
 async def process_video(
     video_id: str, file_path: str, transcript: str = "", heuristic_roi: Optional[ROI] = None
 ) -> Dict[str, Any]:
+    import numpy as np
+    from roi_extractor import roi_extractor
+    from tribe_engine import tribe_engine
+    from mirofish_engine import mirofish_engine
+
     if heuristic_roi:
         roi = heuristic_roi
         tribe_result = {
@@ -212,6 +212,7 @@ async def _process_in_background(
     video_id: str, file_path: str, filename: str, user_id: str = "anonymous"
 ):
     try:
+        from transcriber import transcriber
         _task_status[video_id] = {
             "status": "processing",
             "progress": 10,
@@ -401,6 +402,8 @@ async def get_video(video_id: str):
 
 @router.post("/simulate/single")
 async def simulate_single(req: SingleSimRequest):
+    import numpy as np
+
     is_strong = req.variant.lower() in ("a", "strong", "version_a")
 
     if is_strong:
@@ -443,6 +446,8 @@ async def simulate_single(req: SingleSimRequest):
 
 @router.post("/simulation/what-if/{video_id}")
 async def run_what_if(video_id: str, request: WhatIfRequest):
+    from mirofish_engine import mirofish_engine
+
     analysis = await _get_analysis_or_404(video_id)
     base_sim = analysis.get("mirofish_simulation", {})
     result = await mirofish_engine.run_what_if(base_sim, request.modifications)
@@ -451,6 +456,9 @@ async def run_what_if(video_id: str, request: WhatIfRequest):
 
 @router.get("/models/status")
 async def model_status():
+    from tribe_engine import tribe_engine
+    from mirofish_engine import mirofish_engine
+
     return {
         "tribev2": {
             "status": "ready",
@@ -468,4 +476,5 @@ async def model_status():
 
 @router.get("/roi/metadata")
 async def roi_metadata():
+    from roi_extractor import roi_extractor
     return roi_extractor.get_roi_metadata()

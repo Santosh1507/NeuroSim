@@ -24,9 +24,7 @@ from config import settings
 from heuristic_scorer import score_transcript
 from rate_limiter import check_predict_limit
 from signal_merge import get_analysis_mode, merge_signals
-from transcriber import transcriber
 from utils import is_allowed_video_extension, is_video_magic
-from vision_scorer import vision_scorer
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +66,9 @@ async def predict_virality(
     file: UploadFile = File(...),
     _=Depends(check_predict_limit),
 ):
-    """Quick virality prediction for a video clip.
+    """Quick virality prediction for a video clip."""
+    from transcriber import transcriber
+    from vision_scorer import vision_scorer
 
     Upload a clip (max 15 seconds recommended). Returns virality score,
     hook score, hold rate, engagement curve, and brain region activations.

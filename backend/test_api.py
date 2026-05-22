@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from config import settings
-from storage_adapter import _analyses_cache, _videos_cache
+from storage_adapter import _analyses_cache, _videos_cache, _validations_cache
 from main import app
 from rate_limiter import upload_limiter
 
@@ -36,6 +36,7 @@ def seed_rng():
 def clean_dbs():
     _videos_cache.clear()
     _analyses_cache.clear()
+    _validations_cache.clear()
     upload_limiter._requests.clear()
     # Ensure upload directory exists (TestClient may not trigger lifespan)
     import os

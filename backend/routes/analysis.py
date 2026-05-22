@@ -73,7 +73,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["analysis"])
 
-_study = ValidationStudy()
+_study = ValidationStudy(store=store)
 
 
 @router.post("/analyze/script")
@@ -327,7 +327,7 @@ async def submit_validation_data(
 
     analysis_type = analysis.get("analysis_type", "video")
 
-    entry = _study.add_entry(
+    entry = await _study.add_entry(
         video_id=req.video_id,
         user_id=user_id,
         analysis_type=analysis_type,
