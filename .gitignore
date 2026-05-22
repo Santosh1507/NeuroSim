@@ -12,10 +12,14 @@ __pycache__/
 out/
 dist/
 build/
+*.tsbuildinfo
 
 # IDE
 .vscode/
 .idea/
+
+# Agent config
+.omo/
 
 # OS
 .DS_Store
