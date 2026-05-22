@@ -583,5 +583,35 @@
     "would_publish": true,
     "days_after_publish": 7,
     "submitted_at": "2026-05-21T20:16:44.911199"
+  },
+  {
+    "video_id": "ddf6694e-5202-4883-b911-867db72757b8",
+    "user_id": "anonymous",
+    "analysis_type": "video",
+    "predicted_scores": {
+      "hook_score": 25.2,
+      "viral_potential": 0.0,
+      "success_probability": 12.6
+    },
+    "actual_views": 5000,
+    "actual_engagement": 4.5,
+    "would_publish": true,
+    "days_after_publish": 7,
+    "submitted_at": "2026-05-21T21:04:43.672794"
+  },
+  {
+    "video_id": "da833abb-b5a9-4b9c-8c31-2fac6d37f1e2",
+    "user_id": "anonymous",
+    "analysis_type": "video",
+    "predicted_scores": {
+      "hook_score": 25.2,
+      "viral_potential": 0.0,
+      "success_probability": 12.6
+    },
+    "actual_views": 5000,
+    "actual_engagement": 4.5,
+    "would_publish": true,
+    "days_after_publish": 7,
+    "submitted_at": "2026-05-21T21:36:05.850543"
   }
 ]

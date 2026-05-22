@@ -3,13 +3,19 @@
 Stores prediction-outcome pairs, computes Pearson/Spearman correlations
 with significance testing, and tracks study progress toward the target
 of 20 users completing the validation loop.
+
+Persistence is backed by the optional `store` (StorageAdapter) when available,
+falling back to a flat JSON file for local/offline operation (no Supabase needed).
 """
 import json
+import logging
 import math
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field, asdict
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -38,10 +44,15 @@ class ValidationStudy:
     TARGET_ENTRIES = 20
     MIN_SAMPLES_FOR_CORR = 5
 
-    def __init__(self, data_path: str = "data/validation_study.json"):
+    def __init__(self, data_path: str = "data/validation_study.json", store=None):
         self.data_path = Path(data_path)
         self.data_path.parent.mkdir(parents=True, exist_ok=True)
+        self.store = store
         self._entries: List[ValidationEntry] = self._load()
+        logger.info(
+            f"ValidationStudy: loaded {len(self._entries)} entries "
+            f"(store={'available' if self.store else 'unavailable'})"
+        )
 
     def _load(self) -> List[ValidationEntry]:
         if self.data_path.exists():
@@ -53,7 +64,7 @@ class ValidationStudy:
         raw = [asdict(e) for e in self._entries]
         self.data_path.write_text(json.dumps(raw, indent=2))
 
-    def add_entry(
+    async def add_entry(
         self,
         video_id: str,
         user_id: str,
@@ -76,6 +87,16 @@ class ValidationStudy:
             submitted_at=datetime.now().isoformat(),
         )
         self._entries.append(entry)
+
+        if self.store is not None:
+            try:
+                await self.store.insert_validation_entry(asdict(entry))
+                return entry
+            except Exception as e:
+                logger.warning(
+                    f"ValidationStudy: store insert failed, falling back to file: {e}"
+                )
+
         self._save()
         return entry
 

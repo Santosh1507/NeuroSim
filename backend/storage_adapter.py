@@ -8,6 +8,8 @@ and uses in-memory cache as a fast read-through layer.
 
 import logging
 import os
+import time
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -22,22 +24,25 @@ _videos_cache: Dict[str, dict] = {}
 _analyses_cache: Dict[str, dict] = {}
 _ab_tests_cache: Dict[str, dict] = {}
 _social_simulations_cache: Dict[str, dict] = {}
+_validations_cache: Dict[str, dict] = {}
 _cache_timestamps: Dict[str, float] = {}
 _VIDEO_TTL = 3600  # 1 hour
 _ANALYSIS_TTL = 1800  # 30 minutes
 _AB_TEST_TTL = 1800  # 30 minutes
 _SOCIAL_SIMULATION_TTL = 1800  # 30 minutes
+_VALIDATION_TTL = 3600  # 1 hour
 _last_eviction: float = 0
 _EVICTION_INTERVAL = 30  # seconds between housekeeping sweeps
  
  
 def _touch_cache(key: str):
-    _cache_timestamps[key] = datetime.now().timestamp()
+    _cache_timestamps[key] = time.time()
  
  
 def _evict_stale():
+    """Remove stale entries from all caches. Throttled to once every _EVICTION_INTERVAL."""
     global _last_eviction
-    now = datetime.now().timestamp()
+    now = time.time()
     if now - _last_eviction < _EVICTION_INTERVAL:
         return
     _last_eviction = now
@@ -61,6 +66,11 @@ def _evict_stale():
         for k in _cache_timestamps
         if k.startswith("ss:") and now - _cache_timestamps[k] > _SOCIAL_SIMULATION_TTL
     ]
+    stale_validations = [
+        k
+        for k in _cache_timestamps
+        if k.startswith("ve:") and now - _cache_timestamps[k] > _VALIDATION_TTL
+    ]
     for k in stale_videos:
         vid = k[2:]
         _videos_cache.pop(vid, None)
@@ -76,6 +86,10 @@ def _evict_stale():
     for k in stale_social_simulations:
         ssid = k[3:]
         _social_simulations_cache.pop(ssid, None)
+        _cache_timestamps.pop(k, None)
+    for k in stale_validations:
+        veid = k[3:]
+        _validations_cache.pop(veid, None)
         _cache_timestamps.pop(k, None)
 
 
@@ -131,6 +145,7 @@ class StorageAdapter:
         self, video_id: str, filename: str, status: str = "uploaded", user_id: str = "anonymous"
     ) -> Dict:
         """Insert a video record into both Supabase and in-memory cache."""
+        _evict_stale()
         record = {
             "id": video_id,
             "user_id": user_id,
@@ -152,8 +167,6 @@ class StorageAdapter:
 
     async def get_video(self, video_id: str) -> Optional[Dict]:
         """Get a video record — in-memory cache first, then Supabase."""
-        _evict_stale()
-
         cached = _videos_cache.get(video_id)
         if cached is not None:
             return cached
@@ -173,8 +186,6 @@ class StorageAdapter:
 
     async def list_videos(self, limit: int = 50) -> List[Dict]:
         """List recent videos — Supabase if available, else in-memory."""
-        _evict_stale()
-
         if _supabase.enabled:
             try:
                 result = (
@@ -200,6 +211,7 @@ class StorageAdapter:
 
     async def update_video_status(self, video_id: str, status: str) -> None:
         """Update video status in both stores."""
+        _evict_stale()
         if video_id in _videos_cache:
             _videos_cache[video_id]["status"] = status
             _touch_cache(f"v:{video_id}")
@@ -212,6 +224,7 @@ class StorageAdapter:
 
     async def delete_video(self, video_id: str) -> None:
         """Delete a video record from both stores."""
+        _evict_stale()
         _videos_cache.pop(video_id, None)
         _cache_timestamps.pop(f"v:{video_id}", None)
 
@@ -233,6 +246,7 @@ class StorageAdapter:
         The in-memory cache stores the analysis dict flat (as returned by the API).
         Supabase wraps it in {"data": analysis} — the adapter normalizes reads.
         """
+        _evict_stale()
         if _supabase.enabled:
             try:
                 record = {
@@ -256,8 +270,6 @@ class StorageAdapter:
 
     async def get_analysis(self, video_id: str) -> Optional[Dict]:
         """Get an analysis — in-memory cache first, then Supabase (normalized)."""
-        _evict_stale()
-
         cached = _analyses_cache.get(video_id)
         if cached is not None:
             return cached
@@ -284,6 +296,7 @@ class StorageAdapter:
 
     async def delete_analysis(self, video_id: str) -> None:
         """Delete an analysis record from both stores."""
+        _evict_stale()
         _analyses_cache.pop(video_id, None)
         _cache_timestamps.pop(f"a:{video_id}", None)
 
@@ -301,6 +314,7 @@ class StorageAdapter:
         Returns the number of analyses loaded.
         Returns 0 if Supabase is not available.
         """
+        _evict_stale()
         if not _supabase.enabled:
             return 0
 
@@ -328,7 +342,6 @@ class StorageAdapter:
 
     async def get_cached_video_ids(self) -> List[str]:
         """Return all video IDs currently in either cache or Supabase."""
-        _evict_stale()
         ids = set(_videos_cache.keys())
         if _supabase.enabled:
             try:
@@ -340,7 +353,6 @@ class StorageAdapter:
 
     async def get_analytics_snapshot(self) -> Dict:
         """Return aggregate analytics from the in-memory cache only (fast path)."""
-        _evict_stale()
         total = len(_analyses_cache)
         scores = []
         hooks = []
@@ -371,6 +383,7 @@ class StorageAdapter:
         user_id: str = "anonymous",
     ) -> Dict:
         """Insert an A/B test record into both Supabase and in-memory cache."""
+        _evict_stale()
         record = {
             "id": ab_test_id,
             "user_id": user_id,
@@ -395,8 +408,6 @@ class StorageAdapter:
 
     async def get_ab_test(self, ab_test_id: str) -> Optional[Dict]:
         """Get an A/B test — in-memory cache first, then Supabase."""
-        _evict_stale()
-
         cached = _ab_tests_cache.get(ab_test_id)
         if cached is not None:
             return cached
@@ -416,8 +427,6 @@ class StorageAdapter:
 
     async def list_ab_tests(self, user_id: str = "anonymous", limit: int = 50) -> List[Dict]:
         """List historical A/B tests — Supabase if available, else in-memory."""
-        _evict_stale()
-
         if _supabase.enabled:
             try:
                 result = (
@@ -443,6 +452,7 @@ class StorageAdapter:
 
     async def delete_ab_test(self, ab_test_id: str) -> None:
         """Delete an A/B test record from both stores."""
+        _evict_stale()
         _ab_tests_cache.pop(ab_test_id, None)
         _cache_timestamps.pop(f"ab:{ab_test_id}", None)
 
@@ -465,6 +475,7 @@ class StorageAdapter:
         user_id: str = "anonymous",
     ) -> Dict:
         """Insert a social simulation record into both Supabase and in-memory cache."""
+        _evict_stale()
         record = {
             "id": sim_id,
             "user_id": user_id,
@@ -489,8 +500,6 @@ class StorageAdapter:
 
     async def get_social_simulation(self, sim_id: str) -> Optional[Dict]:
         """Get a social simulation — in-memory cache first, then Supabase."""
-        _evict_stale()
-
         cached = _social_simulations_cache.get(sim_id)
         if cached is not None:
             return cached
@@ -510,8 +519,6 @@ class StorageAdapter:
 
     async def list_social_simulations(self, user_id: str = "anonymous", limit: int = 50) -> List[Dict]:
         """List historical social simulations — Supabase if available, else in-memory."""
-        _evict_stale()
-
         if _supabase.enabled:
             try:
                 result = (
@@ -537,6 +544,7 @@ class StorageAdapter:
 
     async def delete_social_simulation(self, sim_id: str) -> None:
         """Delete a social simulation record from both stores."""
+        _evict_stale()
         _social_simulations_cache.pop(sim_id, None)
         _cache_timestamps.pop(f"ss:{sim_id}", None)
 
@@ -546,12 +554,68 @@ class StorageAdapter:
             except Exception as e:
                 logger.warning(f"Supabase delete_social_simulation failed: {e}")
 
+    # ─── Validation Entries ────────────────────────────────
+
+    async def insert_validation_entry(self, entry: Dict) -> Dict:
+        """Insert a validation entry into both Supabase and in-memory cache."""
+        _evict_stale()
+        entry_id = entry.get("id", entry.get("video_id", uuid.uuid4().hex))
+        record = {**entry, "id": entry_id}
+
+        if _supabase.enabled:
+            try:
+                result = _supabase.client.table("validation_entries").insert(record).execute()
+                record = result.data[0] if result.data else record
+            except Exception as e:
+                logger.warning(f"Supabase insert_validation_entry failed: {e}")
+
+        _validations_cache[entry_id] = record
+        _touch_cache(f"ve:{entry_id}")
+        return record
+
+    async def list_validation_entries(self, limit: int = 1000) -> List[Dict]:
+        """List validation entries — Supabase if available, else in-memory cache."""
+        if _supabase.enabled:
+            try:
+                result = (
+                    _supabase.client.table("validation_entries")
+                    .select("*")
+                    .order("submitted_at", desc=True)
+                    .limit(limit)
+                    .execute()
+                )
+                for rec in result.data:
+                    _validations_cache[rec["id"]] = rec
+                    _touch_cache(f"ve:{rec['id']}")
+                return result.data
+            except Exception as e:
+                logger.warning(f"Supabase list_validation_entries failed: {e}")
+
+        return sorted(
+            list(_validations_cache.values()),
+            key=lambda v: v.get("submitted_at", ""),
+            reverse=True,
+        )[:limit]
+
+    async def delete_validation_entry(self, entry_id: str) -> None:
+        """Delete a validation entry from both stores."""
+        _evict_stale()
+        _validations_cache.pop(entry_id, None)
+        _cache_timestamps.pop(f"ve:{entry_id}", None)
+
+        if _supabase.enabled:
+            try:
+                _supabase.client.table("validation_entries").delete().eq("id", entry_id).execute()
+            except Exception as e:
+                logger.warning(f"Supabase delete_validation_entry failed: {e}")
+
     def _reset(self) -> None:
         """Clear all caches and timestamps. For testing only."""
         _videos_cache.clear()
         _analyses_cache.clear()
         _ab_tests_cache.clear()
         _social_simulations_cache.clear()
+        _validations_cache.clear()
         _cache_timestamps.clear()
 
 
