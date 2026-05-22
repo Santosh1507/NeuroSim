@@ -14,4 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Render backend to prevent spin-down
-        run: curl -s --max-time 15 https://neurosim-nm22.onrender.com/ -o /dev/null -w "%{http_code}"
+        run: |
+          # First attempt may hit cold start (~30-45s) — quick time-out, that's fine
+          echo "Wake up: initial ping..."
+          curl -s --max-time 15 https://neurosim-nm22.onrender.com/health -o /dev/null -w "%{http_code}\n" || true
+          # Sleep 20s for cold start to complete, then retry with generous timeout
+          echo "Waiting for cold start..."
+          sleep 20
+          echo "Retry with 60s timeout..."
+          curl -s --max-time 60 https://neurosim-nm22.onrender.com/health -o /dev/null -w "%{http_code}\n" || true
+          echo "Warmup done"
