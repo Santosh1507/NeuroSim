@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     upload_dir: str = "uploads"
     max_file_size: int = 2 * 1024 * 1024 * 1024
-    cors_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "https://neurosim.vercel.app"]
+    cors_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "https://neurosim.vercel.app", "https://neurosimai.vercel.app"]
 
     # Neural engine settings (facebook/tribev2)
     tribe_use_real: bool = False

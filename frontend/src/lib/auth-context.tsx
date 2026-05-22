@@ -91,9 +91,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let retries = 2
     while (retries >= 0) {
       try {
+        const session = supabase ? (await supabase.auth.getSession()).data.session : null
+        const token = session?.access_token
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        } else if (isDemoMode) {
+          headers['Authorization'] = `Bearer ${user.id}`
+        }
         const response = await fetch(`${API_URL}/api/v1/auth/guest/merge`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ guest_session_id: guestSessionId, user_id: user.id }),
         })
         if (response.ok) {

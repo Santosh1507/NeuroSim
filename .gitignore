@@ -57,3 +57,4 @@ backend/.whisper_cache/
 venv/
 backend/venv/
 frontend/nul
+.gstack/

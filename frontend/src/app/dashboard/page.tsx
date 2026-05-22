@@ -14,6 +14,18 @@ import {
 } from 'lucide-react'
 import ProgressStageIndicator from '../components/ProgressStageIndicator'
 import axios from 'axios'
+import { supabase } from '../../lib/supabase'
+
+// Inject Supabase auth token into all axios requests from this page
+axios.interceptors.request.use(async (config) => {
+  if (supabase) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      config.headers.set('Authorization', `Bearer ${session.access_token}`)
+    }
+  }
+  return config
+})
 import dynamic from 'next/dynamic'
 import OnboardingTour from '../components/OnboardingTour'
 
