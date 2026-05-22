@@ -4,14 +4,14 @@
 Migration from Zep Cloud + DashScope (Alibaba Qwen API) to local Neo4j CE + Ollama.
 
 ## PHASE 0 — Scaffolding (COMPLETE)
-- **TASK-001**: Created `LLMClient` abstraction (`backend/app/llm/client.py`) — Ollama-backed, sync, supports chat + embedding
-- **TASK-002**: Created `NERExtractor` (`backend/app/llm/ner_extractor.py`) — local NER/RE via LLM, ontology-guided
-- **TASK-003**: Created `EmbeddingService` (`backend/app/llm/embedding.py`) — nomic-embed-text via Ollama, 768d vectors
+- **TASK-001**: Created `LLMClient` abstraction (`mirofish/backend/app/llm/client.py`) — Ollama-backed, sync, supports chat + embedding
+- **TASK-002**: Created `NERExtractor` (`mirofish/backend/app/llm/ner_extractor.py`) — local NER/RE via LLM, ontology-guided
+- **TASK-003**: Created `EmbeddingService` (`mirofish/backend/app/llm/embedding.py`) — nomic-embed-text via Ollama, 768d vectors
 
 ## PHASE 1 — Storage Layer (COMPLETE)
-- **TASK-004**: Created `GraphStorage` abstract interface (`backend/app/storage/graph_storage.py`)
-- **TASK-005**: Created `Neo4jStorage` implementation (`backend/app/storage/neo4j_storage.py`) — full CRUD, hybrid search (0.7*vector + 0.3*BM25), vector indexes, fulltext indexes
-- **TASK-006**: Created `backend/app/storage/__init__.py` with exports
+- **TASK-004**: Created `GraphStorage` abstract interface (`mirofish/backend/app/storage/graph_storage.py`)
+- **TASK-005**: Created `Neo4jStorage` implementation (`mirofish/backend/app/storage/neo4j_storage.py`) — full CRUD, hybrid search (0.7*vector + 0.3*BM25), vector indexes, fulltext indexes
+- **TASK-006**: Created `mirofish/backend/app/storage/__init__.py` with exports
 - **TASK-007**: Config updates for Neo4j + Ollama connection params
 
 ## PHASE 2 — Service Layer Rewrite (COMPLETE)
@@ -42,31 +42,31 @@ Migration from Zep Cloud + DashScope (Alibaba Qwen API) to local Neo4j CE + Olla
 ## Files Created (New)
 | File | Replaces | Status |
 |------|----------|--------|
-| `backend/app/llm/client.py` | DashScope API calls | Done |
-| `backend/app/llm/ner_extractor.py` | Zep Cloud NER | Done |
-| `backend/app/llm/embedding.py` | Zep Cloud embeddings | Done |
-| `backend/app/storage/graph_storage.py` | Zep Cloud SDK interface | Done |
-| `backend/app/storage/neo4j_storage.py` | Zep Cloud backend | Done |
-| `backend/app/services/entity_reader.py` | `zep_entity_reader.py` | Done |
-| `backend/app/services/graph_tools.py` | `zep_tools.py` | Done |
-| `backend/app/services/graph_memory_updater.py` | `zep_graph_memory_updater.py` | Done |
+| `mirofish/backend/app/llm/client.py` | DashScope API calls | Done |
+| `mirofish/backend/app/llm/ner_extractor.py` | Zep Cloud NER | Done |
+| `mirofish/backend/app/llm/embedding.py` | Zep Cloud embeddings | Done |
+| `mirofish/backend/app/storage/graph_storage.py` | Zep Cloud SDK interface | Done |
+| `mirofish/backend/app/storage/neo4j_storage.py` | Zep Cloud backend | Done |
+| `mirofish/backend/app/services/entity_reader.py` | `zep_entity_reader.py` | Done |
+| `mirofish/backend/app/services/graph_tools.py` | `zep_tools.py` | Done |
+| `mirofish/backend/app/services/graph_memory_updater.py` | `zep_graph_memory_updater.py` | Done |
 
 ## Files Modified
 | File | Changes | Status |
 |------|---------|--------|
-| `backend/app/services/graph_builder.py` | Uses GraphStorage | Done |
-| `backend/app/services/report_agent.py` | GraphToolsService DI | Done |
-| `backend/app/services/simulation_runner.py` | GraphMemoryManager DI | Done |
-| `backend/app/services/oasis_profile_generator.py` | GraphStorage DI | Done |
-| `backend/app/services/simulation_manager.py` | EntityReader DI | Done |
-| `backend/app/services/simulation_config_generator.py` | Import fix | Done |
-| `backend/app/services/__init__.py` | All new exports | Done |
-| `backend/app/api/report.py` | GraphToolsService DI, TODO cleaned | Done |
-| `backend/app/api/simulation.py` | EntityReader DI, ZEP guards removed | Done |
-| `backend/app/__init__.py` | Neo4jStorage singleton init + teardown | Done |
+| `mirofish/backend/app/services/graph_builder.py` | Uses GraphStorage | Done |
+| `mirofish/backend/app/services/report_agent.py` | GraphToolsService DI | Done |
+| `mirofish/backend/app/services/simulation_runner.py` | GraphMemoryManager DI | Done |
+| `mirofish/backend/app/services/oasis_profile_generator.py` | GraphStorage DI | Done |
+| `mirofish/backend/app/services/simulation_manager.py` | EntityReader DI | Done |
+| `mirofish/backend/app/services/simulation_config_generator.py` | Import fix | Done |
+| `mirofish/backend/app/services/__init__.py` | All new exports | Done |
+| `mirofish/backend/app/api/report.py` | GraphToolsService DI, TODO cleaned | Done |
+| `mirofish/backend/app/api/simulation.py` | EntityReader DI, ZEP guards removed | Done |
+| `mirofish/backend/app/__init__.py` | Neo4jStorage singleton init + teardown | Done |
 
 ## Files Deleted (PHASE 6 — DONE)
-- ~~`backend/app/services/zep_entity_reader.py`~~ — deleted
-- ~~`backend/app/services/zep_tools.py`~~ — deleted
-- ~~`backend/app/services/zep_graph_memory_updater.py`~~ — deleted
-- ~~`backend/app/utils/zep_paging.py`~~ — deleted
+- ~~`mirofish/backend/app/services/zep_entity_reader.py`~~ — deleted
+- ~~`mirofish/backend/app/services/zep_tools.py`~~ — deleted
+- ~~`mirofish/backend/app/services/zep_graph_memory_updater.py`~~ — deleted
+- ~~`mirofish/backend/app/utils/zep_paging.py`~~ — deleted

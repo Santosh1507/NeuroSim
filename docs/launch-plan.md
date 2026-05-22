@@ -49,12 +49,35 @@ AI-powered video content analysis. Upload a video, get predictions on hook stren
 
 ## Key Metrics to Track
 
-| Metric | Week 1 | Week 2 | Week 4 | Month 3 |
-|--------|--------|--------|--------|---------|
-| Signups | 10 | 100 | 500 | 2000 |
-| Analyses | 50 | 500 | 3000 | 15000 |
-| Feedback submissions | 5 | 30 | 100 | 500 |
-| Correlation entries | 5 | 30 | 100 | 500 |
+| Metric | Week 1 | Week 2 | Week 4 | Month 3 | Month 6 |
+|--------|--------|--------|--------|---------|---------|
+| Signups | 10 | 100 | 500 | 2000 | 5000 |
+| Analyses | 50 | 500 | 3000 | 15000 | 40000 |
+| Feedback submissions | 5 | 25 | 80 | 250 | 500 |
+| Correlation entries | 5 | 25 | 80 | 250 | 500 |
+
+> **Note on feasibility:** At Week 2's 100 users, ~25% feedback rate → 25 entries. At Month 3's 2,000 users, ~12.5% feedback rate → 250 entries. Hitting 500 correlation entries realistically takes ~5-6 months at these conversion rates, not 4 weeks. The "500 in 4 weeks" assumption would require 100% of signups to submit feedback, which is unrealistic for a free tool.
+
+## HN / Reddit Narrative: "How is this validated?"
+
+When someone asks "How do you know these predictions are accurate?" — the answer should be direct and honest:
+
+> "We built a first-principles model: 4 linguistic heuristics mapped to known brain region responses (auditory, visual, social, CTA), then validated against 1,000+ videos. Each prediction is scored by a 1,000-agent swarm simulation for social spread. We're running a public validation study — users submit actual performance data, we publish the correlation transparently. Current n=XX, r=0.XX. No black box."
+
+**Key principles:**
+- Acknowledge it's heuristic-based, not a neural net predicting brains
+- Cite the validation study as a living, public document
+- Frame the "neural" language as biomimetic feature labeling, not literal brain scanning
+- Never claim "accuracy" without citing the current n and r
+
+## Contingency: What If Validation Falls Short?
+
+| Signal | Action |
+|--------|--------|
+| r < 0.15 at n=50 | **Pause public launch.** Investigate scorer quality. Iterate weights. Do not push marketing. |
+| r < 0.25 at n=100 | **Soften claims.** Reframe as "content analysis" not "prediction." Focus on comparative scoring (A vs B) over absolute accuracy. |
+| r > 0.3 at n=100 | **Full speed.** Publish study, double down on marketing claims, open-source scorer. |
+| r > 0.4 at n=200 | **Exceptional.** Publish academic-style paper, pitch to industry blogs, expand moat claims. |
 
 ## What Not to Do
 

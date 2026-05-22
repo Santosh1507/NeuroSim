@@ -11,7 +11,9 @@ Post-analysis survey: "How did this video perform?"
 - Would you publish this? (Yes/No)
 
 ## Incentive
-Users who share actual performance data get 1 free Pro month.
+Users who share actual performance data get **free deep analysis** on their next 3 uploads (up to $87 value).
+
+> Why not "1 free Pro month"? Because the Pro tier doesn't exist yet (see pro-tier-roadmap). A immediate, deliverable incentive drives higher conversion than a promise of future value.
 
 ## Target
 - 500+ data points within 6 months
