@@ -6,6 +6,8 @@ from typing import Dict, List
 class MetricsCollector:
     """In-memory metrics collector for API monitoring."""
 
+    MAX_ENDPOINTS = 100
+
     def __init__(self):
         self._request_counts: Dict[str, int] = {}
         self._error_counts: Dict[str, int] = {}
@@ -18,6 +20,13 @@ class MetricsCollector:
         if status >= 500:
             self._error_counts[key] = self._error_counts.get(key, 0) + 1
         if key not in self._response_times:
+            if len(self._response_times) >= self.MAX_ENDPOINTS:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "MetricsCollector: endpoint limit reached (%d), dropping %s",
+                    self.MAX_ENDPOINTS, key,
+                )
+                return
             self._response_times[key] = []
         self._response_times[key].append(duration_ms)
         if len(self._response_times[key]) > 100:
