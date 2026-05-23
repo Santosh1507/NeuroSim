@@ -97,7 +97,7 @@ export default function SharedAnalysisPage() {
                 <span className="status-dot status-neural" />
                 Shared Analysis
                 <span className={`text-[9px] ${analysis.analysis_response?.mode === 'real' ? 'text-neural border-neural/30' : 'text-amber-400/70 border-amber-400/20'} border px-1.5 py-0.5 rounded`}>
-                  {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
+                  {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'EARLY ESTIMATE'}
                 </span>
               </div>
             </div>

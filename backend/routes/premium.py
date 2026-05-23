@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import stripe
@@ -14,6 +14,7 @@ from shared_state import (
     _is_premium,
     get_verified_user_id,
 )
+from storage_adapter import _supabase
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,51 @@ class CreateCheckoutSessionRequest(BaseModel):
 
 
 router = APIRouter(tags=["premium"])
+
+
+# ─── Supabase persistence ───────────────────────────────────
+
+
+def _upsert_subscription(user_id: str, plan: str, stripe_id: str) -> None:
+    """Write subscription status to Supabase subscriptions table."""
+    if not _supabase.enabled:
+        return
+    try:
+        from datetime import datetime, timezone
+
+        record: Dict[str, Any] = {
+            "user_id": user_id,
+            "plan": plan,
+            "analyses_this_month": 0,
+            "period_start": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if stripe_id:
+            record["stripe_id"] = stripe_id
+        _supabase.client.table("subscriptions").upsert(
+            record, on_conflict="user_id"
+        ).execute()
+        logger.info(f"[PREMIUM] Synced subscription for user {user_id} (plan={plan})")
+    except Exception as e:
+        logger.warning(f"[PREMIUM] Failed to sync subscription for user {user_id}: {e}")
+
+
+async def sync_premium_from_supabase() -> None:
+    """Load premium users from Supabase into the in-memory set on startup."""
+    if not _supabase.enabled:
+        logger.info("[PREMIUM] Supabase not available — skipping premium recovery")
+        return
+    try:
+        result = _supabase.client.table("subscriptions").select("*").eq("plan", "pro").execute()
+        count = 0
+        for row in result.data:
+            uid = row.get("user_id", "")
+            if uid:
+                _premium_users.add(uid)
+                count += 1
+        logger.info(f"[PREMIUM] Recovered {count} premium users from Supabase")
+    except Exception as e:
+        logger.warning(f"[PREMIUM] Failed to recover premium users: {e}")
 
 
 @router.post("/stripe/create-checkout-session")
@@ -84,12 +130,14 @@ async def stripe_webhook(request: Request):
         if user_id:
             _premium_users.add(user_id)
             logger.info(f"[STRIPE] Premium activated for user {user_id}")
+            _upsert_subscription(user_id, "pro", session.get("customer", ""))
 
     elif event["type"] == "customer.subscription.deleted":
         subscription = event["data"]["object"]
         user_id = subscription.get("metadata", {}).get("user_id", "")
-        if user_id and user_id in _premium_users:
+        if user_id:
             _premium_users.discard(user_id)
+            _upsert_subscription(user_id, "free", "")
             logger.info(f"[STRIPE] Premium deactivated for user {user_id}")
         logger.info(f"[STRIPE] Subscription {subscription.get('id', 'unknown')} deleted")
 
@@ -98,6 +146,40 @@ async def stripe_webhook(request: Request):
         logger.warning(f"[STRIPE] Payment failed for invoice {invoice.get('id', 'unknown')}")
 
     return {"status": "ok"}
+
+
+class CreatePortalSessionRequest(BaseModel):
+    return_url: str
+    user_id: Optional[str] = None
+
+
+@router.post("/stripe/create-portal-session")
+async def create_portal_session(
+    req: CreatePortalSessionRequest,
+    verified_user_id: str = Depends(get_verified_user_id),
+):
+    """Create a Stripe Customer Portal session for subscription management."""
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=501, detail="Stripe not configured — set STRIPE_SECRET_KEY")
+
+    auth_user_id = verified_user_id if verified_user_id != "anonymous" else req.user_id
+    if not auth_user_id:
+        raise HTTPException(status_code=400, detail="User ID required")
+
+    allowed_origins = list(settings.cors_origins) + [settings.app_base_url]
+    parsed = urlparse(req.return_url)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    if origin not in allowed_origins:
+        raise HTTPException(status_code=400, detail=f"Redirect origin not allowed: {origin}")
+
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=auth_user_id,
+            return_url=req.return_url,
+        )
+        return {"url": session.url}
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {e}")
 
 
 @router.get("/premium/status")

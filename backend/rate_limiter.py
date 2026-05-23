@@ -13,6 +13,7 @@ from collections import defaultdict
 from functools import wraps
 from typing import Callable
 
+from config import settings
 from fastapi import HTTPException, Request
 
 
@@ -92,11 +93,11 @@ def rate_limit(limiter: RateLimiter):
     return decorator
 
 
-# Default limiters
-upload_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 uploads per 5 min
-api_limiter = RateLimiter(max_requests=60, window_seconds=60)  # 60 API calls per min
-predict_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 predicts per min (Gemini quota protection)
-auth_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 auth attempts per min (credential stuffing protection)
+# Default limiters — values from config.py (env-configurable)
+upload_limiter = RateLimiter(max_requests=settings.rate_limit_upload_requests, window_seconds=settings.rate_limit_upload_window)
+api_limiter = RateLimiter(max_requests=settings.rate_limit_api_requests, window_seconds=settings.rate_limit_api_window)
+predict_limiter = RateLimiter(max_requests=settings.rate_limit_predict_requests, window_seconds=settings.rate_limit_predict_window)
+auth_limiter = RateLimiter(max_requests=settings.rate_limit_auth_requests, window_seconds=settings.rate_limit_auth_window)
 
 
 def check_api_limit(request: Request):

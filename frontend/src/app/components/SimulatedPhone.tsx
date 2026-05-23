@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
+import { easeOutExpo, easeSmooth, micro } from '../../lib/easing'
 import {
   Smartphone, Volume2, Flame, RefreshCw, AlertCircle,
-  TrendingUp, RotateCcw, Compass, Hash, Music, Play, Pause,
+  TrendingUp, RotateCcw, Trash2, Compass, Hash, Music, Play, Pause,
   ChevronRight, ArrowUpRight, Zap, Activity
 } from 'lucide-react'
 import {
@@ -158,10 +159,13 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
         </div>
 
         {/* Platform tabs with rich micro-animations */}
-        <div className="flex items-center gap-1.5 p-1 bg-white/[0.02] border border-white/[0.04] rounded-lg">
+        <div className="flex items-center gap-1.5 p-1 bg-white/[0.02] border border-white/[0.04] rounded-lg" role="tablist" aria-label="Platform selection">
           <button
             onClick={() => { setPlatform('tiktok'); setCurrentSecond(0); }}
-            className={`px-4 py-2 rounded-md text-xs font-semibold flex items-center gap-2 transition-all duration-300 ${
+            role="tab"
+            aria-selected={platform === 'tiktok'}
+            aria-label="TikTok"
+            className={`px-4 py-2 rounded-md text-xs font-semibold flex items-center gap-2 transition-[all] duration-300 ease-[var(--ease-smooth)] ${
               platform === 'tiktok'
                 ? 'bg-[#4deeea]/15 text-[#4deeea] border border-[#4deeea]/30 shadow-[0_0_12px_rgba(77,238,234,0.15)] scale-[1.03]'
                 : 'text-text-tertiary hover:text-white hover:bg-white/[0.03]'
@@ -172,7 +176,10 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
           </button>
           <button
             onClick={() => { setPlatform('shorts'); setCurrentSecond(0); }}
-            className={`px-4 py-2 rounded-md text-xs font-semibold flex items-center gap-2 transition-all duration-300 ${
+            role="tab"
+            aria-selected={platform === 'shorts'}
+            aria-label="YouTube Shorts"
+            className={`px-4 py-2 rounded-md text-xs font-semibold flex items-center gap-2 transition-[all] duration-300 ease-[var(--ease-smooth)] ${
               platform === 'shorts'
                 ? 'bg-red-500/15 text-red-400 border border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.15)] scale-[1.03]'
                 : 'text-text-tertiary hover:text-white hover:bg-white/[0.03]'
@@ -183,14 +190,17 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
           </button>
           <button
             onClick={() => { setPlatform('reels'); setCurrentSecond(0); }}
-            className={`px-4 py-2 rounded-md text-xs font-semibold flex items-center gap-2 transition-all duration-300 ${
+            role="tab"
+            aria-selected={platform === 'reels'}
+            aria-label="Instagram Reels"
+            className={`px-4 py-2 rounded-md text-xs font-semibold flex items-center gap-2 transition-[all] duration-300 ease-[var(--ease-smooth)] ${
               platform === 'reels'
                 ? 'bg-pink-500/15 text-pink-400 border border-pink-500/30 shadow-[0_0_12px_rgba(236,72,153,0.15)] scale-[1.03]'
                 : 'text-text-tertiary hover:text-white hover:bg-white/[0.03]'
             }`}
           >
             <Volume2 className="w-3.5 h-3.5" />
-            Instagram ReelsPreset
+            Instagram Reels Preset
           </button>
         </div>
       </div>
@@ -206,7 +216,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
           <p className="text-sm font-medium text-white">{error}</p>
           <button
             onClick={() => runSimulation()}
-            className="px-4 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.1] text-xs text-white flex items-center gap-2 transition-all"
+            className="px-4 py-1.5 rounded-md bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.1] text-xs text-white flex items-center gap-2 transition-[all] duration-150 ease-[var(--ease-smooth)]"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Retry Simulation
           </button>
@@ -216,7 +226,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
           
           {/* LEFT: Premium Smartphone Chassis */}
           <div className="lg:col-span-4 flex justify-center">
-            <div className={`relative w-[280px] h-[550px] bg-black rounded-[42px] border-8 border-[#1f2937] shadow-2xl overflow-hidden ${theme.glow} transition-shadow duration-500`}>
+            <div className={`relative w-[280px] h-[550px] bg-black rounded-[42px] border-8 border-[#1f2937] shadow-2xl overflow-hidden ${theme.glow} transition-[shadow] duration-500 ease-[var(--ease-out-expo)]`}>
               
               {/* Camera Notch / Dynamic Island */}
               <div className="absolute top-3 left-1/2 transform -translate-x-1/2 w-28 h-5 bg-black rounded-full z-30 flex items-center justify-center">
@@ -235,7 +245,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
               </div>
 
               {/* Simulator Screen */}
-              <div className={`absolute inset-0 bg-gradient-to-b ${theme.bgGradient} flex flex-col justify-between p-5 pt-12 pb-6 z-10 transition-colors duration-500`}>
+              <div className={`absolute inset-0 bg-gradient-to-b ${theme.bgGradient} flex flex-col justify-between p-5 pt-12 pb-6 z-10 transition-[colors] duration-500 ease-[var(--ease-smooth)]`}>
                 
                 {/* Simulated visual player canvas */}
                 <div className="relative flex-1 bg-black/40 border border-white/[0.03] rounded-2xl flex flex-col items-center justify-center overflow-hidden p-4 group">
@@ -253,7 +263,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                         <div
                           key={idx}
                           style={{ height: activeH, backgroundColor: theme.accent }}
-                          className="w-1.5 rounded-full transition-all duration-300 opacity-80"
+                          className="w-1.5 rounded-full transition-[height] duration-300 ease-[var(--ease-smooth)] opacity-80"
                         />
                       )
                     })}
@@ -265,20 +275,22 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                   </span>
                   <div className="text-4xl font-extrabold text-white tracking-tight flex items-baseline gap-1">
                     {currentSecond}s
-                    <span className="text-xs text-text-tertiary font-medium">/ 14s</span>
+                    <span className="text-xs text-text-tertiary font-medium">/ {analysis?.duration || 14}s</span>
                   </div>
 
                   {/* Playback Controls inside device */}
                   <div className="flex items-center gap-4 mt-6 z-20">
                     <button
                       onClick={() => setIsPlaying(!isPlaying)}
-                      className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all"
+                      aria-label={isPlaying ? 'Pause simulation' : 'Play simulation'}
+                      className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-[all] duration-150 ease-[var(--ease-smooth)]"
                     >
                       {isPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white fill-white" />}
                     </button>
                     <button
                       onClick={() => { setIsPlaying(false); setCurrentSecond(0); }}
-                      className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-all"
+                      aria-label="Reset playback"
+                      className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-[all] duration-150 ease-[var(--ease-smooth)]"
                     >
                       <RotateCcw className="w-4 h-4 text-white" />
                     </button>
@@ -286,7 +298,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                 </div>
 
                 {/* Second-by-second warnings directly inside smartphone screen */}
-                <div className="h-20 mt-4 flex items-center justify-center">
+                <div className="h-20 mt-4 flex items-center justify-center" aria-live="polite" aria-atomic="true">
                   <AnimatePresence mode="wait">
                     {currentAlert ? (
                       <motion.div
@@ -294,6 +306,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -12 }}
+                        transition={easeSmooth}
                         className={`w-full p-2.5 rounded-xl border flex items-start gap-2 text-left ${
                           currentAlert.severity === 'critical' || currentAlert.severity === 'high'
                             ? 'bg-red-500/10 border-red-500/20 text-red-200'
@@ -301,6 +314,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                             ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-200'
                             : 'bg-blue-500/10 border-blue-500/20 text-blue-200'
                         }`}
+                        role="alert"
                       >
                         <AlertCircle className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${
                           currentAlert.severity === 'critical' || currentAlert.severity === 'high'
@@ -319,6 +333,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                         key="idle"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 0.6 }}
+                        transition={easeSmooth}
                         className="text-center text-[10px] text-text-tertiary italic"
                       >
                         No active drop-off warning at second {currentSecond}.
@@ -359,7 +374,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                 <div className="w-full bg-white/[0.03] h-1.5 rounded-full mt-3 overflow-hidden">
                   <div
                     style={{ width: `${simulation.algorithmic_score}%`, backgroundColor: theme.accent }}
-                    className="h-full rounded-full transition-all duration-1000"
+                    className="h-full rounded-full transition-[width] duration-1000 ease-[var(--ease-out-expo)]"
                   />
                 </div>
               </div>
@@ -377,7 +392,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                 <div className="w-full bg-white/[0.03] h-1.5 rounded-full mt-3 overflow-hidden">
                   <div
                     style={{ width: `${simulation.vtr * 100}%`, backgroundColor: '#4deeea' }}
-                    className="h-full rounded-full transition-all duration-1000"
+                    className="h-full rounded-full transition-[width] duration-1000 ease-[var(--ease-out-expo)]"
                   />
                 </div>
               </div>
@@ -451,6 +466,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                     step="0.05"
                     value={soundTrend}
                     onChange={(e) => setSoundTrend(parseFloat(e.target.value))}
+                    aria-label="Audio virality multiplier"
                     className="flex-1 accent-neural h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
                   />
                   <span className="text-[10px] font-semibold text-[#4deeea]">{Math.round(soundTrend * 100)}%</span>
@@ -543,7 +559,8 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                       <button
                         key={idx}
                         onClick={() => { setCurrentSecond(a.second); setIsPlaying(false); }}
-                        className="w-full text-left p-2 rounded-lg bg-white/[0.01] hover:bg-white/[0.04] border border-white/[0.03] hover:border-white/[0.08] flex items-start justify-between gap-3 text-xs transition-all"
+                        aria-label={`Jump to second ${a.second}: ${a.severity} alert - ${a.message}`}
+                        className="w-full text-left p-2 rounded-lg bg-white/[0.01] hover:bg-white/[0.04] border border-white/[0.03] hover:border-white/[0.08] flex items-start justify-between gap-3 text-xs transition-[all] duration-150 ease-[var(--ease-smooth)]"
                       >
                         <div className="flex items-start gap-2">
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold capitalize ${
@@ -584,7 +601,7 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                         <div
                           key={idx}
                           onClick={() => { setPlatform(h.platform); setSimulation(h); }}
-                          className={`w-full p-2.5 rounded-lg bg-white/[0.01] hover:bg-white/[0.04] border flex items-center justify-between text-xs cursor-pointer transition-all ${
+                          className={`w-full p-2.5 rounded-lg bg-white/[0.01] hover:bg-white/[0.04] border flex items-center justify-between text-xs cursor-pointer transition-[all] duration-150 ease-[var(--ease-smooth)] ${
                             simulation?.id === h.id ? 'border-neural/30 bg-neural/[0.02]' : 'border-white/[0.03]'
                           }`}
                         >
@@ -599,9 +616,10 @@ export default function SimulatedPhone({ video_id, analysis }: SimulatedPhonePro
                             </span>
                             <button
                               onClick={(e) => deleteSim(h.id, e)}
-                              className="p-1 hover:bg-red-500/10 text-text-tertiary hover:text-red-400 rounded transition-all"
+                              aria-label={`Delete simulation ${h.platform} from ${new Date(h.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                              className="p-1 hover:bg-red-500/10 text-text-tertiary hover:text-red-400 rounded transition-[all] duration-150 ease-[var(--ease-smooth)]"
                             >
-                              <RotateCcw className="w-3 h-3 transform rotate-45" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>

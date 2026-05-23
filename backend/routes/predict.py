@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 import aiofiles
+import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from bridge_logic import NeuroSocialBridge
@@ -219,9 +220,12 @@ async def predict_virality(
 
     except HTTPException:
         raise
+    except (httpx.TimeoutException, FileNotFoundError) as e:
+        logger.warning(f"[PREDICT] Recoverable error: {e}")
+        return vision_scorer.get_fallback_scores(duration_seconds=0, seed=None)
     except Exception as e:
-        logger.error(f"[PREDICT] Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        logger.error(f"[PREDICT] Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Prediction failed")
     finally:
         # Clean up temp file
         try:

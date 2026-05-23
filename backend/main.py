@@ -50,6 +50,8 @@ from routes.digest import router as digest_router
 from routes.ab_testing import router as ab_testing_router
 from routes.waitlist import router as waitlist_router
 from routes.social_feed import router as social_feed_router
+from routes.subscription import router as subscription_router
+from routes.premium import sync_premium_from_supabase
 
 
 
@@ -98,6 +100,10 @@ async def lifespan(app: FastAPI):
         f"MiroFish: {'real' if mirofish_engine.is_real else 'simulated'}, "
         f"Whisper: {whisper_status}, Vision: {vision_status}"
     )
+
+    await sync_premium_from_supabase()
+    from routes.analysis import sync_validation_to_store
+    await sync_validation_to_store()
 
     yield
     logger.info("NeuroSim API shutting down")
@@ -152,6 +158,7 @@ app.include_router(predict_router, prefix=API_PREFIX)
 app.include_router(ab_testing_router)
 app.include_router(waitlist_router)
 app.include_router(social_feed_router, prefix=API_PREFIX)
+app.include_router(subscription_router, prefix=API_PREFIX)
 
 
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -11,8 +12,8 @@ import {
 
 const pillars = [
   {
-    icon: Brain, title: 'Neural Encoding',
-    desc: 'fMRI-level neural response mapping across 6 brain regions. Predicts visual, auditory, and emotional engagement from your video content.',
+    icon: Brain, title: 'Predictive Content Scoring',
+    desc: 'Linguistic engagement signals across 4 dimensions: visual, auditory, persuasion, and social. Scores your content\'s predicted audience response before you publish.',
     color: 'text-neural', border: 'border-neural/20', bg: 'bg-neural/5',
     badge: 'NEURAL ENGINE',
   },
@@ -73,11 +74,28 @@ const plans = [
     cta: 'Coming Soon',
     disabled: true,
     href: '/waitlist',
+    priceActive: 29,
   },
 ]
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
+
 export default function LandingPage() {
   const router = useRouter()
+  const [proEnabled, setProEnabled] = useState(false)
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/v1/premium/status`)
+      .then(r => r.json())
+      .then(data => { setProEnabled(data.stripe_configured && data.enabled) })
+      .catch(() => {})
+  }, [])
+
+  const proPlan = proEnabled
+    ? { ...plans[1], cta: 'Upgrade to Pro', disabled: false, href: '/pricing', price: String(plans[1].priceActive ?? 29) }
+    : plans[1]
+
+  const displayPlans = [plans[0], proPlan]
 
   return (
     <div className="bg-neural neural-grid min-h-screen">
@@ -348,7 +366,7 @@ export default function LandingPage() {
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {plans.map((p, i) => (
+            {displayPlans.map((p, i) => (
               <motion.div
                 key={p.name}
                 initial={{ opacity: 0, y: 20 }}

@@ -44,7 +44,6 @@ const TIERS = [
     cta: 'Upgrade to Pro',
     ctaWaitlist: 'Join Waitlist',
     popular: true,
-    comingSoon: true,
   },
 ]
 
@@ -56,6 +55,7 @@ export default function PricingPage() {
   const [stripePriceIdMonthly, setStripePriceIdMonthly] = useState<string | null>(null)
   const [stripePriceIdYearly, setStripePriceIdYearly] = useState<string | null>(null)
   const [stripeConfigured, setStripeConfigured] = useState(false)
+  const [premiumEnabled, setPremiumEnabled] = useState(false)
   const router = useRouter()
   const { isSignedIn, user, isDemoMode } = useAuth()
 
@@ -66,6 +66,7 @@ export default function PricingPage() {
         setStripePriceIdMonthly(data.stripe_price_id_monthly)
         setStripePriceIdYearly(data.stripe_price_id_yearly)
         setStripeConfigured(data.stripe_configured)
+        setPremiumEnabled(data.enabled)
       })
       .catch(() => {})
   }, [])
@@ -198,7 +199,7 @@ export default function PricingPage() {
                   )}
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-white">{tier.name}</h3>
-                    {tier.comingSoon && !stripeConfigured && (
+                    {!premiumEnabled && (
                       <span className="badge badge-ghost text-[10px]">Coming soon</span>
                     )}
                   </div>

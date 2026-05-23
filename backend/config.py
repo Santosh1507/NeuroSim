@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     vision_enabled: bool = True
     vision_max_duration: int = 15  # max seconds for quick predict
 
+    # Rate limiting
+    rate_limit_upload_requests: int = 5
+    rate_limit_upload_window: int = 300
+    rate_limit_api_requests: int = 60
+    rate_limit_api_window: int = 60
+    rate_limit_predict_requests: int = 10
+    rate_limit_predict_window: int = 60
+    rate_limit_auth_requests: int = 10
+    rate_limit_auth_window: int = 60
+
     # API versioning
     api_version: str = "v1"
     app_base_url: str = "https://neurosimai.vercel.app"

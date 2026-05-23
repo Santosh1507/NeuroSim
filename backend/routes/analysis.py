@@ -9,9 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from storage_adapter import store
+from storage_adapter import store, _analyses_cache
 from rate_limiter import check_api_limit, upload_limiter
 from pdf_report import generate_pdf_report
+from dataclasses import asdict
 from validation_study import ValidationStudy
 from youtube_client import extract_video_id, fetch_video_metadata, fetch_youtube_transcript
 from benchmark_data import get_benchmark, get_all_cohorts, compare_to_benchmark
@@ -74,6 +75,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["analysis"])
 
 _study = ValidationStudy(store=store)
+
+
+async def sync_validation_to_store():
+    """Sync local validation entries to Supabase store at startup."""
+    if _study.store is None:
+        return
+    synced = 0
+    for entry in _study._entries:
+        try:
+            await _study.store.insert_validation_entry(asdict(entry))
+            synced += 1
+        except Exception:
+            pass
+    if synced:
+        logger.info(f"ValidationStudy: synced {synced} entries to store")
 
 
 @router.post("/analyze/script")
@@ -249,8 +265,16 @@ async def get_report(video_id: str):
 
 
 @router.get("/reports/{video_id}/pdf")
-async def download_report_pdf(video_id: str):
-    """Download analysis report as PDF."""
+async def download_report_pdf(
+    video_id: str,
+    user_id: str = Depends(get_verified_user_id),
+):
+    """Download analysis report as PDF (Pro tier feature)."""
+    if not _is_premium(user_id):
+        raise HTTPException(
+            status_code=403,
+            detail="PDF reports are a Pro feature. Upgrade to download.",
+        )
     video = await _get_video_or_404(video_id)
     analysis = await _get_analysis_or_404(video_id)
     pdf_bytes = generate_pdf_report(analysis, video)
@@ -284,7 +308,7 @@ async def submit_feedback(req: FeedbackRequest, user_id: str = Depends(require_a
     }
     analysis_type = analysis.get("analysis_type", "video")
 
-    _study.add_entry(
+    await _study.add_entry(
         video_id=req.video_id,
         user_id=user_id,
         analysis_type=analysis_type,
@@ -294,9 +318,10 @@ async def submit_feedback(req: FeedbackRequest, user_id: str = Depends(require_a
         would_publish=req.would_publish,
         days_after_publish=7,
     )
+    progress = _study.get_study_progress()
     return {
         "status": "received",
-        "total_entries": _study.get_study_progress()["total_entries"],
+        "total_entries": progress["total_entries"],
     }
 
 
@@ -525,4 +550,47 @@ You MUST return ONLY a valid JSON object matching the following structure exactl
             }
         }
         return simulated_rewrites.get(dimension_lower, simulated_rewrites["hook"])
+
+
+@router.get("/validation/pending-followups")
+async def get_pending_validation_followups():
+    """Return analyses 7+ days old that still lack validation data.
+
+    Used by a scheduled cron job to trigger email follow-ups asking users
+    to submit their actual views/engagement.
+    """
+    from datetime import timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=7)
+    validated_video_ids = {e.video_id for e in _study._entries}
+    pending = []
+
+    for vid, analysis in _analyses_cache.items():
+        if not isinstance(analysis, dict):
+            continue
+        created = analysis.get("created_at")
+        if not created:
+            continue
+        try:
+            created_dt = datetime.fromisoformat(created)
+        except (ValueError, TypeError):
+            continue
+        if created_dt.replace(tzinfo=timezone.utc) > cutoff:
+            continue
+        if vid in validated_video_ids:
+            continue
+        pending.append({
+            "video_id": vid,
+            "user_id": analysis.get("user_id", "unknown"),
+            "analyzed_at": created,
+            "hook_score": analysis.get("hook_score"),
+            "success_probability": analysis.get("success_probability"),
+        })
+
+    return {
+        "pending_count": len(pending),
+        "cutoff_date": cutoff.isoformat(),
+        "pending": pending,
+    }
 

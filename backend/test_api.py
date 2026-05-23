@@ -266,20 +266,60 @@ class TestAPIEndpoints:
             _set_jwt_secret_for_test("")
 
     def test_pdf_report_download(self, client):
-        """PDF report endpoint returns valid PDF bytes."""
-        file_content = _mp4_header() + b"fake mp4 content" * 1000
-        upload_resp = client.post(
-            "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
-        )
-        assert upload_resp.status_code == 200
-        video_id = upload_resp.json()["video_id"]
+        """PDF report endpoint (Pro feature) returns valid PDF bytes for premium users."""
+        from main import _premium_users, _set_jwt_secret_for_test
+        _set_jwt_secret_for_test("test-secret-for-pdf-test")
+        try:
+            import jwt as pyjwt
+            import time
+            test_token = pyjwt.encode({"sub": "pdf-test-user", "exp": int(time.time()) + 3600, "aud": "authenticated"}, "test-secret-for-pdf-test", algorithm="HS256")
+            _premium_users.add("pdf-test-user")
 
-        assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
+            file_content = _mp4_header() + b"fake mp4 content" * 1000
+            upload_resp = client.post(
+                "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            )
+            assert upload_resp.status_code == 200
+            video_id = upload_resp.json()["video_id"]
 
-        pdf_resp = client.get(f"/api/v1/reports/{video_id}/pdf")
-        assert pdf_resp.status_code == 200
-        assert pdf_resp.headers["content-type"] == "application/pdf"
-        assert pdf_resp.content[:4] == b"%PDF"
+            assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
+
+            pdf_resp = client.get(
+                f"/api/v1/reports/{video_id}/pdf",
+                headers={"Authorization": f"Bearer {test_token}"},
+            )
+            assert pdf_resp.status_code == 200
+            assert pdf_resp.headers["content-type"] == "application/pdf"
+            assert pdf_resp.content[:4] == b"%PDF"
+        finally:
+            _set_jwt_secret_for_test("")
+
+    def test_pdf_report_free_user_rejected(self, client):
+        """Free users get 403 when trying to download a PDF report."""
+        from main import _set_jwt_secret_for_test
+        _set_jwt_secret_for_test("test-secret-for-pdf-test-2")
+        try:
+            import jwt as pyjwt
+            import time
+            free_token = pyjwt.encode({"sub": "free-user", "exp": int(time.time()) + 3600, "aud": "authenticated"}, "test-secret-for-pdf-test-2", algorithm="HS256")
+
+            file_content = _mp4_header() + b"fake mp4 content" * 1000
+            upload_resp = client.post(
+                "/api/v1/upload", files={"file": ("test.mp4", io.BytesIO(file_content), "video/mp4")}
+            )
+            assert upload_resp.status_code == 200
+            video_id = upload_resp.json()["video_id"]
+
+            assert self._wait_for_analysis(client, video_id), "Analysis did not complete"
+
+            pdf_resp = client.get(
+                f"/api/v1/reports/{video_id}/pdf",
+                headers={"Authorization": f"Bearer {free_token}"},
+            )
+            assert pdf_resp.status_code == 403
+            assert "Pro feature" in pdf_resp.json()["detail"]
+        finally:
+            _set_jwt_secret_for_test("")
 
 
 _SAMPLE_SCRIPT = """
