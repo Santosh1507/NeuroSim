@@ -48,7 +48,7 @@ Set `NEXT_PUBLIC_API_URL=http://localhost:8001` for local backend.
 ## Tests
 
 ```bash
-# Backend (303 tests)
+# Backend (308 tests)
 cd backend && python -m pytest -v --tb=short
 
 # Frontend (133 tests)
