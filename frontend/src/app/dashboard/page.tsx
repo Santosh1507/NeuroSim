@@ -28,6 +28,7 @@ axios.interceptors.request.use(async (config) => {
 })
 import dynamic from 'next/dynamic'
 import OnboardingTour from '../components/OnboardingTour'
+import { UpgradeModal } from '../components/UpgradeModal'
 
 const Brain3D = dynamic(() => import('../components/Brain3D'), { 
   ssr: false,
@@ -79,6 +80,7 @@ export default function Dashboard() {
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [onboardingComplete, setOnboardingComplete] = useState(true)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatusMsg, setUploadStatusMsg] = useState('')
@@ -1692,6 +1694,26 @@ export default function Dashboard() {
                       </div>
                     )}
 
+                    {!loadingComparison && compareData?.llm_mode === 'free_tier' && (
+                      <div className="py-12 flex flex-col items-center justify-center text-center">
+                        <div className="p-3 rounded-full bg-purple-500/10 border border-purple-500/20 mb-4">
+                          <Sparkles className="w-8 h-8 text-purple-400" />
+                        </div>
+                        <p className="text-sm text-text-secondary mb-1">Pro Feature</p>
+                        <p className="text-xs text-text-tertiary max-w-md mb-6">
+                          LLM-enhanced content scoring with Gemini 2.5 Flash is available on the Pro plan.
+                          Upgrade to unlock deeper ROI insights.
+                        </p>
+                        <button
+                          onClick={() => setShowUpgradeModal(true)}
+                          className="bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold px-6 py-2.5 rounded-xl border border-purple-500/20 transition-all flex items-center gap-2"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          Upgrade to Pro
+                        </button>
+                      </div>
+                    )}
+
                     {!loadingComparison && compareData?.llm_mode === 'disabled' && (
                       <div className="py-12 flex flex-col items-center justify-center text-center">
                         <div className="p-3 rounded-full bg-white/[0.03] border border-white/[0.06] mb-4">
@@ -1920,6 +1942,8 @@ export default function Dashboard() {
           </motion.div>
         </div>
       )}
+      <UpgradeModal open={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
+
       {showRewriteModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => !isRewriting && setShowRewriteModal(false)} />

@@ -498,17 +498,33 @@ async def compare_with_benchmark(req: BenchmarkCompareRequest):
 
 
 @router.get("/analyses/{video_id}/compare")
-async def compare_scorers(video_id: str, _=Depends(check_api_limit)):
-    """Return heuristic vs LLM scores side-by-side for comparison."""
+async def compare_scorers(
+    video_id: str,
+    _=Depends(check_api_limit),
+    user_id: str = Depends(get_verified_user_id),
+):
+    """Return heuristic vs LLM scores side-by-side for comparison (Pro tier)."""
     analysis = await _get_analysis_or_404(video_id)
     text = analysis.get("full_transcript") or analysis.get("transcript") or ""
     if not text:
         raise HTTPException(status_code=400, detail="No transcript available for comparison.")
 
     heuristic = score_transcript(text)
+    dims = ["A5", "LO", "Area45", "TPJ"]
+
+    if not _is_premium(user_id):
+        return {
+            "video_id": video_id,
+            "transcript_word_count": len(text.split()),
+            "heuristic": {d: heuristic.get(d, 0) for d in dims},
+            "llm": None,
+            "deltas": None,
+            "llm_mode": "free_tier",
+            "llm_rationale": None,
+        }
+
     llm_result = _llm_scorer.score_transcript(text) if _llm_scorer.enabled else {"mode": "disabled"}
 
-    dims = ["A5", "LO", "Area45", "TPJ"]
     deltas = {}
     for d in dims:
         h = heuristic.get(d, 0)
