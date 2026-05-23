@@ -9,7 +9,7 @@ import {
   Brain, Users, Upload, FileText, Youtube, TrendingUp, Share2, Download, MessageSquare, Activity, Target, Zap,
   ChevronRight, Check, X, AlertTriangle, RotateCcw, Trash2, RefreshCw, Plus, Edit3, ArrowLeft, BarChart3,
   Sparkles, Volume2, Music, Hash, Compass, Eye, Play, Pause, ChevronDown, AlertCircle, Copy,
-  ArrowUpRight, ExternalLink
+  ArrowUpRight, ExternalLink, Scan, Sliders, CheckCircle
 } from 'lucide-react'
 import { UsageCounter } from '../components/UsageCounter'
 import ProgressStageIndicator from '../components/ProgressStageIndicator'
@@ -957,7 +957,7 @@ export default function Dashboard() {
                     : 'text-text-tertiary hover:text-white'
                 }`}
               >
-                <BarChart2 className="w-3.5 h-3.5" /> Overview
+                <BarChart3 className="w-3.5 h-3.5" /> Overview
               </button>
               <button
                 onClick={() => setActiveTab('analysis')}
@@ -1691,7 +1691,7 @@ export default function Dashboard() {
             </button>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-neural/10 border border-neural/20 flex items-center justify-center">
-                <BarChart2 className="w-5 h-5 text-neural" />
+                <BarChart3 className="w-5 h-5 text-neural" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-white">Video Performance</h3>
