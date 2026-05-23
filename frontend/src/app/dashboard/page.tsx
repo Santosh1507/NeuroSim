@@ -66,12 +66,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'abtesting' | 'feed_simulator'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'abtesting' | 'llm_compare' | 'feed_simulator'>('overview')
   const [abTestRunning, setAbTestRunning] = useState(false)
   const [abResults, setAbResults] = useState<any>(null)
   const [demoMode, setDemoMode] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [modelStatus, setModelStatus] = useState<any>(null)
+  const [compareData, setCompareData] = useState<any>(null)
+  const [loadingComparison, setLoadingComparison] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
   const [sharing, setSharing] = useState(false)
@@ -574,6 +576,20 @@ export default function Dashboard() {
     }
   }
 
+  const loadComparison = async (videoId: string) => {
+    setLoadingComparison(true)
+    setCompareData(null)
+    try {
+      const res = await axios.get(`${API_URL}/api/v1/analyses/${videoId}/compare`)
+      setCompareData(res.data)
+    } catch (err: any) {
+      console.error('Comparison load failed:', err)
+      setCompareData({ error: err?.response?.data?.detail || 'Failed to load comparison data.' })
+    } finally {
+      setLoadingComparison(false)
+    }
+  }
+
   const loadDemoData = () => {
     setDemoMode(true)
     const demoId = `demo_${Date.now()}`
@@ -978,6 +994,16 @@ export default function Dashboard() {
                 }`}
               >
                 <Zap className="w-3.5 h-3.5" /> A/B Testing
+              </button>
+              <button
+                onClick={() => { setActiveTab('llm_compare'); if (selectedVideo) loadComparison(selectedVideo) }}
+                className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'llm_compare'
+                    ? 'bg-purple-500/15 text-purple-400 border border-purple-500/20'
+                    : 'text-text-tertiary hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" /> LLM Compare
               </button>
               <button
                 onClick={() => setActiveTab('feed_simulator')}
@@ -1617,6 +1643,143 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
+                </motion.div>
+              )}
+
+              {activeTab === 'llm_compare' && (
+                <motion.div
+                  key="llm_compare"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={tabSwitch}
+                  className="space-y-6"
+                >
+                  <div className="glass-panel p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold text-white">LLM vs Heuristic Score Comparison</h3>
+                          <p className="text-[10px] text-text-tertiary">Gemini 2.5 Flash evaluates the same content for deeper ROI insights</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => selectedVideo && loadComparison(selectedVideo)}
+                        className="btn-ghost text-xs flex items-center gap-1.5"
+                        disabled={loadingComparison}
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loadingComparison ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </button>
+                    </div>
+
+                    {loadingComparison && (
+                      <div className="py-16 flex flex-col items-center justify-center">
+                        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-3" />
+                        <p className="text-xs text-text-tertiary mono">Analyzing with Gemini 2.5 Flash...</p>
+                      </div>
+                    )}
+
+                    {!loadingComparison && compareData?.error && (
+                      <div className="glass-panel p-4 border border-signal-orange/30">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-signal-orange" />
+                          <p className="text-sm text-text-primary">{compareData.error}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {!loadingComparison && compareData?.llm_mode === 'disabled' && (
+                      <div className="py-12 flex flex-col items-center justify-center text-center">
+                        <div className="p-3 rounded-full bg-white/[0.03] border border-white/[0.06] mb-4">
+                          <Sparkles className="w-8 h-8 text-text-tertiary" />
+                        </div>
+                        <p className="text-sm text-text-secondary mb-1">LLM Scorer Not Available</p>
+                        <p className="text-xs text-text-tertiary max-w-md">
+                          The Gemini API key is not configured. LLM-powered scoring requires a GEMINI_API_KEY
+                          to be set on the backend.
+                        </p>
+                      </div>
+                    )}
+
+                    {!loadingComparison && compareData?.llm && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {['A5', 'LO', 'Area45', 'TPJ'].map((dim) => {
+                            const hVal = compareData.heuristic?.[dim] ?? 0
+                            const lVal = compareData.llm?.[dim] ?? 0
+                            const delta = compareData.deltas?.[dim] ?? 0
+                            const isHigher = delta > 0
+                            const isLower = delta < 0
+
+                            return (
+                              <div key={dim} className="glass-panel-elevated p-5">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-xs font-semibold text-white uppercase tracking-wider">{dim}</span>
+                                  <span className={`text-[10px] mono px-2 py-0.5 rounded ${isHigher ? 'bg-green-500/10 text-green-400 border border-green-500/20' : isLower ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-white/[0.03] text-text-tertiary border border-white/[0.06]'}`}>
+                                    {isHigher ? `+${delta.toFixed(3)}` : isLower ? delta.toFixed(3) : '—'}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-3">
+                                  <div>
+                                    <div className="flex justify-between text-[11px] mb-1">
+                                      <span className="text-text-tertiary">Heuristic</span>
+                                      <span className="mono text-white font-medium">{(hVal * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div className="progress-track h-2">
+                                      <div className="progress-fill progress-neural h-full rounded" style={{ width: `${hVal * 100}%` }} />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="flex justify-between text-[11px] mb-1">
+                                      <span className="text-text-tertiary">LLM (Gemini)</span>
+                                      <span className="mono text-purple-400 font-medium">{(lVal * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div className="progress-track h-2">
+                                      <div className="progress-fill h-full rounded" style={{ width: `${lVal * 100}%`, background: 'linear-gradient(90deg, #a855f7, #c084fc)' }} />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {compareData.llm_rationale && (
+                          <div className="glass-panel p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                              <MessageSquare className="w-4 h-4 text-purple-400" />
+                              <h4 className="text-xs font-semibold text-white uppercase tracking-wider">LLM Rationale</h4>
+                            </div>
+                            <p className="text-xs text-text-secondary leading-relaxed">{compareData.llm_rationale}</p>
+                          </div>
+                        )}
+
+                        <div className="glass-panel p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-text-tertiary" />
+                            <span className="text-xs text-text-tertiary">Transcript word count</span>
+                          </div>
+                          <span className="mono text-white text-xs">{compareData.transcript_word_count?.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!loadingComparison && !compareData && (
+                      <div className="py-12 flex flex-col items-center justify-center text-center">
+                        <div className="p-3 rounded-full bg-white/[0.03] border border-white/[0.06] mb-4">
+                          <Sparkles className="w-8 h-8 text-text-tertiary" />
+                        </div>
+                        <p className="text-sm text-text-secondary mb-1">No comparison data loaded</p>
+                        <p className="text-xs text-text-tertiary">Select a video and click Refresh to load the comparison.</p>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )}
 

@@ -19,6 +19,7 @@ from benchmark_data import get_benchmark, get_all_cohorts, compare_to_benchmark
 from bridge_logic import ROI, NeuroSocialBridge
 from config import settings
 from heuristic_scorer import score_transcript
+from llm_scorer import LLMScorer
 from routes.upload import process_video
 from utils import check_free_tier_limit
 from shared_state import (
@@ -75,6 +76,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["analysis"])
 
 _study = ValidationStudy(store=store)
+_llm_scorer = LLMScorer(api_key=settings.gemini_api_key, model=settings.gemini_model)
 
 
 async def sync_validation_to_store():
@@ -136,6 +138,38 @@ async def analyze_script(
     )
 
     analysis = await process_video(script_id, "", text, roi)
+
+    is_pro = _is_premium(user_id)
+    if is_pro and _llm_scorer.enabled:
+        llm_result = _llm_scorer.score_transcript(text)
+        if llm_result.get("mode") == "llm":
+            analysis["llm_scored"] = True
+            analysis["llm_scores"] = {
+                "A5": llm_result["A5"],
+                "LO": llm_result["LO"],
+                "Area45": llm_result["Area45"],
+                "TPJ": llm_result["TPJ"],
+                "rationale": llm_result.get("rationale", ""),
+            }
+            analysis["llm_cortical_response"] = {
+                "visual_cortex": round(llm_result["LO"] * 100, 1),
+                "auditory_cortex": round(llm_result["A5"] * 100, 1),
+                "language_center": round(llm_result["TPJ"] * 80, 1),
+                "amygdala": round(llm_result["TPJ"] * 90, 1),
+                "prefrontal_cortex": round(llm_result["Area45"] * 95, 1),
+                "reward_center": round(llm_result["Area45"] * 100, 1),
+                "social_cognition": round(llm_result["TPJ"] * 85, 1),
+                "memory_formation": round((llm_result["LO"] + llm_result["A5"]) / 2 * 90, 1),
+                "overall_response_strength": round(
+                    (llm_result["LO"] + llm_result["A5"] + llm_result["Area45"] + llm_result["TPJ"]) / 4 * 100, 1
+                ),
+            }
+            analysis["llm_engagement_prediction"] = {
+                "overall_engagement": round(
+                    (llm_result["LO"] * 0.3 + llm_result["A5"] * 0.2 + llm_result["Area45"] * 0.3 + llm_result["TPJ"] * 0.2) * 100, 1
+                ),
+                "retention_prediction": "high" if llm_result["LO"] > 0.6 else "moderate" if llm_result["LO"] > 0.4 else "low",
+            }
 
     analysis["script_title"] = req.title
     analysis["analysis_type"] = "script"
@@ -204,6 +238,38 @@ async def analyze_youtube(
 
     analysis_id = f"yt_{video_id}"
     analysis = await process_video(analysis_id, "", transcript, roi)
+
+    is_pro = _is_premium(user_id)
+    if is_pro and _llm_scorer.enabled:
+        llm_result = _llm_scorer.score_transcript(transcript)
+        if llm_result.get("mode") == "llm":
+            analysis["llm_scored"] = True
+            analysis["llm_scores"] = {
+                "A5": llm_result["A5"],
+                "LO": llm_result["LO"],
+                "Area45": llm_result["Area45"],
+                "TPJ": llm_result["TPJ"],
+                "rationale": llm_result.get("rationale", ""),
+            }
+            analysis["llm_cortical_response"] = {
+                "visual_cortex": round(llm_result["LO"] * 100, 1),
+                "auditory_cortex": round(llm_result["A5"] * 100, 1),
+                "language_center": round(llm_result["TPJ"] * 80, 1),
+                "amygdala": round(llm_result["TPJ"] * 90, 1),
+                "prefrontal_cortex": round(llm_result["Area45"] * 95, 1),
+                "reward_center": round(llm_result["Area45"] * 100, 1),
+                "social_cognition": round(llm_result["TPJ"] * 85, 1),
+                "memory_formation": round((llm_result["LO"] + llm_result["A5"]) / 2 * 90, 1),
+                "overall_response_strength": round(
+                    (llm_result["LO"] + llm_result["A5"] + llm_result["Area45"] + llm_result["TPJ"]) / 4 * 100, 1
+                ),
+            }
+            analysis["llm_engagement_prediction"] = {
+                "overall_engagement": round(
+                    (llm_result["LO"] * 0.3 + llm_result["A5"] * 0.2 + llm_result["Area45"] * 0.3 + llm_result["TPJ"] * 0.2) * 100, 1
+                ),
+                "retention_prediction": "high" if llm_result["LO"] > 0.6 else "moderate" if llm_result["LO"] > 0.4 else "low",
+            }
 
     analysis["youtube_metadata"] = metadata
     analysis["analysis_type"] = "youtube"
@@ -428,6 +494,36 @@ async def compare_with_benchmark(req: BenchmarkCompareRequest):
         "cohort": benchmark["label"],
         "cohort_n": benchmark["n"],
         "comparison": comparison,
+    }
+
+
+@router.get("/analyses/{video_id}/compare")
+async def compare_scorers(video_id: str, _=Depends(check_api_limit)):
+    """Return heuristic vs LLM scores side-by-side for comparison."""
+    analysis = await _get_analysis_or_404(video_id)
+    text = analysis.get("full_transcript") or analysis.get("transcript") or ""
+    if not text:
+        raise HTTPException(status_code=400, detail="No transcript available for comparison.")
+
+    heuristic = score_transcript(text)
+    llm_result = _llm_scorer.score_transcript(text) if _llm_scorer.enabled else {"mode": "disabled"}
+
+    dims = ["A5", "LO", "Area45", "TPJ"]
+    deltas = {}
+    for d in dims:
+        h = heuristic.get(d, 0)
+        l = llm_result.get(d, 0) if llm_result.get("mode") == "llm" else None
+        if l is not None:
+            deltas[d] = round(l - h, 3)
+
+    return {
+        "video_id": video_id,
+        "transcript_word_count": len(text.split()),
+        "heuristic": {d: heuristic.get(d, 0) for d in dims},
+        "llm": {d: llm_result.get(d, 0) for d in dims} if llm_result.get("mode") == "llm" else None,
+        "deltas": deltas if deltas else None,
+        "llm_mode": llm_result.get("mode", "disabled"),
+        "llm_rationale": llm_result.get("rationale") if llm_result.get("mode") == "llm" else None,
     }
 
 
