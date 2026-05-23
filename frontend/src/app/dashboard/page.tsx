@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { tabSwitch, pulseSlow, hoverLift, tapPress } from '../../lib/easing'
 import {
-  Upload, Play, Brain, Users, Zap, TrendingUp,
-  AlertTriangle, CheckCircle, Sparkles, BarChart2,
-  Activity, Target, Eye, MessageSquare, ChevronRight,
-  Scan, Waves, Network, Cpu, Radio, Shield, Download,
-  Share2, Copy, Check, X, Sliders, Youtube, FileText
+  Brain, Users, Upload, FileText, Youtube, TrendingUp, Share2, Download, MessageSquare, Activity, Target, Zap,
+  ChevronRight, Check, X, AlertTriangle, RotateCcw, Trash2, RefreshCw, Plus, Edit3, ArrowLeft, BarChart3,
+  Sparkles, Volume2, Music, Hash, Compass, Eye, Play, Pause, ChevronDown, AlertCircle, Copy,
+  ArrowUpRight, ExternalLink
 } from 'lucide-react'
+import { UsageCounter } from '../components/UsageCounter'
 import ProgressStageIndicator from '../components/ProgressStageIndicator'
 import axios from 'axios'
 import { supabase } from '../../lib/supabase'
@@ -684,11 +684,16 @@ export default function Dashboard() {
         <div className="mb-10">
           <div className="flex items-end justify-between mb-8">
             <div className="max-w-lg">
-              <p className="text-[11px] mono text-neural mb-3 tracking-wider uppercase">Predictive Content Intelligence</p>
-              <h2 className="text-4xl font-bold text-white mb-4 leading-tight">
-                Measure neural response<br />
-                <span className="text-text-tertiary">before you publish.</span>
-              </h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] mono text-neural mb-3 tracking-wider uppercase">Predictive Content Intelligence</p>
+                  <h2 className="text-4xl font-bold text-white mb-4 leading-tight">
+                    Measure neural response<br />
+                    <span className="text-text-tertiary">before you publish.</span>
+                  </h2>
+                </div>
+                <UsageCounter />
+              </div>
               <p className="text-text-secondary text-sm max-w-md">
                 Analyze before you film. Paste a script for instant predictions,
                 or upload a video for full neural analysis + swarm simulation.
@@ -1007,7 +1012,7 @@ export default function Dashboard() {
                           <h4 className="text-sm font-semibold text-white">Content Analysis</h4>
                         </div>
                         <span className={`badge ${analysis.analysis_response?.mode === 'real' ? 'badge-neural' : 'badge-ghost'}`}>
-                          {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
+                          {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'EARLY ESTIMATE'}
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
@@ -1040,7 +1045,7 @@ export default function Dashboard() {
                           <h4 className="text-sm font-semibold text-white">Content Analysis</h4>
                         </div>
                         <span className={`badge ${analysis.analysis_response?.mode === 'real' ? 'badge-neural' : 'badge-ghost'}`}>
-                          {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'SIMULATED'}
+                          {analysis.analysis_response?.mode === 'real' ? 'REAL' : 'EARLY ESTIMATE'}
                         </span>
                       </div>
                       <DashboardRadar radarData={radarData} />
@@ -1053,7 +1058,7 @@ export default function Dashboard() {
                           <h4 className="text-sm font-semibold text-white">Sentiment</h4>
                         </div>
                         <span className={`badge ${analysis.mirofish_simulation?.mode === 'real' ? 'badge-swarm' : 'badge-ghost'}`}>
-                          {analysis.mirofish_simulation?.mode === 'real' ? 'REAL' : 'SIMULATED'}
+                          {analysis.mirofish_simulation?.mode === 'real' ? 'REAL' : 'EARLY ESTIMATE'}
                         </span>
                       </div>
                       <div className="space-y-4">
